@@ -1,26 +1,231 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * ─────────────────────────────────────────────────────────────
+ *  SKY B2B — Tasarım değişkenleri (design tokens)
+ *  Tüm renkler buradan yönetilir. Marka rengini değiştirmek için
+ *  yalnızca --brand-* değerlerini güncellemek yeterlidir.
+ * ─────────────────────────────────────────────────────────────
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Marka — Parlement mavisi (logodaki #002C72 tonuna yakın) */
+  --brand-50: #eef3fb;
+  --brand-100: #d9e3f5;
+  --brand-200: #b4c7eb;
+  --brand-300: #86a3db;
+  --brand-400: #5a7fc6;
+  --brand-500: #3a61ad;
+  --brand-600: #274a91;
+  --brand-700: #1d3a76;
+  --brand-800: #172f5f;
+  --brand-900: #10224a;
+  --brand-950: #0a1631;
+
+  /* Yüzeyler */
+  --background: #f3f5f9;
+  --foreground: #0f1729;
+  --card: #ffffff;
+  --card-foreground: #0f1729;
+  --muted: #eef1f6;
+  --muted-foreground: #5e6b82;
+  --border: #e3e8ef;
+  --input: #dbe1ea;
+  --ring: var(--brand-500);
+
+  /* Ana aksiyon rengi */
+  --primary: var(--brand-700);
+  --primary-hover: var(--brand-800);
+  --primary-foreground: #ffffff;
+  --primary-soft: var(--brand-50);
+  --primary-soft-foreground: var(--brand-700);
+
+  /* Vurgu: koyu "hero" kartlar ve menü */
+  --inverse: #0f1d3d;
+  --inverse-foreground: #f4f7fd;
+  --sidebar: #0f1d3d;
+  --sidebar-foreground: #aab6cf;
+  --sidebar-active: #ffffff;
+  --sidebar-active-foreground: var(--brand-800);
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+
+  /* Durum renkleri (yumuşak tonlarla, göz yormayan) */
+  --success: #15803d;
+  --success-soft: #e8f6ed;
+  --warning: #b45309;
+  --warning-soft: #fdf3e2;
+  --danger: #c2272d;
+  --danger-soft: #fdecec;
+  --info: var(--brand-600);
+  --info-soft: var(--brand-50);
+  --neutral: #52607a;
+  --neutral-soft: #eef1f6;
+
+  /* Grafik paleti */
+  --chart-1: var(--brand-700);
+  --chart-2: var(--brand-300);
+  --chart-3: #94a3b8;
+  --chart-grid: #e7ebf1;
+
+  --radius: 1rem;
+  --shadow-card: 0 1px 2px rgba(16, 34, 74, 0.04), 0 1px 1px rgba(16, 34, 74, 0.02);
+  --shadow-pop: 0 12px 32px -12px rgba(16, 34, 74, 0.25);
+}
+
+.dark {
+  --background: #0a1020;
+  --foreground: #e7ecf5;
+  --card: #111a2e;
+  --card-foreground: #e7ecf5;
+  --muted: #18233a;
+  --muted-foreground: #8d9ab3;
+  --border: #1f2b44;
+  --input: #2a3854;
+  --ring: var(--brand-400);
+
+  --primary: var(--brand-400);
+  --primary-hover: var(--brand-300);
+  --primary-foreground: #08132b;
+  --primary-soft: rgba(90, 127, 198, 0.14);
+  --primary-soft-foreground: var(--brand-200);
+
+  --inverse: #16264a;
+  --inverse-foreground: #f4f7fd;
+  --sidebar: #0c1426;
+  --sidebar-foreground: #8d9ab3;
+  --sidebar-active: var(--brand-400);
+  --sidebar-active-foreground: #08132b;
+  --sidebar-hover: rgba(255, 255, 255, 0.05);
+
+  --success: #4ade80;
+  --success-soft: rgba(74, 222, 128, 0.12);
+  --warning: #fbbf24;
+  --warning-soft: rgba(251, 191, 36, 0.12);
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.12);
+  --info: var(--brand-300);
+  --info-soft: rgba(90, 127, 198, 0.14);
+  --neutral: #a3afc4;
+  --neutral-soft: rgba(163, 175, 196, 0.12);
+
+  --chart-1: var(--brand-400);
+  --chart-2: #2c3f66;
+  --chart-3: #4b5a76;
+  --chart-grid: #1c2740;
+
+  --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.02);
+  --shadow-pop: 0 16px 40px -12px rgba(0, 0, 0, 0.6);
+}
+
+/*
+ * Yönetim paneli ayrımı: yalnızca menü rengi değişir (grafit), geri kalan her şey ortaktır.
+ * Farklı bir ton istenirse bu iki blok güncellenir.
+ */
+[data-panel="admin"] {
+  --sidebar: #1b1e24;
+  --sidebar-foreground: #a6acb8;
+  --sidebar-active: #ffffff;
+  --sidebar-active-foreground: #1b1e24;
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+  --panel-badge: #0f9d6b;
+}
+
+.dark [data-panel="admin"] {
+  --sidebar: #13151a;
+  --sidebar-foreground: #8f96a3;
+  --sidebar-active: #e9ecf1;
+  --sidebar-active-foreground: #13151a;
+  --sidebar-hover: rgba(255, 255, 255, 0.05);
 }
 
 @theme inline {
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-950: var(--brand-950);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-foreground: var(--primary-soft-foreground);
+  --color-inverse: var(--inverse);
+  --color-inverse-foreground: var(--inverse-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-active-foreground: var(--sidebar-active-foreground);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-panel-badge: var(--panel-badge);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-neutral: var(--neutral);
+  --color-neutral-soft: var(--neutral-soft);
+
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.25);
+  --radius-2xl: calc(var(--radius) * 1.5);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "cv11", "ss01";
+  }
+  ::selection {
+    background: var(--brand-200);
+    color: var(--brand-950);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
 }
