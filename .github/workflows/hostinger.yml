@@ -1,0 +1,112 @@
+# Hostinger (paylaşımlı Node.js hosting) paketi — panel.skygorselmarket.com
+# Sunucunun sistem kütüphanesi (glibc) Next.js derleyicisi için eski olduğundan derleme burada yapılır;
+# çalıştırılabilir "standalone" sunucu "hostinger" dalına konur. Hostinger bu daldan, derleme yapmadan başlatır:
+#   başlatma komutu: npm start   (node server.js)
+name: Hostinger paketi
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hostinger
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Derle (standalone)
+        run: npm run build
+        env:
+          BUILD_TARGET: standalone
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Paketi hazırla
+        run: |
+          mkdir -p out
+          cp -r .next/standalone/. out/
+          mkdir -p out/.next
+          cp -r .next/static out/.next/static
+          cp -r public out/public
+          # Hostinger "npm start" ile başlatır. Dağıtımda npm install çalışırsa pakette hazır gelen
+          # modüller "fazlalık" diye silinmesin diye sunucu bağımlılıkları sürümleriyle yazılır.
+          node -e '
+            const v = (p) => require("./node_modules/" + p + "/package.json").version;
+            const deps = {};
+            for (const p of ["next", "react", "react-dom", "mysql2", "drizzle-orm", "nodemailer"]) deps[p] = v(p);
+            const pkg = {
+              name: "sky-panel",
+              private: true,
+              scripts: { start: "node server.js", build: "echo Paket derlenmis durumda" },
+              engines: { node: ">=22" },
+              dependencies: deps,
+            };
+            require("fs").writeFileSync("out/package.json", JSON.stringify(pkg, null, 2));
+          '
+          {
+            echo "omit=optional"
+            echo "fund=false"
+            echo "audit=false"
+          } > out/.npmrc
+          # Giriş dosyası server.js: Next'in sunucusunu sarar. Paylaşımlı hosting HOSTNAME'e makine adını koyar,
+          # Next o adrese bağlanırsa yönlendirici uygulamaya ulaşamaz (503): 0.0.0.0'a sabitlenir.
+          # Başlangıç hataları uygulama klasöründe startup.log'a yazılır.
+          mv out/server.js out/next-server.js
+          cat > out/server.js <<'JS'
+          const fs = require("fs");
+          const path = require("path");
+          const log = (msg) => {
+            const line = `[${new Date().toISOString()}] ${msg}\n`;
+            try { fs.appendFileSync(path.join(__dirname, "startup.log"), line); } catch {}
+            console.log(msg);
+          };
+          // Ayarlar ve yüklenen dosyalar dağıtımlar arasında kalıcı klasörde: ~/skypanel/.env ve ~/skypanel/yuklemeler
+          // Ev dizini uygulamanın yolundan bulunur (Hostinger'ın Node başlatıcısında HOME güvenilir değil)
+          const userHome = (__dirname.match(/^\/home\/[^/]+/) || [])[0] || require("os").homedir();
+          const home = path.join(userHome, "skypanel");
+          try {
+            process.loadEnvFile(path.join(home, ".env"));
+            log(`Ayarlar yüklendi: ${path.join(home, ".env")} · veritabanı ${process.env.DATABASE_URL ? "tanımlı" : "YOK"}`);
+          } catch (e) {
+            log(`Ayar dosyası okunamadı (${path.join(home, ".env")}): ${e.message}`);
+          }
+          process.env.UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(home, "yuklemeler");
+          process.env.HOSTNAME = process.env.BIND_HOST || "0.0.0.0";
+          process.env.NODE_ENV = "production";
+          log(`Başlatılıyor · node ${process.version} · PORT=${process.env.PORT} · ${__dirname}`);
+          process.on("uncaughtException", (e) => { log(`HATA: ${(e && e.stack) || e}`); process.exit(1); });
+          process.on("unhandledRejection", (e) => log(`HATA (promise): ${(e && e.stack) || e}`));
+          try {
+            require("./next-server.js");
+          } catch (e) {
+            log(`HATA (başlatma): ${(e && e.stack) || e}`);
+            throw e;
+          }
+          JS
+          echo "Derleme: $GITHUB_SHA" > out/BUILD.txt
+
+      - name: hostinger dalına gönder
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: hostinger
+          publish_dir: ./out
+          force_orphan: true
+          enable_jekyll: true
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
+          commit_message: Hostinger paketi
