@@ -36,6 +36,7 @@ export const adminNav: AdminNavGroup[] = [
       { href: "/panel/musteriler", label: "Müşteriler", icon: Users, roles: ["admin", "sales", "finance"] },
       { href: "/panel/teklifler", label: "Teklifler", icon: FileText, roles: ["admin", "sales"] },
       { href: "/panel/siparisler", label: "Siparişler", icon: Package, roles: "all" },
+      { href: "/panel/urunler", label: "Ürünler", icon: Tags, roles: ["admin", "sales"] },
     ],
   },
   {
@@ -58,15 +59,14 @@ export const adminNav: AdminNavGroup[] = [
   {
     label: "Ayarlar",
     items: [
-      { href: "/panel/fiyatlar", label: "Ürün & fiyatlar", icon: Tags, roles: ["admin"] },
       { href: "/panel/kullanicilar", label: "Kullanıcı & roller", icon: ShieldCheck, roles: ["admin"] },
       { href: "/panel/kayitlar", label: "İşlem kayıtları", icon: History, roles: ["admin"] },
     ],
   },
 ];
 
-/** 1. aşamada açık ekranlar: teklif, sipariş, cari ve kullanıcı yönetimi (diğerleri sonraki aşamalarda açılacak) */
-const PHASE1 = new Set(["/panel", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/kullanicilar"]);
+/** 1. aşamada açık ekranlar: teklif, sipariş, cari, ürün ve kullanıcı yönetimi (diğerleri sonraki aşamalarda açılacak) */
+const PHASE1 = new Set(["/panel", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/urunler", "/panel/kullanicilar"]);
 
 export function navFor(role: Role) {
   return adminNav
