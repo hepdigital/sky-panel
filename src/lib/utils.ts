@@ -23,6 +23,7 @@ export function formatTRY(value: number, opts?: { whole?: boolean }) {
   return (opts?.whole ? tryWhole : tryFormatter).format(value);
 }
 
+/** Tarih/saat her zaman Türkiye saatiyle: sunucu (UTC) ve tarayıcı aynı metni üretir */
 export function formatDate(iso: string, opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" }) {
-  return new Intl.DateTimeFormat("tr-TR", opts).format(new Date(iso));
+  return new Intl.DateTimeFormat("tr-TR", { timeZone: "Europe/Istanbul", ...opts }).format(new Date(iso));
 }

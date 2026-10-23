@@ -26,11 +26,8 @@ export function PriorityTag({ p, className }: { p: TaskPriority; className?: str
   return <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide", PRIORITY[p].cls, className)}>{PRIORITY[p].label}</span>;
 }
 
-/** Bugünün tarihi (yerel) YYYY-AA-GG */
-export const today = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
+/** Bugünün tarihi (Türkiye saatiyle) YYYY-AA-GG */
+export const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date());
 
 /** Son tarih etiketi: "Bugün", "Yarın", "3 gün gecikti", "24 Eki" */
 export function dueText(bitis: string | null, done: boolean) {
