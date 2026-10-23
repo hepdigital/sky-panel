@@ -17,8 +17,13 @@ import {
 import data from "./fiyatlar.json";
 
 export type Pair = [number, number] | null;
-/** renk: renk seçilebilir ürün; sepette her renk ayrı satırdır (anahtar "kod~#hex") */
-export type CatalogItem = { id: string; n: string; s: string; img: string | null; p: Pair; warn?: string; renk?: boolean };
+/**
+ * renk: renk seçilebilir ürün; sepette her renk ayrı satırdır (anahtar "kod~#hex").
+ * opt: ek seçenek (ör. "Kumaş baskı dahil"); katalogda ürünün görünmeyen eşi (hidden, kod+s, fiyat = ürün + seçenek) bulunur,
+ * kartta anahtar açılınca adet o eşe yazılır. Fiyat terminalindeki yapıyla aynıdır.
+ */
+export type CatalogItem = { id: string; n: string; s: string; img: string | null; p: Pair; warn?: string; renk?: boolean; opt?: { n: string; p: Pair }; hidden?: boolean };
+export const OPT_SUFFIX = "+s";
 
 /** Sepet anahtarı: renksiz ürün "kod", renkli ürün "kod~#ffd400" */
 export const prodKey = (id: string, hex?: string | null) => (hex ? `${id}~${hex}` : id);

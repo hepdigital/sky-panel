@@ -187,6 +187,10 @@ export const urunler = mysqlTable(
     uyari: varchar("uyari", { length: 500 }),
     /** Renk seçilebilir ürün (gazebo renkleri): her renk teklifte ayrı satırdır */
     renkSecimi: boolean("renk_secimi").notNull().default(false),
+    /** Ek seçenek (ör. "Kumaş baskı dahil"): kartta anahtarla açılır, fiyatı ürünün fiyatına eklenir */
+    secenekAd: varchar("secenek_ad", { length: 120 }),
+    secenekToptan: decimal("secenek_toptan", { precision: 12, scale: 2, mode: "number" }),
+    secenekPerakende: decimal("secenek_perakende", { precision: 12, scale: 2, mode: "number" }),
     sira: int("sira").notNull().default(0),
     aktif: boolean("aktif").notNull().default(true),
     /** Ürünü ekleyen; satışçı yalnızca kendi eklediği ürünleri düzenleyebilir */

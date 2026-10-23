@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, FileDown } from "lucide-react";
 import { useRole } from "@/components/admin/role-context";
 import { Button } from "@/components/ui/button";
-import { FRAMES, TL, cfgKey, emptySides, hesap, newIsk, sideFrom, splitKey, type CartGazebo, type Catalog, type Gazebo, type QuoteState } from "@/lib/terminal/calc";
+import { FRAMES, OPT_SUFFIX, TL, cfgKey, emptySides, hesap, newIsk, sideFrom, splitKey, type CartGazebo, type Catalog, type Gazebo, type QuoteState } from "@/lib/terminal/calc";
 import { cn } from "@/lib/utils";
 import { READY_GAZEBOS } from "@/modules/gazebo/ready";
 import { CatalogCard } from "./catalog-card";
@@ -181,7 +181,7 @@ export function Terminal({ catalog, initialCustomer, channels }: { catalog: Cata
         {[
           { id: "gazebo", label: "Modüler gazebo", count: q.cart.length },
           ...(READY_GAZEBOS.length ? [{ id: "hazir", label: "Hazır gazebolar", count: 0 }] : []),
-          ...catalog.map((g) => ({ id: g.id, label: g.nav, count: g.items.filter((it) => Object.keys(q.prod).some((k) => q.prod[k] > 0 && splitKey(k).id === it.id)).length })),
+          ...catalog.map((g) => ({ id: g.id, label: g.nav, count: g.items.filter((it) => !it.hidden && Object.keys(q.prod).some((k) => q.prod[k] > 0 && [it.id, it.id + OPT_SUFFIX].includes(splitKey(k).id))).length })),
         ].map((t) => (
           <button
             key={t.id}

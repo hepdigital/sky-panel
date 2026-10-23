@@ -1,6 +1,6 @@
 import "server-only";
 import { and, asc, eq, ne } from "drizzle-orm";
-import type { Catalog, Pair } from "@/lib/terminal/calc";
+import { OPT_SUFFIX, type Catalog, type Pair } from "@/lib/terminal/calc";
 import { isAdmin, type Me } from "./auth";
 import { db, schema } from "./db";
 
@@ -24,7 +24,13 @@ export async function getCatalog(): Promise<Catalog> {
   for (const { k, u } of rows) {
     let g = groups.get(k.id);
     if (!g) groups.set(k.id, (g = { id: `k${k.id}`, nav: k.ad, title: k.aciklama || k.ad, lead: "", warn: k.uyari ?? undefined, items: [] }));
-    g.items.push({ id: u.kod, n: u.ad, s: u.aciklama ?? "", img: u.gorsel, p: pair(u.toptan, u.perakende), warn: u.uyari ?? undefined, renk: u.renkSecimi || undefined });
+    const p = pair(u.toptan, u.perakende);
+    const op = u.secenekAd ? pair(u.secenekToptan, u.secenekPerakende) : null;
+    const opt = u.secenekAd && op ? { n: u.secenekAd, p: op } : undefined;
+    const item = { id: u.kod, n: u.ad, s: u.aciklama ?? "", img: u.gorsel, p, warn: u.uyari ?? undefined, renk: u.renkSecimi || undefined };
+    g.items.push({ ...item, opt });
+    // Seçenekli ürünün görünmeyen eşi: fiyatı ürün + seçenek; sepette ayrı satır, kartta anahtarla seçilir
+    if (opt && p) g.items.push({ ...item, id: u.kod + OPT_SUFFIX, n: `${u.ad} · ${opt.n}`, p: [p[0] + op![0], p[1] + op![1]], hidden: true });
   }
   return [...groups.values()];
 }
@@ -57,6 +63,10 @@ export type ProductInput = {
   aktif: boolean;
   /** Renk seçilebilir (gazebo renkleri) */
   renkSecimi: boolean;
+  /** Ek seçenek: ad boşsa seçenek yok */
+  secenekAd: string;
+  secenekToptan: number | null;
+  secenekPerakende: number | null;
 };
 
 const clip = (v: string | null | undefined, max: number) => (v?.trim() ? v.trim().slice(0, max) : null);
@@ -85,6 +95,7 @@ export async function saveProduct(me: Me, p: ProductInput): Promise<{ ok: true; 
   const values = {
     kategoriId: kat.id, ad, aciklama: clip(p.aciklama, 255), gorsel,
     toptan: price(p.toptan), perakende: price(p.perakende), uyari: clip(p.uyari, 500), aktif: !!p.aktif, renkSecimi: !!p.renkSecimi,
+    secenekAd: clip(p.secenekAd, 120), secenekToptan: clip(p.secenekAd, 120) ? price(p.secenekToptan) : null, secenekPerakende: clip(p.secenekAd, 120) ? price(p.secenekPerakende) : null,
   };
   if (p.id) {
     const [u] = await db().select({ olusturanId: urunler.olusturanId }).from(urunler).where(eq(urunler.id, p.id));

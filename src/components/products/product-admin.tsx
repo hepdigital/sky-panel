@@ -25,6 +25,9 @@ type Product = {
   uyari: string | null;
   aktif: boolean;
   renkSecimi: boolean;
+  secenekAd: string | null;
+  secenekToptan: number | null;
+  secenekPerakende: number | null;
   ekleyen: string | null;
   duzenlenebilir: boolean;
 };
@@ -231,6 +234,7 @@ function ProductRow({ u, onEdit, move }: { u: Product; onEdit: () => void; move:
           {u.ad}
           {!u.aktif && <Badge tone="neutral">Pasif</Badge>}
           {u.renkSecimi && <Badge tone="info">Renkli</Badge>}
+          {u.secenekAd && <Badge tone="info">+ {u.secenekAd}</Badge>}
         </p>
         <p className="truncate text-xs text-muted-foreground">{u.aciklama || "—"}</p>
         {u.uyari && <p className="truncate text-[11px] font-medium text-warning">{u.uyari}</p>}
@@ -299,6 +303,9 @@ function ProductSheet({ product, kategoriId, kategoriler, onClose }: { product: 
     uyari: p?.uyari ?? "",
     aktif: p?.aktif ?? true,
     renkSecimi: p?.renkSecimi ?? false,
+    secenekAd: p?.secenekAd ?? "",
+    secenekToptan: showPrice(p?.secenekToptan ?? null),
+    secenekPerakende: showPrice(p?.secenekPerakende ?? null),
   });
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -320,9 +327,11 @@ function ProductSheet({ product, kategoriId, kategoriler, onClose }: { product: 
   async function save() {
     const toptan = parsePrice(f.toptan);
     const perakende = parsePrice(f.perakende);
-    if (Number.isNaN(toptan) || Number.isNaN(perakende)) return setErr("Fiyatları rakamla yazın (ör. 1.250).");
+    const sToptan = parsePrice(f.secenekToptan);
+    const sPerakende = parsePrice(f.secenekPerakende);
+    if (Number.isNaN(toptan) || Number.isNaN(perakende) || Number.isNaN(sToptan) || Number.isNaN(sPerakende)) return setErr("Fiyatları rakamla yazın (ör. 1.250).");
     setBusy(true);
-    const r = await urunKaydet({ id: p?.id ?? null, kategoriId: f.kategoriId, ad: f.ad, aciklama: f.aciklama, gorsel: f.gorsel, toptan, perakende, uyari: f.uyari, aktif: f.aktif, renkSecimi: f.renkSecimi });
+    const r = await urunKaydet({ id: p?.id ?? null, kategoriId: f.kategoriId, ad: f.ad, aciklama: f.aciklama, gorsel: f.gorsel, toptan, perakende, uyari: f.uyari, aktif: f.aktif, renkSecimi: f.renkSecimi, secenekAd: f.secenekAd, secenekToptan: sToptan, secenekPerakende: sPerakende });
     setBusy(false);
     if (!r.ok) return setErr(r.hata);
     router.refresh();
@@ -397,6 +406,22 @@ function ProductSheet({ product, kategoriId, kategoriler, onClose }: { product: 
           <span className={label}>Satışçıya uyarı (isteğe bağlı)</span>
           <input value={f.uyari} onChange={(e) => setF({ ...f, uyari: e.target.value })} maxLength={500} className={input} placeholder="ör. Dolgu malzemesi fiyata dahil değildir." />
         </label>
+        <div className="rounded-xl bg-muted/50 p-3">
+          <span className={label}>Ek seçenek (isteğe bağlı) · kartta anahtarla açılır, fiyatı ürüne eklenir</span>
+          <input value={f.secenekAd} onChange={(e) => setF({ ...f, secenekAd: e.target.value })} maxLength={120} className={input} placeholder="ör. Kumaş baskı dahil" />
+          {f.secenekAd.trim() && (
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              <label>
+                <span className={label}>Seçenek toptan (+, KDV hariç)</span>
+                <input value={f.secenekToptan} onChange={(e) => setF({ ...f, secenekToptan: e.target.value })} inputMode="decimal" className={`${input} tabular text-right`} />
+              </label>
+              <label>
+                <span className={label}>Seçenek perakende (+, KDV hariç)</span>
+                <input value={f.secenekPerakende} onChange={(e) => setF({ ...f, secenekPerakende: e.target.value })} inputMode="decimal" className={`${input} tabular text-right`} />
+              </label>
+            </div>
+          )}
+        </div>
         <label className="flex items-center gap-2.5 text-sm">
           <input type="checkbox" checked={f.renkSecimi} onChange={(e) => setF({ ...f, renkSecimi: e.target.checked })} className="size-4 accent-[var(--primary)]" />
           Renk seçilebilir (gazebo renkleri; her renk teklifte ayrı satır)

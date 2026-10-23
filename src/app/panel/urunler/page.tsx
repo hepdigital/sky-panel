@@ -17,7 +17,7 @@ async function Products() {
       kategoriler={kategoriler.map((k) => ({ id: k.id, ad: k.ad, aciklama: k.aciklama, uyari: k.uyari, aktif: k.aktif }))}
       urunler={urunler.map((u) => ({
         id: u.id, kod: u.kod, kategoriId: u.kategoriId, ad: u.ad, aciklama: u.aciklama, gorsel: u.gorsel,
-        toptan: u.toptan, perakende: u.perakende, uyari: u.uyari, aktif: u.aktif, renkSecimi: u.renkSecimi, ekleyen: u.ekleyen,
+        toptan: u.toptan, perakende: u.perakende, uyari: u.uyari, aktif: u.aktif, renkSecimi: u.renkSecimi, secenekAd: u.secenekAd, secenekToptan: u.secenekToptan, secenekPerakende: u.secenekPerakende, ekleyen: u.ekleyen,
         duzenlenebilir: canEditProduct(me, u.olusturanId),
       }))}
     />
