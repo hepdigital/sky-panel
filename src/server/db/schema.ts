@@ -185,6 +185,8 @@ export const urunler = mysqlTable(
     toptan: decimal("toptan", { precision: 12, scale: 2, mode: "number" }),
     perakende: decimal("perakende", { precision: 12, scale: 2, mode: "number" }),
     uyari: varchar("uyari", { length: 500 }),
+    /** Renk seçilebilir ürün (gazebo renkleri): her renk teklifte ayrı satırdır */
+    renkSecimi: boolean("renk_secimi").notNull().default(false),
     sira: int("sira").notNull().default(0),
     aktif: boolean("aktif").notNull().default(true),
     /** Ürünü ekleyen; satışçı yalnızca kendi eklediği ürünleri düzenleyebilir */

@@ -6,7 +6,7 @@ import { AlertTriangle, Copy, FileDown, Pencil, Percent, Plus, ReceiptText, Tras
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QtyStepper } from "@/components/ui/qty-stepper";
-import { SZ, cartUnpriced, hesap, iskEtiket, iskYok, imgSrc, modeName, wallDetail, type Catalog, type ExtraLine, type Isk, type QuoteState } from "@/lib/terminal/calc";
+import { SZ, cartUnpriced, hesap, iskEtiket, iskYok, imgSrc, modeName, splitKey, wallDetail, type Catalog, type ExtraLine, type Isk, type QuoteState } from "@/lib/terminal/calc";
 import { cn } from "@/lib/utils";
 import { ExtraSheet } from "./extra-sheet";
 
@@ -27,7 +27,7 @@ export function Summary({ q, setQ, catalog, money, editingId, onEdit, onCopy, on
   const H = hesap(q, catalog);
   const unpriced = cartUnpriced(q);
   const all = catalog.flatMap((g) => g.items);
-  const items = all.filter((it) => (q.prod[it.id] || 0) > 0);
+  const items = Object.keys(q.prod).filter((k) => (q.prod[k] || 0) > 0);
   const extra = q.extra ?? [];
   const empty = !q.cart.length && !items.length && !extra.length;
   /** Açık ek kalem penceresi: null kapalı, "yeni" ya da düzenlenen kalem */
@@ -72,7 +72,7 @@ export function Summary({ q, setQ, catalog, money, editingId, onEdit, onCopy, on
                     </span>
                   ) : (
                     <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-white ring-1 ring-border">
-                      <Image src={gz?.views?.[0] ?? imgSrc(gz ? `r:${gz.size}` : (all.find((i) => i.id === r.key)?.img ?? `r:3x3`))} alt="" fill sizes="44px" className="object-contain p-0.5" unoptimized />
+                      <Image src={gz?.views?.[0] ?? imgSrc(gz ? `r:${gz.size}` : (all.find((i) => i.id === splitKey(r.key).id)?.img ?? `r:3x3`))} alt="" fill sizes="44px" className="object-contain p-0.5" unoptimized />
                     </span>
                   )}
                   <div className="min-w-0 flex-1">

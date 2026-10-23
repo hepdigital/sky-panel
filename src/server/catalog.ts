@@ -24,7 +24,7 @@ export async function getCatalog(): Promise<Catalog> {
   for (const { k, u } of rows) {
     let g = groups.get(k.id);
     if (!g) groups.set(k.id, (g = { id: `k${k.id}`, nav: k.ad, title: k.aciklama || k.ad, lead: "", warn: k.uyari ?? undefined, items: [] }));
-    g.items.push({ id: u.kod, n: u.ad, s: u.aciklama ?? "", img: u.gorsel, p: pair(u.toptan, u.perakende), warn: u.uyari ?? undefined });
+    g.items.push({ id: u.kod, n: u.ad, s: u.aciklama ?? "", img: u.gorsel, p: pair(u.toptan, u.perakende), warn: u.uyari ?? undefined, renk: u.renkSecimi || undefined });
   }
   return [...groups.values()];
 }
@@ -55,6 +55,8 @@ export type ProductInput = {
   perakende: number | null;
   uyari: string;
   aktif: boolean;
+  /** Renk seçilebilir (gazebo renkleri) */
+  renkSecimi: boolean;
 };
 
 const clip = (v: string | null | undefined, max: number) => (v?.trim() ? v.trim().slice(0, max) : null);
@@ -82,7 +84,7 @@ export async function saveProduct(me: Me, p: ProductInput): Promise<{ ok: true; 
   const gorsel = p.gorsel && (/^p:[a-z0-9-]+$/.test(p.gorsel) || /^\/dosya\/urun\/[a-z0-9]+\.webp$/.test(p.gorsel)) ? p.gorsel : null;
   const values = {
     kategoriId: kat.id, ad, aciklama: clip(p.aciklama, 255), gorsel,
-    toptan: price(p.toptan), perakende: price(p.perakende), uyari: clip(p.uyari, 500), aktif: !!p.aktif,
+    toptan: price(p.toptan), perakende: price(p.perakende), uyari: clip(p.uyari, 500), aktif: !!p.aktif, renkSecimi: !!p.renkSecimi,
   };
   if (p.id) {
     const [u] = await db().select({ olusturanId: urunler.olusturanId }).from(urunler).where(eq(urunler.id, p.id));

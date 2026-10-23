@@ -17,7 +17,22 @@ import {
 import data from "./fiyatlar.json";
 
 export type Pair = [number, number] | null;
-export type CatalogItem = { id: string; n: string; s: string; img: string | null; p: Pair; warn?: string };
+/** renk: renk seçilebilir ürün; sepette her renk ayrı satırdır (anahtar "kod~#hex") */
+export type CatalogItem = { id: string; n: string; s: string; img: string | null; p: Pair; warn?: string; renk?: boolean };
+
+/** Sepet anahtarı: renksiz ürün "kod", renkli ürün "kod~#ffd400" */
+export const prodKey = (id: string, hex?: string | null) => (hex ? `${id}~${hex}` : id);
+export const splitKey = (key: string) => {
+  const i = key.indexOf("~");
+  return i < 0 ? { id: key, hex: null } : { id: key.slice(0, i), hex: key.slice(i + 1) };
+};
+/** Bir ürünün sepetteki satırları (renkliyse renk başına), ürün sırasıyla */
+export function itemLines(q: QuoteState, it: CatalogItem) {
+  return Object.keys(q.prod)
+    .filter((k) => (q.prod[k] || 0) > 0 && splitKey(k).id === it.id)
+    .sort()
+    .map((key) => ({ key, hex: splitKey(key).hex, qty: q.prod[key] }));
+}
 export type CatalogGroup = { id: string; nav: string; title: string; lead: string; warn?: string; items: CatalogItem[] };
 export type Catalog = CatalogGroup[];
 
@@ -222,12 +237,13 @@ export function allRows(q: QuoteState, catalog: Catalog): Row[] {
   }
   for (const g of catalog)
     for (const it of g.items) {
-      const qty = q.prod[it.id] || 0;
       const pr = val(it.p, q.mode);
-      if (qty > 0 && pr !== null) {
-        const i = q.prodIsk[it.id];
+      if (pr === null) continue;
+      for (const { key, hex, qty } of itemLines(q, it)) {
+        const i = q.prodIsk[key];
         const net = netBirim(pr, i);
-        rows.push({ key: it.id, t: it.n + (qty > 1 ? ` × ${qty}` : ""), s: it.s, birim: pr, net, adet: qty, isk: i, liste: pr * qty, v: net * qty });
+        const ad = hex ? `${it.n} · ${colorName(hex)}` : it.n;
+        rows.push({ key, t: ad + (qty > 1 ? ` × ${qty}` : ""), s: it.s, birim: pr, net, adet: qty, isk: i, liste: pr * qty, v: net * qty });
       }
     }
   for (const x of q.extra ?? []) {
@@ -286,11 +302,16 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog) {
     }),
     ...catalog.flatMap((g) =>
       g.items.flatMap((it) => {
-        const qty = q.prod[it.id] || 0;
         const pr = val(it.p, q.mode);
-        if (!(qty > 0) || pr === null) return [];
-        const i = q.prodIsk[it.id];
-        return [{ ad: it.n, alt: it.s, adet: qty, birim: adj(pr), isk: iskEtiket(i), tutar: adj(netBirim(pr, i) * qty), img: it.img, parcalar: [] }];
+        if (pr === null) return [];
+        return itemLines(q, it).map(({ key, hex, qty }) => {
+          const i = q.prodIsk[key];
+          return {
+            ad: it.n,
+            alt: hex ? [it.s, `Renk: ${colorName(hex)}`].filter(Boolean).join(" · ") : it.s,
+            adet: qty, birim: adj(pr), isk: iskEtiket(i), tutar: adj(netBirim(pr, i) * qty), img: it.img, parcalar: [],
+          };
+        });
       }),
     ),
     ...(q.extra ?? []).map((x) => ({

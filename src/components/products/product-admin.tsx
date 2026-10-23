@@ -24,6 +24,7 @@ type Product = {
   perakende: number | null;
   uyari: string | null;
   aktif: boolean;
+  renkSecimi: boolean;
   ekleyen: string | null;
   duzenlenebilir: boolean;
 };
@@ -229,6 +230,7 @@ function ProductRow({ u, onEdit, move }: { u: Product; onEdit: () => void; move:
         <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold leading-tight">
           {u.ad}
           {!u.aktif && <Badge tone="neutral">Pasif</Badge>}
+          {u.renkSecimi && <Badge tone="info">Renkli</Badge>}
         </p>
         <p className="truncate text-xs text-muted-foreground">{u.aciklama || "—"}</p>
         {u.uyari && <p className="truncate text-[11px] font-medium text-warning">{u.uyari}</p>}
@@ -296,6 +298,7 @@ function ProductSheet({ product, kategoriId, kategoriler, onClose }: { product: 
     perakende: showPrice(p?.perakende ?? null),
     uyari: p?.uyari ?? "",
     aktif: p?.aktif ?? true,
+    renkSecimi: p?.renkSecimi ?? false,
   });
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -319,7 +322,7 @@ function ProductSheet({ product, kategoriId, kategoriler, onClose }: { product: 
     const perakende = parsePrice(f.perakende);
     if (Number.isNaN(toptan) || Number.isNaN(perakende)) return setErr("Fiyatları rakamla yazın (ör. 1.250).");
     setBusy(true);
-    const r = await urunKaydet({ id: p?.id ?? null, kategoriId: f.kategoriId, ad: f.ad, aciklama: f.aciklama, gorsel: f.gorsel, toptan, perakende, uyari: f.uyari, aktif: f.aktif });
+    const r = await urunKaydet({ id: p?.id ?? null, kategoriId: f.kategoriId, ad: f.ad, aciklama: f.aciklama, gorsel: f.gorsel, toptan, perakende, uyari: f.uyari, aktif: f.aktif, renkSecimi: f.renkSecimi });
     setBusy(false);
     if (!r.ok) return setErr(r.hata);
     router.refresh();
@@ -393,6 +396,10 @@ function ProductSheet({ product, kategoriId, kategoriler, onClose }: { product: 
         <label className="block">
           <span className={label}>Satışçıya uyarı (isteğe bağlı)</span>
           <input value={f.uyari} onChange={(e) => setF({ ...f, uyari: e.target.value })} maxLength={500} className={input} placeholder="ör. Dolgu malzemesi fiyata dahil değildir." />
+        </label>
+        <label className="flex items-center gap-2.5 text-sm">
+          <input type="checkbox" checked={f.renkSecimi} onChange={(e) => setF({ ...f, renkSecimi: e.target.checked })} className="size-4 accent-[var(--primary)]" />
+          Renk seçilebilir (gazebo renkleri; her renk teklifte ayrı satır)
         </label>
         <label className="flex items-center gap-2.5 text-sm">
           <input type="checkbox" checked={f.aktif} onChange={(e) => setF({ ...f, aktif: e.target.checked })} className="size-4 accent-[var(--primary)]" />

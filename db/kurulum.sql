@@ -243,6 +243,7 @@ CREATE TABLE `urunler` (
   `toptan` decimal(12,2) DEFAULT NULL,
   `perakende` decimal(12,2) DEFAULT NULL,
   `uyari` varchar(500) DEFAULT NULL,
+  `renk_secimi` tinyint(1) NOT NULL DEFAULT 0,
   `sira` int(11) NOT NULL DEFAULT 0,
   `aktif` tinyint(1) NOT NULL DEFAULT 1,
   `olusturan_id` int(10) unsigned DEFAULT NULL,
