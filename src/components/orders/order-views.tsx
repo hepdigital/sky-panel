@@ -3,10 +3,10 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CircleCheckBig, ClipboardList, Factory, FileDown, PackageCheck, Search, Truck, XCircle, type LucideIcon } from "lucide-react";
+import { ArrowLeft, CircleCheckBig, ListPlus, ClipboardList, Factory, FileDown, PackageCheck, Search, Truck, XCircle, type LucideIcon } from "lucide-react";
 import { siparisDurumu } from "@/app/panel/siparisler/actions";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QuoteItems } from "@/components/terminal/quote-items";
 import type { PdfData } from "@/lib/terminal/calc";
@@ -148,9 +148,14 @@ export function OrderDetail({ order }: { order: Order }) {
             )}
           </p>
         </div>
-        <Button variant="outline" onClick={() => downloadPdf(v)}>
-          <FileDown /> Teklif PDF
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/panel/gorevler?yeni=1&siparis=${order.id}`} className={buttonVariants({ variant: "outline" })} title="Bu siparişle ilgili birine görev ata (üretim, sevkiyat…)">
+            <ListPlus /> Görev
+          </Link>
+          <Button variant="outline" onClick={() => downloadPdf(v)}>
+            <FileDown /> Teklif PDF
+          </Button>
+        </div>
       </div>
 
       {/* Durum */}

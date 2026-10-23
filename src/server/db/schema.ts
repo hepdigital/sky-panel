@@ -2,7 +2,7 @@
 // terminaldeki kayıtlar tek seferde aktarılabilir. Her teklif o anki halini (fiyatlar dahil) "veri" alanında eksiksiz saklar.
 //
 // Görünürlük: satışçı yalnızca kendi teklif, sipariş ve carilerini görür (sahip/kullanici_id); yönetici hepsini.
-import { boolean, decimal, index, int, longtext, mysqlEnum, mysqlTable, smallint, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { boolean, date, decimal, index, int, longtext, mysqlEnum, mysqlTable, smallint, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 export const kullanicilar = mysqlTable("kullanicilar", {
   id: int("id", { unsigned: true }).autoincrement().primaryKey(),
@@ -11,7 +11,8 @@ export const kullanicilar = mysqlTable("kullanicilar", {
   eposta: varchar("eposta", { length: 160 }),
   telefon: varchar("telefon", { length: 40 }),
   sifreHash: varchar("sifre_hash", { length: 255 }).notNull(),
-  rol: mysqlEnum("rol", ["yonetici", "satis"]).notNull().default("satis"),
+  /** yonetici: her şey · satis: kendi teklif/sipariş/müşterileri · personel: yalnızca görevler */
+  rol: mysqlEnum("rol", ["yonetici", "satis", "personel"]).notNull().default("satis"),
   aktif: boolean("aktif").notNull().default(true),
   sonGiris: timestamp("son_giris"),
   olusturma: timestamp("olusturma").notNull().defaultNow(),
@@ -179,4 +180,50 @@ export const urunler = mysqlTable(
     guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
   },
   (t) => [index("urun_kategori").on(t.kategoriId)],
+);
+
+/** Görev durumları: yapılacak → devam ediyor → (beklemede) → tamamlandı */
+export const GOREV_DURUMLARI = ["yapilacak", "devam", "bekliyor", "tamam"] as const;
+export const GOREV_ONCELIKLERI = ["dusuk", "normal", "yuksek", "acil"] as const;
+
+/**
+ * Görev: herkes oluşturup bir kişiye atayabilir. Kişi kendisine atanan ve kendi oluşturduğu görevleri görür, yönetici hepsini.
+ * İsteğe bağlı olarak bir müşteri, teklif ya da siparişe bağlanır.
+ */
+export const gorevler = mysqlTable(
+  "gorevler",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    baslik: varchar("baslik", { length: 200 }).notNull(),
+    aciklama: text("aciklama"),
+    atananId: int("atanan_id", { unsigned: true }).references(() => kullanicilar.id, { onDelete: "set null" }),
+    olusturanId: int("olusturan_id", { unsigned: true }).references(() => kullanicilar.id, { onDelete: "set null" }),
+    durum: mysqlEnum("durum", GOREV_DURUMLARI).notNull().default("yapilacak"),
+    oncelik: mysqlEnum("oncelik", GOREV_ONCELIKLERI).notNull().default("normal"),
+    /** Son tarih (gün) */
+    bitis: date("bitis", { mode: "string" }),
+    musteriId: int("musteri_id", { unsigned: true }).references(() => musteriler.id, { onDelete: "set null" }),
+    teklifId: int("teklif_id", { unsigned: true }).references(() => teklifler.id, { onDelete: "set null" }),
+    siparisId: int("siparis_id", { unsigned: true }).references(() => siparisler.id, { onDelete: "set null" }),
+    tamamlanma: timestamp("tamamlanma"),
+    olusturma: timestamp("olusturma").notNull().defaultNow(),
+    guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+  },
+  (t) => [index("gorev_atanan").on(t.atananId), index("gorev_olusturan").on(t.olusturanId), index("gorev_durum").on(t.durum)],
+);
+
+/** Görevin akışı: yorumlar ve olaylar (durum değişti, yeniden atandı…) */
+export const gorevKayitlari = mysqlTable(
+  "gorev_kayitlari",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    gorevId: int("gorev_id", { unsigned: true })
+      .notNull()
+      .references(() => gorevler.id, { onDelete: "cascade" }),
+    kullaniciId: int("kullanici_id", { unsigned: true }).references(() => kullanicilar.id, { onDelete: "set null" }),
+    tip: mysqlEnum("tip", ["yorum", "olay"]).notNull().default("yorum"),
+    metin: text("metin").notNull(),
+    olusturma: timestamp("olusturma").notNull().defaultNow(),
+  },
+  (t) => [index("gorev_kayit_gorev").on(t.gorevId)],
 );

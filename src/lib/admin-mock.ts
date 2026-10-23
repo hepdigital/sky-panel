@@ -2,11 +2,12 @@
 
 import type { PaymentStatus, ProductionStatus } from "./mock";
 
-export type Role = "admin" | "sales" | "design" | "production" | "warehouse" | "finance";
+export type Role = "admin" | "sales" | "staff" | "design" | "production" | "warehouse" | "finance";
 
 export const roles: { key: Role; label: string; user: string; initials: string }[] = [
   { key: "admin", label: "Yönetici", user: "Kadir Can", initials: "KC" },
   { key: "sales", label: "Satış", user: "Elif Kaya", initials: "EK" },
+  { key: "staff", label: "Personel", user: "", initials: "" },
   { key: "design", label: "Tasarım", user: "Burak Aydın", initials: "BA" },
   { key: "production", label: "Üretim", user: "Hakan Öz", initials: "HÖ" },
   { key: "warehouse", label: "Depo & Sevkiyat", user: "Murat Şen", initials: "MŞ" },
@@ -121,6 +122,7 @@ export const repPerformance = [
 export type Task = { id: string; title: string; customer?: string; due: string; kind: "call" | "quote" | "collection" | "design" | "ship" };
 
 export const tasksByRole: Record<Role, Task[]> = {
+  staff: [],
   admin: [
     { id: "t1", title: "Marmara Fuarcılık limit aşımı onayı", customer: "₺58.920 sipariş", due: "Bugün", kind: "collection" },
     { id: "t2", title: "Karadeniz Matbaa vadesi geçmiş borç onayı", customer: "₺21.340 sipariş", due: "Bugün", kind: "collection" },
@@ -171,6 +173,7 @@ export function groupRate(group: string) {
 
 /** Rolün tekliflerde uygulayabileceği ek iskonto sınırı (%). Üzeri onaya düşer. */
 export const extraDiscountLimit: Record<Role, number> = {
+  staff: 0,
   admin: 15,
   sales: 5,
   design: 0,

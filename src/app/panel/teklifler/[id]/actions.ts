@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getMe } from "@/server/auth";
+import { getSeller } from "@/server/auth";
 import { mailReady, sendMail } from "@/server/mail";
 import { getQuote } from "@/server/quotes";
 import { markSent, quoteLink, setStage } from "@/server/quote-flow";
@@ -10,7 +10,7 @@ type Result = { ok: true } | { ok: false; hata: string };
 
 /** WhatsApp ya da kopyalanan link ile iletildi */
 export async function gonderildi(id: number): Promise<Result> {
-  const me = await getMe();
+  const me = await getSeller();
   if (!me) return { ok: false, hata: "Oturum kapanmış." };
   await markSent(me, id);
   revalidatePath(`/panel/teklifler/${id}`);
@@ -18,7 +18,7 @@ export async function gonderildi(id: number): Promise<Result> {
 }
 
 export async function asamaDegistir(id: number, asama: "gonderildi" | "onaylandi" | "reddedildi"): Promise<Result> {
-  const me = await getMe();
+  const me = await getSeller();
   if (!me) return { ok: false, hata: "Oturum kapanmış." };
   if (!(await setStage(me, id, asama))) return { ok: false, hata: "Bu teklifin aşaması değiştirilemez." };
   revalidatePath(`/panel/teklifler/${id}`);
@@ -29,7 +29,7 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 
 /** Teklifi e-postayla gönderir: link + (tarayıcıda üretilen) PDF eki; satışçıya yanıt adresi olarak yazılır */
 export async function epostaGonder(id: number, to: string, pdfBase64: string | null): Promise<Result> {
-  const me = await getMe();
+  const me = await getSeller();
   if (!me) return { ok: false, hata: "Oturum kapanmış." };
   if (!mailReady()) return { ok: false, hata: "E-posta ayarları (SMTP) henüz yapılmadı. Şimdilik WhatsApp ya da linki kullanın." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return { ok: false, hata: "E-posta adresi geçersiz." };

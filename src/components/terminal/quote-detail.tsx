@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Copy, FileDown } from "lucide-react";
+import { ArrowLeft, Copy, FileDown, ListPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { PdfData } from "@/lib/terminal/calc";
 import { downloadPdf } from "@/lib/terminal/pdf";
@@ -61,7 +61,10 @@ export function QuoteDetail({ quote, flow }: { quote: Quote; flow: QuoteFlowInfo
             {formatDate(quote.olusturma, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · {v.hazirlayan || quote.kullanici || "—"}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/panel/gorevler?yeni=1&teklif=${quote.id}`} className={buttonVariants({ variant: "outline" })} title="Bu teklifle ilgili birine görev ata">
+            <ListPlus /> Görev
+          </Link>
           {!!quote.durum && (
             <Button variant="outline" title="Sepeti bu teklifle doldurur (güncel fiyatlarla); değiştirip yeni teklif olarak kaydedebilirsiniz" onClick={openInTerminal}>
               <Copy /> Terminalde aç

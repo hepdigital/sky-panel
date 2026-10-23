@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Terminal } from "@/components/terminal/terminal";
-import { requireMe } from "@/server/auth";
+import { requireSeller } from "@/server/auth";
 import { getCatalog } from "@/server/catalog";
 import { customerForQuote } from "@/server/customers";
 
@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Yeni teklif" };
 
 async function Loaded({ searchParams }: { searchParams: Promise<{ musteri?: string | string[] }> }) {
   await connection();
-  const me = await requireMe();
+  const me = await requireSeller();
   const raw = (await searchParams).musteri;
   const id = Number(typeof raw === "string" ? raw : "");
   const [catalog, customer] = await Promise.all([getCatalog(), id > 0 ? customerForQuote(me, id) : null]);

@@ -11,6 +11,8 @@ export type UserFormState = { hata?: string; sifre?: string; mesaj?: string } | 
 const k = schema.kullanicilar;
 /** Okunaklı, 12 karakterlik geçici şifre (yalnızca bir kez gösterilir) */
 const newPassword = () => randomBytes(9).toString("base64url");
+/** Formdan rol: bilinmeyen değer satışçı sayılır */
+const rolOf = (v: FormDataEntryValue | null) => (v === "yonetici" || v === "personel" ? v : "satis");
 const text = (form: FormData, key: string, max: number) => String(form.get(key) ?? "").trim().slice(0, max);
 
 /** Yeni personel hesabı; şifre otomatik üretilir */
@@ -20,7 +22,7 @@ export async function kullaniciEkle(_: UserFormState, form: FormData): Promise<U
   const adSoyad = text(form, "adSoyad", 120);
   const eposta = text(form, "eposta", 160) || null;
   const telefon = text(form, "telefon", 40) || null;
-  const rol = form.get("rol") === "yonetici" ? "yonetici" : "satis";
+  const rol = rolOf(form.get("rol"));
   if (!/^[a-z0-9._-]{3,60}$/.test(kullaniciAdi)) return { hata: "Kullanıcı adı 3–60 karakter olmalı; küçük harf, rakam, nokta, tire." };
   if (!adSoyad) return { hata: "Ad soyad gerekli." };
   const [var_] = await db().select({ id: k.id }).from(k).where(eq(k.kullaniciAdi, kullaniciAdi));
@@ -36,7 +38,7 @@ export async function kullaniciGuncelle(_: UserFormState, form: FormData): Promi
   const me = await requireAdmin();
   const id = Number(form.get("id"));
   const adSoyad = text(form, "adSoyad", 120);
-  const rol = form.get("rol") === "yonetici" ? "yonetici" : "satis";
+  const rol = rolOf(form.get("rol"));
   const aktif = form.get("aktif") === "on";
   if (!adSoyad) return { hata: "Ad soyad gerekli." };
   if (id === me.id && (!aktif || rol !== "yonetici")) return { hata: "Kendi hesabınızı pasife alamaz ya da yöneticilikten çıkaramazsınız." };

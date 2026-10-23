@@ -3,24 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  CheckSquare,
-  ChevronDown,
-  FilePlus2,
-  Inbox,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  Package,
-  Plus,
-  Search,
-  ShoppingCart,
-  UserPlus,
-} from "lucide-react";
+import { CheckSquare, ChevronDown, FilePlus2, FileText, LayoutDashboard, ListPlus, LogOut, Menu, Plus, UserPlus } from "lucide-react";
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { NotificationCenter } from "@/components/notification-center";
-import { adminNotifications } from "@/lib/notifications";
 import { buttonVariants } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { roles } from "@/lib/admin-mock";
@@ -30,16 +15,17 @@ import { cikisYap } from "@/app/giris/actions";
 import { RoleProvider, useRole, type PanelUser } from "./role-context";
 
 /** Kendi sabit aksiyon çubuğu olan ekranlar. */
-const focusRoutes = ["/panel/teklifler/yeni", "/panel/siparisler/yeni"];
+const focusRoutes = ["/panel/teklifler/yeni"];
 
 function isActive(pathname: string, href: string) {
   return href === "/panel" ? pathname === href : pathname.startsWith(href);
 }
 
+/** "Yeni" menüsü: satış ekranları yalnızca yönetici ve satışçıya */
 const createActions = [
-  { href: "/panel/teklifler/yeni", label: "Yeni teklif", hint: "Müşteri seç, ürün ekle, gönder", icon: FilePlus2 },
-  { href: "/panel/siparisler/yeni", label: "Müşteri adına sipariş", hint: "Telefonla gelen siparişi gir", icon: ShoppingCart },
-  { href: "/panel/musteriler/yeni", label: "Yeni müşteri", hint: "Cari aç, iskonto grubu ata", icon: UserPlus },
+  { href: "/panel/teklifler/yeni", label: "Yeni teklif", hint: "Gazebo kur, ürün ekle, PDF ve link gönder", icon: FilePlus2, seller: true },
+  { href: "/panel/musteriler?yeni=1", label: "Yeni müşteri", hint: "Firma ve iletişim bilgileri", icon: UserPlus, seller: true },
+  { href: "/panel/gorevler?yeni=1", label: "Yeni görev", hint: "Bir kişiye görev ata, takip et", icon: ListPlus, seller: false },
 ];
 
 export function AdminShell({ me, children }: { me: PanelUser; children: React.ReactNode }) {
@@ -52,10 +38,10 @@ export function AdminShell({ me, children }: { me: PanelUser; children: React.Re
 
 function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { role } = useRole();
-  const canCreate = role === "admin" || role === "sales";
-  const queueHref = role === "warehouse" ? "/panel/sevkiyat" : role === "design" ? "/panel/tasarim" : "/panel/uretim";
-  const groups = navFor(role);
+  const { role, me } = useRole();
+  const seller = role === "admin" || role === "sales";
+  const actions = createActions.filter((a) => seller || !a.seller);
+  const groups = navFor(role, me.openTasks);
   const [menuOpen, setMenuOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -99,26 +85,22 @@ function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar onCreate={canCreate ? () => setCreateOpen(true) : undefined} />
+        <Topbar onCreate={() => setCreateOpen(true)} />
         <main className="flex-1 px-4 pt-2 pb-28 md:px-6 md:pb-10 lg:px-8">{children}</main>
       </div>
 
       {/* ── Mobil alt menü (form ekranlarında gizlenir) ── */}
       <nav hidden={focusRoutes.includes(pathname)} className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 pb-safe backdrop-blur-md md:hidden">
-        <div className="mx-auto grid h-16 max-w-md grid-cols-5 items-center px-2">
+        <div className={cn("mx-auto grid h-16 max-w-md items-center px-2", seller ? "grid-cols-5" : "grid-cols-4")}>
           <Tab href="/panel" label="Dashboard" icon={LayoutDashboard} active={pathname === "/panel"} />
-          <Tab href="/panel/siparisler" label="Siparişler" icon={Package} active={isActive(pathname, "/panel/siparisler")} />
-          {canCreate ? (
-            <button type="button" onClick={() => setCreateOpen(true)} className="flex flex-col items-center gap-1" aria-label="Yeni">
-              <span className="-mt-7 grid size-14 place-items-center rounded-full bg-sidebar text-white shadow-pop ring-4 ring-background">
-                <Plus className="size-6" />
-              </span>
-              <span className="text-[10px] font-semibold">Yeni</span>
-            </button>
-          ) : (
-            <Tab href={queueHref} label="Kuyruk" icon={Inbox} active={isActive(pathname, queueHref)} />
-          )}
-          <Tab href="/panel/gorevler" label="Görevler" icon={CheckSquare} active={isActive(pathname, "/panel/gorevler")} />
+          {seller && <Tab href="/panel/teklifler" label="Teklifler" icon={FileText} active={isActive(pathname, "/panel/teklifler")} />}
+          <button type="button" onClick={() => setCreateOpen(true)} className="flex flex-col items-center gap-1" aria-label="Yeni">
+            <span className="-mt-7 grid size-14 place-items-center rounded-full bg-sidebar text-white shadow-pop ring-4 ring-background">
+              <Plus className="size-6" />
+            </span>
+            <span className="text-[10px] font-semibold">Yeni</span>
+          </button>
+          <Tab href="/panel/gorevler" label="Görevler" icon={CheckSquare} active={isActive(pathname, "/panel/gorevler")} badge={me.openTasks} />
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
@@ -169,7 +151,7 @@ function Layout({ children }: { children: React.ReactNode }) {
 
       <Sheet open={createOpen} onClose={() => setCreateOpen(false)} title="Yeni oluştur">
         <div className="space-y-2">
-          {createActions.map((a) => {
+          {actions.map((a) => {
             const Icon = a.icon;
             return (
               <Link
@@ -230,11 +212,12 @@ function SidebarLink({ item, active }: { item: AdminNavItem; active: boolean }) 
   );
 }
 
-function Tab({ href, label, icon: Icon, active }: { href: string; label: string; icon: React.ComponentType<{ className?: string }>; active: boolean }) {
+function Tab({ href, label, icon: Icon, active, badge }: { href: string; label: string; icon: React.ComponentType<{ className?: string }>; active: boolean; badge?: number }) {
   return (
     <Link href={href} className={cn("flex flex-col items-center gap-1 py-1 text-[10px] font-medium", active ? "text-foreground" : "text-muted-foreground")}>
-      <span className={cn("grid h-7 w-12 place-items-center rounded-full transition-colors", active && "bg-muted")}>
+      <span className={cn("relative grid h-7 w-12 place-items-center rounded-full transition-colors", active && "bg-muted")}>
         <Icon className="size-5" />
+        {!!badge && <span className="absolute -top-1 right-1 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">{badge}</span>}
       </span>
       {label}
     </Link>
@@ -258,11 +241,6 @@ function Topbar({ onCreate }: { onCreate?: () => void }) {
           </span>
         </Link>
 
-        <label className="hidden h-11 max-w-md flex-1 items-center gap-2.5 rounded-full border border-border bg-card px-4 text-sm text-muted-foreground shadow-card focus-within:ring-2 focus-within:ring-ring md:flex">
-          <Search className="size-4 shrink-0" />
-          <input placeholder="Müşteri, sipariş, teklif veya fatura ara…" className="w-full bg-transparent text-foreground outline-none placeholder:text-muted-foreground" />
-          <kbd className="hidden rounded-md border border-border px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap lg:block">Ctrl K</kbd>
-        </label>
 
         <div className="ml-auto flex items-center gap-1 md:gap-2">
           {onCreate && (
@@ -271,7 +249,6 @@ function Topbar({ onCreate }: { onCreate?: () => void }) {
             </button>
           )}
           <ThemeToggle />
-          <NotificationCenter key={role} items={adminNotifications.filter((n) => !n.roles || n.roles.includes(role))} settingsHref="/panel/ayarlar" />
           <UserMenu />
         </div>
       </div>

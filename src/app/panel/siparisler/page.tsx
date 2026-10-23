@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { OrderTable } from "@/components/orders/order-views";
-import { requireMe } from "@/server/auth";
+import { requireSeller } from "@/server/auth";
 import { listOrders } from "@/server/orders";
 
 export const metadata: Metadata = { title: "Siparişler" };
@@ -11,7 +11,7 @@ async function Orders({ searchParams }: { searchParams: Promise<{ q?: string | s
   await connection();
   const raw = (await searchParams).q;
   const q = typeof raw === "string" ? raw : "";
-  const rows = await listOrders(await requireMe(), q);
+  const rows = await listOrders(await requireSeller(), q);
   return <OrderTable rows={rows.map((r) => ({ ...r, olusturma: r.olusturma.toISOString() }))} q={q} />;
 }
 

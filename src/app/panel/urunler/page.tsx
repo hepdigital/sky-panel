@@ -2,14 +2,14 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { ProductAdmin } from "@/components/products/product-admin";
-import { isAdmin, requireMe } from "@/server/auth";
+import { isAdmin, requireSeller } from "@/server/auth";
 import { canEditProduct, listProducts } from "@/server/catalog";
 
 export const metadata: Metadata = { title: "Ürünler" };
 
 async function Products() {
   await connection();
-  const me = await requireMe();
+  const me = await requireSeller();
   const { kategoriler, urunler } = await listProducts();
   return (
     <ProductAdmin

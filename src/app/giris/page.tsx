@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BadgePercent, CreditCard, PackageCheck } from "lucide-react";
+import { FileText, ListChecks, PackageCheck } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LoginForm } from "./login-form";
@@ -7,9 +7,9 @@ import { LoginForm } from "./login-form";
 export const metadata: Metadata = { title: "Giriş" };
 
 const highlights = [
-  { icon: BadgePercent, title: "Size özel fiyatlar", text: "İskontolu fiyatınızı sipariş anında görün." },
-  { icon: PackageCheck, title: "Canlı sipariş takibi", text: "Tasarımdan teslimata her adımı izleyin." },
-  { icon: CreditCard, title: "Online ödeme", text: "Borç ödeyin veya hesabınıza bakiye yükleyin." },
+  { icon: FileText, title: "Teklif", text: "Gazeboyu 3D kurun, ürün ekleyin; PDF ve müşteri linki tek tıkla." },
+  { icon: PackageCheck, title: "Sipariş takibi", text: "Onaylanan teklif siparişe döner; üretimden teslimata izleyin." },
+  { icon: ListChecks, title: "Görevler", text: "Ekibe görev atayın, durumunu ve yorumlarını takip edin." },
 ];
 
 export default function LoginPage() {
@@ -29,14 +29,14 @@ export default function LoginPage() {
         </div>
 
         <div className="relative mt-auto">
-          <p className="text-xs font-semibold tracking-[0.2em] text-brand-300 uppercase">Bayi Portalı</p>
+          <p className="text-xs font-semibold tracking-[0.2em] text-brand-300 uppercase">Personel Paneli</p>
           <h1 className="mt-4 text-4xl leading-[1.15] font-bold tracking-tight xl:text-[44px]">
-            Siparişten tahsilata,
+            Tekliften teslimata,
             <br />
             tüm işleriniz tek panelde.
           </h1>
           <p className="mt-4 max-w-md text-[15px] leading-relaxed text-white/65">
-            Telefon ve mesaj trafiğine gerek kalmadan ürünlerinizi seçin, fiyatınızı görün, siparişinizi takip edin.
+            Satış ekibinin teklifleri, müşterileri, siparişleri ve görevleri tek yerde.
           </p>
 
           <ul className="mt-10 space-y-4">
@@ -76,11 +76,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="px-5 pb-6 text-center text-xs text-muted-foreground">
-          Destek: <a href="tel:+908500000000" className="font-medium text-foreground">0850 000 00 00</a>
-          {" · "}
-          <a href="#" className="font-medium text-foreground">KVKK</a>
-        </p>
       </main>
     </div>
   );

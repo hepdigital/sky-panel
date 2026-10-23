@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { OrderDetail } from "@/components/orders/order-views";
-import { requireMe } from "@/server/auth";
+import { requireSeller } from "@/server/auth";
 import { getOrder } from "@/server/orders";
 
 export const metadata: Metadata = { title: "Sipariş" };
@@ -13,7 +13,7 @@ export const instant = false;
 
 async function Detail({ params }: { params: Promise<{ id: string }> }) {
   await connection();
-  const o = await getOrder(await requireMe(), Number((await params).id));
+  const o = await getOrder(await requireSeller(), Number((await params).id));
   if (!o) notFound();
   return (
     <OrderDetail

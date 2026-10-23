@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { eq } from "drizzle-orm";
 import { QuoteDetail } from "@/components/terminal/quote-detail";
-import { requireMe } from "@/server/auth";
+import { requireSeller } from "@/server/auth";
 import { db, schema } from "@/server/db";
 import { mailReady } from "@/server/mail";
 import { quoteLink } from "@/server/quote-flow";
@@ -19,7 +19,7 @@ const iso = (d: Date | null) => d?.toISOString() ?? null;
 
 async function Detail({ params }: { params: Promise<{ id: string }> }) {
   await connection();
-  const t = await getQuote(await requireMe(), Number((await params).id));
+  const t = await getQuote(await requireSeller(), Number((await params).id));
   if (!t) notFound();
   const [o] = await db().select({ id: schema.siparisler.id }).from(schema.siparisler).where(eq(schema.siparisler.teklifId, t.id));
   const [m] = t.musteriId

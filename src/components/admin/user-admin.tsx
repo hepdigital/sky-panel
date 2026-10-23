@@ -14,11 +14,13 @@ type User = {
   adSoyad: string;
   eposta: string | null;
   telefon: string | null;
-  rol: "yonetici" | "satis";
+  rol: "yonetici" | "satis" | "personel";
   aktif: boolean;
   sonGiris: string | null;
   teklif: number;
 };
+
+const ROL_AD = { yonetici: "Yönetici", satis: "Satışçı", personel: "Personel" } as const;
 
 const input = "h-10 w-full rounded-xl border border-input bg-card px-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
 const label = "mb-1 block text-xs font-semibold text-muted-foreground";
@@ -31,7 +33,7 @@ export function UserAdmin({ users, meId }: { users: User[]; meId: number }) {
       <div className="flex flex-wrap items-end justify-between gap-3 pt-1">
         <div>
           <h1 className="text-2xl font-bold tracking-tight md:text-[28px]">Kullanıcılar</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Satışçı yalnızca kendi teklif, sipariş ve carilerini görür; yönetici hepsini görür ve kullanıcıları yönetir.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Satışçı yalnızca kendi teklif, sipariş ve müşterilerini görür; personel yalnızca görevlerini görür; yönetici hepsini görür ve kullanıcıları yönetir.</p>
         </div>
         <Button onClick={() => setAdding((v) => !v)}>
           <UserPlus /> Yeni kullanıcı
@@ -93,6 +95,7 @@ function NewUser({ onDone }: { onDone: () => void }) {
           <span className={label}>Rol</span>
           <select name="rol" defaultValue="satis" className={input}>
             <option value="satis">Satışçı</option>
+                <option value="personel">Personel (yalnızca görevler)</option>
             <option value="yonetici">Yönetici</option>
           </select>
         </label>
@@ -127,7 +130,7 @@ function UserRow({ u, self }: { u: User; self: boolean }) {
             {u.kullaniciAdi} · {u.teklif} teklif · son giriş {u.sonGiris ? formatDate(u.sonGiris, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
           </p>
         </div>
-        <Badge tone={u.rol === "yonetici" ? "info" : "neutral"}>{u.rol === "yonetici" ? "Yönetici" : "Satışçı"}</Badge>
+        <Badge tone={u.rol === "yonetici" ? "info" : u.rol === "satis" ? "success" : "neutral"}>{ROL_AD[u.rol]}</Badge>
         {!u.aktif && <Badge tone="danger">Pasif</Badge>}
         <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
           Düzenle
@@ -145,6 +148,7 @@ function UserRow({ u, self }: { u: User; self: boolean }) {
               <span className={label}>Rol</span>
               <select name="rol" defaultValue={u.rol} className={input}>
                 <option value="satis">Satışçı</option>
+                <option value="personel">Personel (yalnızca görevler)</option>
                 <option value="yonetici">Yönetici</option>
               </select>
             </label>

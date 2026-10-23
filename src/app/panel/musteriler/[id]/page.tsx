@@ -1,20 +1,44 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { CustomerDetail } from "@/components/admin/customer-detail";
-import { adminCustomers } from "@/lib/admin-mock";
+import { connection } from "next/server";
+import { CustomerDetail } from "@/components/customers/customer-views";
+import { isAdmin, requireSeller } from "@/server/auth";
+import { getCustomer, listGroups, staffList } from "@/server/customers";
 
-export function generateStaticParams() {
-  return adminCustomers.map((c) => ({ id: c.id }));
+export const metadata: Metadata = { title: "Müşteri" };
+
+// Yönetim kabuğu adres bilgisini Suspense dışında okuyor; dinamik adresli bu sayfa sunucuda beklemeli işlenir
+export const instant = false;
+
+async function Detail({ params }: { params: Promise<{ id: string }> }) {
+  await connection();
+  const me = await requireSeller();
+  const admin = isAdmin(me);
+  const [c, groups, staff] = await Promise.all([getCustomer(me, Number((await params).id)), listGroups(), admin ? staffList() : []]);
+  if (!c) notFound();
+  return (
+    <CustomerDetail
+      admin={admin}
+      groups={groups}
+      staff={staff}
+      c={{
+        id: c.id, firma: c.firma, yetkili: c.yetkili ?? "", telefon: c.telefon ?? "", eposta: c.eposta ?? "",
+        vergiDairesi: c.vergiDairesi ?? "", vergiNo: c.vergiNo ?? "", il: c.il ?? "", adres: c.adres ?? "", notlar: c.notlar ?? "",
+        iskontoGrubuId: c.iskontoGrubuId, sahipId: c.sahipId,
+        olusturma: c.olusturma.toISOString(), temsilci: c.temsilci,
+        grup: c.grup ? { id: c.grup.id, ad: c.grup.ad, fiyatListesi: c.grup.fiyatListesi, oran: c.grup.oran } : null,
+        quotes: c.quotes.map((q) => ({ ...q, olusturma: q.olusturma.toISOString() })),
+        orders: c.orders.map((o) => ({ ...o, olusturma: o.olusturma.toISOString() })),
+      }}
+    />
+  );
 }
 
-export async function generateMetadata({ params }: PageProps<"/panel/musteriler/[id]">): Promise<Metadata> {
-  const { id } = await params;
-  return { title: adminCustomers.find((c) => c.id === id)?.name ?? "Müşteri" };
-}
-
-export default async function CustomerPage({ params }: PageProps<"/panel/musteriler/[id]">) {
-  const { id } = await params;
-  const customer = adminCustomers.find((c) => c.id === id);
-  if (!customer) notFound();
-  return <CustomerDetail customer={customer} />;
+export default function CustomerPage({ params }: PageProps<"/panel/musteriler/[id]">) {
+  return (
+    <Suspense fallback={<div className="mx-auto mt-6 h-96 max-w-[1200px] animate-pulse rounded-2xl bg-muted" />}>
+      <Detail params={params} />
+    </Suspense>
+  );
 }

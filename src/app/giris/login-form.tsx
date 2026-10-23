@@ -1,51 +1,17 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { ArrowRight, Building2, Eye, EyeOff, Lock, Mail, UserRound } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { girisYap } from "./actions";
 
-type Mode = "bayi" | "personel";
-
-/** Personel girişi gerçek hesaplarla; bayi/müşteri portalı henüz açılmadı (sekme bilgi notu gösterir) */
+/** Personel girişi (bayi/müşteri portalı açılınca buraya ikinci giriş türü eklenecek) */
 export function LoginForm() {
-  const [mode, setMode] = useState<Mode>("personel");
   const [showPassword, setShowPassword] = useState(false);
   const [state, action, pending] = useActionState(girisYap, undefined);
 
   return (
     <form action={action} className="space-y-5">
-      {/* Giriş türü */}
-      <div className="grid grid-cols-2 rounded-full bg-muted p-1" role="tablist">
-        {(
-          [
-            { key: "bayi", label: "Bayi / Müşteri", icon: Building2 },
-            { key: "personel", label: "Personel", icon: UserRound },
-          ] as const
-        ).map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={mode === key}
-            onClick={() => setMode(key)}
-            className={cn(
-              "flex h-10 items-center justify-center gap-2 rounded-full text-sm font-semibold transition-all",
-              mode === key ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Icon className="size-4" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {mode === "bayi" ? (
-        <p className="rounded-xl bg-info-soft px-4 py-3 text-sm font-medium text-info">
-          Bayi ve müşteri portalı yakında açılacak. Teklifleriniz size WhatsApp ya da e-posta ile link olarak iletilir.
-        </p>
-      ) : (
         <>
           <Field label="Kullanıcı adı ya da e-posta" icon={Mail}>
             <input
@@ -90,7 +56,6 @@ export function LoginForm() {
           </Button>
           <p className="text-center text-xs text-muted-foreground">Şifrenizi unuttuysanız yöneticinize başvurun.</p>
         </>
-      )}
     </form>
   );
 }

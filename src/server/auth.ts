@@ -49,7 +49,7 @@ export async function destroySession() {
   store.delete(COOKIE);
 }
 
-export type Me = { id: number; kullaniciAdi: string; adSoyad: string; eposta: string | null; telefon: string | null; rol: "yonetici" | "satis" };
+export type Me = { id: number; kullaniciAdi: string; adSoyad: string; eposta: string | null; telefon: string | null; rol: "yonetici" | "satis" | "personel" };
 
 /** Oturumdaki kullanıcı (yoksa null). Aynı istekte bir kez okunur. */
 export const getMe = cache(async (): Promise<Me | null> => {
@@ -80,3 +80,18 @@ export async function requireAdmin() {
 
 /** Satışçı yalnızca kendi kayıtlarını görür; yönetici hepsini */
 export const isAdmin = (me: Me) => me.rol === "yonetici";
+/** Teklif, sipariş, müşteri ve ürün ekranları yönetici ve satışçıya açıktır; personel yalnızca görevleri kullanır */
+export const canSell = (me: Me) => me.rol === "yonetici" || me.rol === "satis";
+
+/** Satış ekranları: personel görevlerine yönlendirilir */
+export async function requireSeller() {
+  const me = await requireMe();
+  if (!canSell(me)) redirect("/panel/gorevler");
+  return me;
+}
+
+/** Satış işlemleri (sunucu eylemleri): oturum yoksa ya da personelse null */
+export async function getSeller() {
+  const me = await getMe();
+  return me && canSell(me) ? me : null;
+}

@@ -1,5 +1,5 @@
 // Komut satırından personel hesabı açar ya da şifresini sıfırlar (ilk yönetici hesabı için).
-// Kullanım: node scripts/kullanici-ekle.mjs <kullanici_adi> "<Ad Soyad>" <yonetici|satis>
+// Kullanım: node scripts/kullanici-ekle.mjs <kullanici_adi> "<Ad Soyad>" <yonetici|satis|personel>
 // Şifre otomatik üretilir ve yalnızca bir kez ekrana yazılır. Bağlantı: DATABASE_URL ya da .env.local
 import { randomBytes, scrypt } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -7,8 +7,8 @@ import { promisify } from "node:util";
 import mysql from "mysql2/promise";
 
 const [ad, adSoyad, rol = "satis"] = process.argv.slice(2);
-if (!ad || !adSoyad || !["yonetici", "satis"].includes(rol)) {
-  console.error('Kullanım: node scripts/kullanici-ekle.mjs <kullanici_adi> "<Ad Soyad>" <yonetici|satis>');
+if (!ad || !adSoyad || !["yonetici", "satis", "personel"].includes(rol)) {
+  console.error('Kullanım: node scripts/kullanici-ekle.mjs <kullanici_adi> "<Ad Soyad>" <yonetici|satis|personel>');
   process.exit(1);
 }
 const url =
