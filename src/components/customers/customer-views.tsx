@@ -183,7 +183,7 @@ export function CustomerDetail({ c, admin, groups, staff }: { c: Detail; admin: 
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-12">
-        <Card className="p-5 lg:col-span-4">
+        <Card className="min-w-0 p-5 lg:col-span-4">
           <h2 className="text-[15px] font-semibold">İletişim</h2>
           <dl className="mt-3 space-y-3 text-sm">
             <Info label="Yetkili" value={c.yetkili} />
@@ -210,7 +210,7 @@ export function CustomerDetail({ c, admin, groups, staff }: { c: Detail; admin: 
           </dl>
         </Card>
 
-        <div className="space-y-4 lg:col-span-8">
+        <div className="min-w-0 space-y-4 lg:col-span-8">
           <Card className="overflow-hidden">
             <h2 className="px-5 pt-4 pb-3 text-[15px] font-semibold">Teklifler</h2>
             {!c.quotes.length ? (

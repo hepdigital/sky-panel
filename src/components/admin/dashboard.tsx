@@ -76,12 +76,12 @@ export function Dashboard({ greeting, role, period, data, tasks }: Props) {
           </section>
 
           <section className="grid gap-4 md:gap-5 lg:grid-cols-12">
-            <div className="space-y-4 md:space-y-5 lg:col-span-8">
+            <div className="min-w-0 space-y-4 md:space-y-5 lg:col-span-8">
               {admin && <Performance rows={data.performans} />}
               <RecentQuotes rows={data.sonTeklifler} admin={admin} />
               <RecentOrders rows={data.sonSiparisler} admin={admin} />
             </div>
-            <div className="space-y-4 md:space-y-5 lg:col-span-4">
+            <div className="min-w-0 space-y-4 md:space-y-5 lg:col-span-4">
               <OpenOrders acik={data.acik} />
               <MyTasks tasks={tasks} />
             </div>
