@@ -83,6 +83,7 @@ export function Dashboard({ greeting, role, period, data, tasks }: Props) {
             </div>
             <div className="min-w-0 space-y-4 md:space-y-5 lg:col-span-4">
               <OpenOrders acik={data.acik} />
+              <Channels rows={data.kanallar} />
               <MyTasks tasks={tasks} />
             </div>
           </section>
@@ -227,6 +228,34 @@ function RecentOrders({ rows, admin }: { rows: DashboardData["sonSiparisler"]; a
                 <OrderBadge durum={o.durum} />
                 <span className="tabular w-24 shrink-0 text-right text-sm font-bold">{TL(o.dahil)}</span>
               </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
+/** Müşteriler nereden geliyor: kanal başına teklif, onay ve sipariş tutarı */
+function Channels({ rows }: { rows: DashboardData["kanallar"] }) {
+  const max = Math.max(1, ...rows.map((r) => r.teklif));
+  return (
+    <Section title="Kanallar">
+      {!rows.length ? (
+        <Empty text="Bu dönemde teklif yok." />
+      ) : (
+        <ul className="space-y-3 border-t border-border px-5 py-4">
+          {rows.map((r) => (
+            <li key={r.kanal}>
+              <div className="flex items-baseline justify-between gap-2 text-sm">
+                <span className={cn("font-semibold", r.kanal === "Belirtilmemiş" && "text-muted-foreground")}>{r.kanal}</span>
+                <span className="tabular text-xs text-muted-foreground">
+                  {r.teklif} teklif · {r.onay} onay{r.ciro ? ` · ${TL(r.ciro)}` : ""}
+                </span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${(r.teklif / max) * 100}%` }} />
+              </div>
             </li>
           ))}
         </ul>

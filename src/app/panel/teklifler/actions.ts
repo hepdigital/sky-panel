@@ -1,6 +1,8 @@
 "use server";
 
-import { getSeller } from "@/server/auth";
+import { revalidatePath } from "next/cache";
+import { getSeller, isAdmin } from "@/server/auth";
+import { saveChannel } from "@/server/channels";
 import { saveQuote, searchCustomers, type SaveInput } from "@/server/quotes";
 
 export async function musteriAra(q: string) {
@@ -18,6 +20,18 @@ export async function teklifKaydet(input: SaveInput): Promise<{ ok: true; id: nu
     return { ok: true, ...(await saveQuote(me, input)) };
   } catch (e) {
     console.error("teklifKaydet", e);
-    return { ok: false, hata: e instanceof Error && e.message === "Teklifte kalem yok." ? e.message : "Teklif kaydedilemedi. Tekrar deneyin." };
+    return { ok: false, hata: e instanceof Error && (e.message === "Teklifte kalem yok." || e.message === "Kanal seçin.") ? e.message : "Teklif kaydedilemedi. Tekrar deneyin." };
   }
+}
+
+/** Kanal ekle / düzenle / kapat: yalnızca yönetici */
+export async function kanalKaydet(c: { id: number | null; ad: string; aktif: boolean }): Promise<{ ok: true } | { ok: false; hata: string }> {
+  const me = await getSeller();
+  if (!me || !isAdmin(me)) return { ok: false, hata: "Kanalları yalnızca yönetici düzenler." };
+  const r = await saveChannel(c);
+  if (r.ok) {
+    revalidatePath("/panel/teklifler");
+    revalidatePath("/panel/teklifler/yeni");
+  }
+  return r;
 }

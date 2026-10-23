@@ -24,19 +24,24 @@ export type CustomerHit = {
   eposta: string | null;
   /** Müşterinin iskonto grubu: seçilince teklife fiyat listesi ve genel iskonto olarak uygulanır */
   grup: { ad: string; liste: "perakende" | "toptan"; oran: number } | null;
+  /** Müşterinin son teklifindeki kanal (yeni teklifte hazır gelir) */
+  kanalId: number | null;
 };
 
 export async function searchCustomers(me: Me, q: string): Promise<CustomerHit[]> {
   if (q.trim().length < 2) return [];
   const l = likeOf(q.trim());
   const rows = await db()
-    .select({ id: musteriler.id, firma: musteriler.firma, yetkili: musteriler.yetkili, telefon: musteriler.telefon, eposta: musteriler.eposta, g: schema.iskontoGruplari })
+    .select({
+      id: musteriler.id, firma: musteriler.firma, yetkili: musteriler.yetkili, telefon: musteriler.telefon, eposta: musteriler.eposta, g: schema.iskontoGruplari,
+      kanalId: sql<number | null>`(SELECT ${teklifler.kanalId} FROM ${teklifler} WHERE ${teklifler.musteriId} = ${musteriler.id} AND ${teklifler.kanalId} IS NOT NULL ORDER BY ${teklifler.id} DESC LIMIT 1)`,
+    })
     .from(musteriler)
     .leftJoin(schema.iskontoGruplari, eq(schema.iskontoGruplari.id, musteriler.iskontoGrubuId))
     .where(and(ownCustomers(me), or(like(musteriler.firma, l), like(musteriler.yetkili, l), like(musteriler.telefon, l))))
     .orderBy(musteriler.firma)
     .limit(8);
-  return rows.map(({ g, ...r }) => ({ ...r, grup: g ? { ad: g.ad, liste: g.fiyatListesi, oran: g.oran } : null }));
+  return rows.map(({ g, ...r }) => ({ ...r, kanalId: r.kanalId === null ? null : Number(r.kanalId), grup: g ? { ad: g.ad, liste: g.fiyatListesi, oran: g.oran } : null }));
 }
 
 export type SaveInput = {
@@ -45,6 +50,8 @@ export type SaveInput = {
   musteri: { id: number | null; firma: string; yetkili: string; telefon: string; eposta: string } | null;
   /** Geçerlilik (gün): teklif linki bu süre sonunda kabul almaz */
   gun: number;
+  /** Müşterinin geldiği kanal (zorunlu; aktif kanallardan) */
+  kanalId: number | null;
 };
 
 const clip = (v: string | undefined, max: number) => (v?.trim() ? v.trim().slice(0, max) : null);
@@ -57,6 +64,10 @@ const clip = (v: string | undefined, max: number) => (v?.trim() ? v.trim().slice
 export async function saveQuote(me: Me, input: SaveInput) {
   const { veri } = input;
   if (!veri?.kalemler?.length) throw new Error("Teklifte kalem yok.");
+  const [kanal] = input.kanalId
+    ? await db().select({ id: schema.kanallar.id }).from(schema.kanallar).where(and(eq(schema.kanallar.id, input.kanalId), eq(schema.kanallar.aktif, true)))
+    : [];
+  if (!kanal) throw new Error("Kanal seçin.");
   return db().transaction(async (tx) => {
     let musteriId: number | null = null;
     const m = input.musteri;
@@ -101,6 +112,7 @@ export async function saveQuote(me: Me, input: SaveInput) {
       .values({
         no, yil, sira, musteriId,
         kullaniciId: me.id,
+        kanalId: kanal.id,
         kullanici: me.adSoyad,
         musteriAdi,
         fiyatTipi: veri.toptan ? "toptan" : "perakende",
@@ -124,12 +136,13 @@ export async function listQuotes(me: Me, q: string) {
   return db()
     .select({
       id: teklifler.id, no: teklifler.no, olusturma: teklifler.olusturma, musteriId: teklifler.musteriId,
-      musteri: teklifler.musteriAdi, kullanici: sql<string | null>`COALESCE(${kullanicilar.adSoyad}, ${teklifler.kullanici})`,
+      musteri: teklifler.musteriAdi, kullanici: sql<string | null>`COALESCE(${kullanicilar.adSoyad}, ${teklifler.kullanici})`, kanal: schema.kanallar.ad,
       fiyatTipi: teklifler.fiyatTipi, asama: teklifler.asama, ilkGorulme: teklifler.ilkGorulme,
       kalemSayisi: teklifler.kalemSayisi, haric: teklifler.tutarKdvHaric, dahil: teklifler.tutarKdvDahil,
     })
     .from(teklifler)
     .leftJoin(kullanicilar, eq(kullanicilar.id, teklifler.kullaniciId))
+    .leftJoin(schema.kanallar, eq(schema.kanallar.id, teklifler.kanalId))
     .where(and(ownQuotes(me), search))
     .orderBy(desc(teklifler.id))
     .limit(200);
@@ -137,7 +150,12 @@ export async function listQuotes(me: Me, q: string) {
 
 /** Teklif ayrıntısı; satışçı başkasının teklifini göremez (null döner) */
 export async function getQuote(me: Me, id: number) {
-  const [t] = await db().select().from(teklifler).where(and(eq(teklifler.id, id), ownQuotes(me)));
-  if (!t) return null;
+  const [row] = await db()
+    .select({ t: teklifler, kanal: schema.kanallar.ad })
+    .from(teklifler)
+    .leftJoin(schema.kanallar, eq(schema.kanallar.id, teklifler.kanalId))
+    .where(and(eq(teklifler.id, id), ownQuotes(me)));
+  if (!row) return null;
+  const t = { ...row.t, kanal: row.kanal };
   return { ...t, veri: JSON.parse(t.veri) as PdfData, durum: t.durum ? (JSON.parse(t.durum) as unknown) : null };
 }

@@ -14,7 +14,7 @@ export function groupText(g: NonNullable<QuoteCustomer["grup"]>) {
   return `${g.ad} · ${g.liste === "toptan" ? "Toptan" : "Perakende"}${oran}`;
 }
 
-export const hitToCustomer = (h: Hit): QuoteCustomer => ({ id: h.id, firma: h.firma, yetkili: h.yetkili ?? "", telefon: h.telefon ?? "", eposta: h.eposta ?? "", grup: h.grup });
+export const hitToCustomer = (h: Hit): QuoteCustomer => ({ id: h.id, firma: h.firma, yetkili: h.yetkili ?? "", telefon: h.telefon ?? "", eposta: h.eposta ?? "", grup: h.grup, kanalId: h.kanalId });
 
 /** Teklifin müşterisi: kayıtlı müşterilerde arar; seçilen müşterinin iskonto grubu fiyatlara uygulanır */
 export function CustomerBar({ customer, onChange }: { customer: QuoteCustomer | null; onChange: (c: QuoteCustomer | null) => void }) {

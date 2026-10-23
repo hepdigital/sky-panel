@@ -72,6 +72,19 @@ CREATE TABLE `iskonto_gruplari` (
   UNIQUE KEY `iskonto_gruplari_ad_unique` (`ad`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `kanallar`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `kanallar` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `ad` varchar(80) NOT NULL,
+  `aktif` tinyint(1) NOT NULL DEFAULT 1,
+  `sira` int(11) NOT NULL DEFAULT 0,
+  `olusturma` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `kanallar_ad_unique` (`ad`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `kullanicilar`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -170,6 +183,7 @@ CREATE TABLE `teklifler` (
   `sira` int(10) unsigned NOT NULL,
   `musteri_id` int(10) unsigned DEFAULT NULL,
   `kullanici_id` int(10) unsigned DEFAULT NULL,
+  `kanal_id` int(10) unsigned DEFAULT NULL,
   `kullanici` varchar(120) DEFAULT NULL,
   `musteri_adi` varchar(200) DEFAULT NULL,
   `fiyat_tipi` enum('perakende','toptan') NOT NULL,
@@ -196,6 +210,8 @@ CREATE TABLE `teklifler` (
   KEY `teklif_musteri` (`musteri_id`),
   KEY `teklif_tarih` (`olusturma`),
   KEY `teklif_kullanici` (`kullanici_id`),
+  KEY `teklif_kanal` (`kanal_id`),
+  CONSTRAINT `teklifler_kanal_id_kanallar_id_fk` FOREIGN KEY (`kanal_id`) REFERENCES `kanallar` (`id`) ON DELETE SET NULL,
   CONSTRAINT `teklifler_kullanici_id_kullanicilar_id_fk` FOREIGN KEY (`kullanici_id`) REFERENCES `kullanicilar` (`id`) ON DELETE SET NULL,
   CONSTRAINT `teklifler_musteri_id_musteriler_id_fk` FOREIGN KEY (`musteri_id`) REFERENCES `musteriler` (`id`) ON DELETE SET NULL ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_turkish_ci;

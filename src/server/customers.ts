@@ -136,7 +136,10 @@ export async function saveCustomer(me: Me, c: CustomerInput): Promise<{ ok: true
 /** Teklif ekranına müşteriyle gelince (Müşteri → Teklif oluştur) ön bilgi ve iskonto grubu */
 export async function customerForQuote(me: Me, id: number) {
   const [m] = await db()
-    .select({ id: musteriler.id, firma: musteriler.firma, yetkili: musteriler.yetkili, telefon: musteriler.telefon, eposta: musteriler.eposta, grup: iskontoGruplari })
+    .select({
+      id: musteriler.id, firma: musteriler.firma, yetkili: musteriler.yetkili, telefon: musteriler.telefon, eposta: musteriler.eposta, grup: iskontoGruplari,
+      kanalId: sql<number | null>`(SELECT ${teklifler.kanalId} FROM ${teklifler} WHERE ${teklifler.musteriId} = ${musteriler.id} AND ${teklifler.kanalId} IS NOT NULL ORDER BY ${teklifler.id} DESC LIMIT 1)`,
+    })
     .from(musteriler)
     .leftJoin(iskontoGruplari, eq(iskontoGruplari.id, musteriler.iskontoGrubuId))
     .where(and(eq(musteriler.id, id), own(me)));
@@ -144,6 +147,7 @@ export async function customerForQuote(me: Me, id: number) {
   return {
     id: m.id, firma: m.firma, yetkili: m.yetkili ?? "", telefon: m.telefon ?? "", eposta: m.eposta ?? "",
     grup: m.grup ? { ad: m.grup.ad, liste: m.grup.fiyatListesi, oran: m.grup.oran } : null,
+    kanalId: m.kanalId === null ? null : Number(m.kanalId),
   };
 }
 

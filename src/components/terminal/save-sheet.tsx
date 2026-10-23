@@ -18,6 +18,8 @@ export type QuoteCustomer = {
   eposta: string;
   /** Kayıtlı müşterinin iskonto grubu */
   grup?: { ad: string; liste: "perakende" | "toptan"; oran: number } | null;
+  /** Müşterinin son teklifindeki kanal (kayıtta hazır gelir) */
+  kanalId?: number | null;
 };
 type Hit = Awaited<ReturnType<typeof musteriAra>>[number];
 
@@ -33,6 +35,7 @@ export function SaveSheet({
   onClose,
   q,
   catalog,
+  channels,
   user,
   customer,
   onPickCustomer,
@@ -42,6 +45,7 @@ export function SaveSheet({
   onClose: () => void;
   q: QuoteState;
   catalog: Catalog;
+  channels: { id: number; ad: string }[];
   user: string;
   customer: QuoteCustomer | null;
   /** Kayıtlı müşteri seçilince terminale bildirilir (iskonto grubu fiyatlara uygulanır) */
@@ -51,6 +55,7 @@ export function SaveSheet({
   const [c, setC] = useState<QuoteCustomer>({ id: null, firma: "", yetkili: "", telefon: "", eposta: "" });
   const [hits, setHits] = useState<Hit[]>([]);
   const [gun, setGun] = useState(7);
+  const [kanalId, setKanalId] = useState<number | null>(null);
   const [not, setNot] = useState("");
   const [hazirlayan, setHazirlayan] = useState(user);
   const [gorsel, setGorsel] = useState(true);
@@ -64,6 +69,7 @@ export function SaveSheet({
     if (!open) return;
     /* eslint-disable react-hooks/set-state-in-effect -- yalnızca açılışta form başlangıç değerleri */
     setC(customer ?? { id: null, firma: "", yetkili: "", telefon: "", eposta: "" });
+    setKanalId(customer?.kanalId && channels.some((k) => k.id === customer.kanalId) ? customer.kanalId : null);
     setHazirlayan(user);
     setErr(null);
     setDone(null);
@@ -80,12 +86,13 @@ export function SaveSheet({
   };
 
   async function save() {
+    if (!kanalId) return setErr("Müşterinin geldiği kanalı seçin.");
     if (!c.firma.trim() && !confirm("Müşteri adı boş. Müşterisiz kaydedilsin mi?")) return;
     setBusy(true);
     setErr(null);
     const data = quoteData(q, { musteri: c.firma, yetkili: c.yetkili, telefon: c.telefon, eposta: c.eposta, gun, hazirlayan, not, gorsel }, catalog);
     const musteri = c.firma.trim() ? c : null;
-    const r = await teklifKaydet({ veri: data, durum: q, musteri, gun }).catch(() => ({ ok: false as const, hata: "Sunucuya ulaşılamadı." }));
+    const r = await teklifKaydet({ veri: data, durum: q, musteri, gun, kanalId }).catch(() => ({ ok: false as const, hata: "Sunucuya ulaşılamadı." }));
     if (!r.ok) {
       setBusy(false);
       return setErr(r.hata);
@@ -143,8 +150,9 @@ export function SaveSheet({
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
-                        const picked = { id: h.id, firma: h.firma, yetkili: h.yetkili ?? "", telefon: h.telefon ?? "", eposta: h.eposta ?? "", grup: h.grup };
+                        const picked = { id: h.id, firma: h.firma, yetkili: h.yetkili ?? "", telefon: h.telefon ?? "", eposta: h.eposta ?? "", grup: h.grup, kanalId: h.kanalId };
                         setC(picked);
+                        if (h.kanalId && channels.some((k) => k.id === h.kanalId)) setKanalId(h.kanalId);
                         onPickCustomer(picked);
                         setHits([]);
                       }}
@@ -172,6 +180,24 @@ export function SaveSheet({
               </label>
             ))}
           </div>
+          <label className="block">
+            <span className={label}>Kanal · müşteri nereden geldi?</span>
+            <select
+              value={kanalId ?? ""}
+              onChange={(e) => {
+                setKanalId(Number(e.target.value) || null);
+                setErr(null);
+              }}
+              className={cn(input, "appearance-auto", !kanalId && "text-muted-foreground")}
+            >
+              <option value="">Seçin…</option>
+              {channels.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.ad}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
             <label>
               <span className={label}>Hazırlayan</span>

@@ -34,7 +34,7 @@ export async function dashboard(me: Me, p: Period) {
   const qIn = and(qOwn, from ? gte(teklifler.olusturma, from) : undefined);
   const oIn = and(oOwn, from ? gte(siparisler.olusturma, from) : undefined, sql`${siparisler.durum} <> 'iptal'`);
 
-  const [quoteStats, orderStats, open, recentQuotes, recentOrders, perQuote, perOrder, staff] = await Promise.all([
+  const [quoteStats, orderStats, open, recentQuotes, recentOrders, perQuote, perOrder, staff, byChannel] = await Promise.all([
     db()
       .select({
         adet: sql<number>`COUNT(*)`,
@@ -100,6 +100,19 @@ export async function dashboard(me: Me, p: Period) {
           .from(kullanicilar)
           .where(inArray(kullanicilar.rol, ["yonetici", "satis"]))
       : Promise.resolve([]),
+    // Kanallara göre: dönemde verilen teklifler, onaylananlar ve bu tekliflerden doğan sipariş tutarı
+    db()
+      .select({
+        kanal: schema.kanallar.ad,
+        teklif: sql<number>`COUNT(*)`,
+        onay: sql<number>`SUM(${teklifler.asama} IN ('onaylandi', 'siparis'))`,
+        ciro: sql<number>`COALESCE(SUM(CASE WHEN ${siparisler.durum} <> 'iptal' THEN ${siparisler.tutarKdvDahil} END), 0)`,
+      })
+      .from(teklifler)
+      .leftJoin(schema.kanallar, eq(schema.kanallar.id, teklifler.kanalId))
+      .leftJoin(siparisler, eq(siparisler.teklifId, teklifler.id))
+      .where(qIn)
+      .groupBy(teklifler.kanalId, schema.kanallar.ad),
   ]);
 
   const q = quoteStats[0];
@@ -121,6 +134,9 @@ export async function dashboard(me: Me, p: Period) {
     sonTeklifler: recentQuotes.map((r) => ({ ...r, olusturma: r.olusturma.toISOString(), ilkGorulme: r.ilkGorulme?.toISOString() ?? null })),
     sonSiparisler: recentOrders.map((r) => ({ ...r, olusturma: r.olusturma.toISOString() })),
     performans,
+    kanallar: byChannel
+      .map((r) => ({ kanal: r.kanal ?? "Belirtilmemiş", teklif: n(r.teklif), onay: n(r.onay), ciro: n(r.ciro) }))
+      .sort((a, b) => b.teklif - a.teklif),
   };
 }
 export type DashboardData = Awaited<ReturnType<typeof dashboard>>;

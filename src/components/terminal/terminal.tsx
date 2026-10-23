@@ -65,7 +65,7 @@ function withCustomer(q: QuoteState, c: QuoteCustomer | null): QuoteState {
 }
 
 /** catalog: veritabanındaki ürünler (Ürünler ekranı); initialCustomer: müşteri sayfasından "Teklif oluştur" ile gelindiyse */
-export function Terminal({ catalog, initialCustomer }: { catalog: Catalog; initialCustomer: QuoteCustomer | null }) {
+export function Terminal({ catalog, initialCustomer, channels }: { catalog: Catalog; initialCustomer: QuoteCustomer | null; channels: { id: number; ad: string }[] }) {
   const { user } = useRole();
   const [q, setQ] = useState<QuoteState>(emptyQuote);
   const [draft, setDraft] = useState<Gazebo>(newDraft);
@@ -271,6 +271,7 @@ export function Terminal({ catalog, initialCustomer }: { catalog: Catalog; initi
         onClose={() => setSaving(false)}
         q={q}
         catalog={catalog}
+        channels={channels}
         user={user.user}
         customer={customer}
         onPickCustomer={pickCustomer}

@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { Terminal } from "@/components/terminal/terminal";
 import { requireSeller } from "@/server/auth";
 import { getCatalog } from "@/server/catalog";
+import { activeChannels } from "@/server/channels";
 import { customerForQuote } from "@/server/customers";
 
 export const metadata: Metadata = { title: "Yeni teklif" };
@@ -13,8 +14,8 @@ async function Loaded({ searchParams }: { searchParams: Promise<{ musteri?: stri
   const me = await requireSeller();
   const raw = (await searchParams).musteri;
   const id = Number(typeof raw === "string" ? raw : "");
-  const [catalog, customer] = await Promise.all([getCatalog(), id > 0 ? customerForQuote(me, id) : null]);
-  return <Terminal catalog={catalog} initialCustomer={customer} />;
+  const [catalog, customer, channels] = await Promise.all([getCatalog(), id > 0 ? customerForQuote(me, id) : null, activeChannels()]);
+  return <Terminal catalog={catalog} initialCustomer={customer} channels={channels} />;
 }
 
 export default function NewQuotePage({ searchParams }: PageProps<"/panel/teklifler/yeni">) {

@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, FilePlus2, Search } from "lucide-react";
+import { Eye, FilePlus2, Search, Settings2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatDate, formatTRY } from "@/lib/utils";
+import { ChannelSheet, type Channel } from "./channel-sheet";
 import { ASAMA, type Asama } from "./quote-flow";
 
 export type QuoteRow = {
@@ -19,13 +21,15 @@ export type QuoteRow = {
   kalemSayisi: number;
   asama: Asama;
   ilkGorulme: string | null;
+  kanal: string | null;
   haric: number;
   dahil: number;
 };
 
 /** Kayıtlı teklifler: arama (no, müşteri, hazırlayan) */
-export function QuoteTable({ rows, q }: { rows: QuoteRow[]; q: string }) {
+export function QuoteTable({ rows, q, channels }: { rows: QuoteRow[]; q: string; channels: Channel[] | null }) {
   const router = useRouter();
+  const [chOpen, setChOpen] = useState(false);
   return (
     <div className="mx-auto max-w-[1400px]">
       <div className="flex flex-wrap items-end justify-between gap-3 pt-1">
@@ -35,10 +39,18 @@ export function QuoteTable({ rows, q }: { rows: QuoteRow[]; q: string }) {
             {rows.length} teklif{q ? " bulundu" : ""} · kaydedilen her teklifin PDF&apos;i aynen yeniden indirilebilir
           </p>
         </div>
-        <Link href="/panel/teklifler/yeni" className={buttonVariants()}>
-          <FilePlus2 /> Yeni teklif
-        </Link>
+        <div className="flex gap-2">
+          {channels && (
+            <button type="button" onClick={() => setChOpen(true)} title="Kanallar (müşterinin geldiği yer)" aria-label="Kanallar" className={buttonVariants({ variant: "outline", size: "icon" })}>
+              <Settings2 />
+            </button>
+          )}
+          <Link href="/panel/teklifler/yeni" className={buttonVariants()}>
+            <FilePlus2 /> Yeni teklif
+          </Link>
+        </div>
       </div>
+      {channels && <ChannelSheet open={chOpen} onClose={() => setChOpen(false)} channels={channels} />}
 
       <form
         className="mt-5"
@@ -85,6 +97,7 @@ export function QuoteTable({ rows, q }: { rows: QuoteRow[]; q: string }) {
                     {t.fiyatTipi === "toptan" && <Badge tone="warning">Toptan</Badge>}
                   </div>
                   <p className="col-span-2 text-xs text-muted-foreground md:col-span-1">
+                    {t.kanal && <span className="font-semibold text-foreground/80">{t.kanal} · </span>}
                     {t.kullanici ?? "—"} · {formatDate(t.olusturma, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </Link>

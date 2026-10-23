@@ -65,6 +65,16 @@ export const musteriler = mysqlTable(
   (t) => [index("musteri_firma").on(t.firma), index("musteri_sahip").on(t.sahipId)],
 );
 
+/** Müşterinin geldiği kanal (Web sitesi, Instagram…): yönetici tanımlar, teklifte listeden seçilir */
+export const kanallar = mysqlTable("kanallar", {
+  id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+  ad: varchar("ad", { length: 80 }).notNull().unique(),
+  /** Kapalı kanal yeni tekliflerde seçilemez, eski tekliflerde görünmeye devam eder */
+  aktif: boolean("aktif").notNull().default(true),
+  sira: int("sira").notNull().default(0),
+  olusturma: timestamp("olusturma").notNull().defaultNow(),
+});
+
 /**
  * Teklif aşaması: taslak (kaydedildi) → gonderildi (WhatsApp/e-posta ile iletildi) → onaylandi / reddedildi → siparis.
  * Müşteri teklif linkini açınca ilk/son görülme ve sayısı tutulur; linkten kabul ya da revizyon isteği gelebilir.
@@ -81,6 +91,8 @@ export const teklifler = mysqlTable(
     musteriId: int("musteri_id", { unsigned: true }).references(() => musteriler.id, { onDelete: "set null" }),
     /** Teklifi veren satışçı */
     kullaniciId: int("kullanici_id", { unsigned: true }).references(() => kullanicilar.id, { onDelete: "set null" }),
+    /** Müşterinin geldiği kanal */
+    kanalId: int("kanal_id", { unsigned: true }).references(() => kanallar.id, { onDelete: "set null" }),
     /** Teklifi kaydedenin adı (kayıt anındaki; eski kayıtlarda yalnızca bu vardır) */
     kullanici: varchar("kullanici", { length: 120 }),
     /** Teklif anındaki müşteri adı (müşteri kartı sonradan değişse de) */
@@ -112,6 +124,7 @@ export const teklifler = mysqlTable(
     uniqueIndex("teklif_yil_sira").on(t.yil, t.sira),
     index("teklif_musteri").on(t.musteriId),
     index("teklif_kullanici").on(t.kullaniciId),
+    index("teklif_kanal").on(t.kanalId),
     index("teklif_tarih").on(t.olusturma),
   ],
 );

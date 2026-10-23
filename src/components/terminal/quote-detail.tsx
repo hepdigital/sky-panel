@@ -23,6 +23,7 @@ type Quote = {
   musteriId: number | null;
   veri: PdfData;
   durum: unknown;
+  kanal: string | null;
 };
 
 /** Teklif ayrıntısı: kalemler, toplamlar; PDF kayıttaki veriden aynen üretilir, "Terminalde aç" sepeti bu teklifle doldurur */
@@ -98,6 +99,8 @@ export function QuoteDetail({ quote, flow }: { quote: Quote; flow: QuoteFlowInfo
             <dd>
               <Badge tone={quote.fiyatTipi === "toptan" ? "warning" : "info"}>{quote.fiyatTipi === "toptan" ? "Toptan" : "Perakende"}</Badge>
             </dd>
+            <dt className="text-muted-foreground">Kanal</dt>
+            <dd>{quote.kanal ?? "—"}</dd>
             <dt className="text-muted-foreground">Geçerlilik</dt>
             <dd>{v.gecerlilik || "—"}</dd>
             <dt className="text-muted-foreground">Satır tutarları</dt>
