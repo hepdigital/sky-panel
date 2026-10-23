@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ReceiptText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { imgSrc, type PdfData } from "@/lib/terminal/calc";
 import { formatTRY } from "@/lib/utils";
@@ -22,8 +23,13 @@ export function QuoteItems({ v, compact }: { v: PdfData; compact?: boolean }) {
           return (
             <li key={i} className={`${pad} py-4`}>
               <div className="flex gap-3.5">
-                <span className="relative size-[72px] shrink-0 overflow-hidden rounded-xl bg-white ring-1 ring-border">
-                  {img && <Image src={img} alt="" fill sizes="72px" className="object-contain p-1" unoptimized={!img.startsWith("/terminal/")} />}
+                <span className="relative grid size-[72px] shrink-0 place-items-center overflow-hidden rounded-xl bg-white ring-1 ring-border">
+                  {img ? (
+                    <Image src={img} alt="" fill sizes="72px" className="object-contain p-1" unoptimized={!img.startsWith("/terminal/")} />
+                  ) : (
+                    // Ek kalem (nakliye, montaj…): görseli yok
+                    <ReceiptText className="size-7 text-muted-foreground" />
+                  )}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold leading-snug">{k.ad}</p>

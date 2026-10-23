@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { AlertTriangle, Copy, FileDown, Pencil, Percent, Trash2 } from "lucide-react";
+import { AlertTriangle, Copy, FileDown, Pencil, Percent, Plus, ReceiptText, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QtyStepper } from "@/components/ui/qty-stepper";
-import { SZ, cartUnpriced, hesap, iskEtiket, iskYok, imgSrc, modeName, wallDetail, type Catalog, type Isk, type QuoteState } from "@/lib/terminal/calc";
+import { SZ, cartUnpriced, hesap, iskEtiket, iskYok, imgSrc, modeName, wallDetail, type Catalog, type ExtraLine, type Isk, type QuoteState } from "@/lib/terminal/calc";
 import { cn } from "@/lib/utils";
+import { ExtraSheet } from "./extra-sheet";
 
 type Props = {
   q: QuoteState;
@@ -21,12 +22,16 @@ type Props = {
   onClear: () => void;
 };
 
-/** Teklif özeti: sepetteki gazeboler ve ürünler, satır ve genel iskonto, toplamlar */
+/** Teklif özeti: sepetteki gazeboler, ürünler ve ek kalemler; satır ve genel iskonto, toplamlar */
 export function Summary({ q, setQ, catalog, money, editingId, onEdit, onCopy, onSave, onClear }: Props) {
   const H = hesap(q, catalog);
   const unpriced = cartUnpriced(q);
   const all = catalog.flatMap((g) => g.items);
   const items = all.filter((it) => (q.prod[it.id] || 0) > 0);
+  const extra = q.extra ?? [];
+  const empty = !q.cart.length && !items.length && !extra.length;
+  /** Açık ek kalem penceresi: null kapalı, "yeni" ya da düzenlenen kalem */
+  const [extraOpen, setExtraOpen] = useState<ExtraLine | "yeni" | null>(null);
 
   const setCart = (id: string, patch: Partial<QuoteState["cart"][number]>) => setQ({ ...q, cart: q.cart.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
   const removeCart = (id: string) => setQ({ ...q, cart: q.cart.filter((c) => c.id !== id) });
@@ -36,30 +41,40 @@ export function Summary({ q, setQ, catalog, money, editingId, onEdit, onCopy, on
     else delete prod[id];
     setQ({ ...q, prod });
   };
+  const setExtra = (id: string, patch: Partial<ExtraLine>) => setQ({ ...q, extra: extra.map((x) => (x.id === id ? { ...x, ...patch } : x)) });
+  const removeExtra = (id: string) => setQ({ ...q, extra: extra.filter((x) => x.id !== id) });
+  const saveExtra = (x: ExtraLine) => setQ({ ...q, extra: extra.some((e) => e.id === x.id) ? extra.map((e) => (e.id === x.id ? x : e)) : [...extra, x] });
 
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[15px] font-semibold">Teklif özeti</h2>
-        {(q.cart.length > 0 || items.length > 0) && (
+        {!empty && (
           <button type="button" onClick={onClear} className="text-xs font-semibold text-muted-foreground hover:text-danger">
             Sıfırla
           </button>
         )}
       </div>
 
-      {!q.cart.length && !items.length ? (
+      {empty ? (
         <p className="mt-4 rounded-xl bg-muted/60 px-4 py-6 text-center text-sm text-muted-foreground">Gazebo kurup teklife ekleyin ya da ürün seçin.</p>
       ) : (
         <ul className="mt-3 divide-y divide-border">
           {H.rows.map((r) => {
             const gz = q.cart.find((c) => c.id === r.key);
+            const ex = gz ? undefined : extra.find((x) => x.id === r.key);
             return (
               <li key={r.key} className={cn("py-3", gz && editingId === gz.id && "rounded-xl bg-primary-soft/50 px-2")}>
                 <div className="flex gap-3">
-                  <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-white ring-1 ring-border">
-                    <Image src={gz?.views?.[0] ?? imgSrc(gz ? `r:${gz.size}` : (all.find((i) => i.id === r.key)?.img ?? `r:3x3`))} alt="" fill sizes="44px" className="object-contain p-0.5" unoptimized />
-                  </span>
+                  {ex ? (
+                    <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground ring-1 ring-border">
+                      <ReceiptText className="size-5" />
+                    </span>
+                  ) : (
+                    <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-white ring-1 ring-border">
+                      <Image src={gz?.views?.[0] ?? imgSrc(gz ? `r:${gz.size}` : (all.find((i) => i.id === r.key)?.img ?? `r:3x3`))} alt="" fill sizes="44px" className="object-contain p-0.5" unoptimized />
+                    </span>
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold leading-tight">{gz ? `Gazebo ${SZ[gz.size]} m` : r.t.replace(/ × \d+$/, "")}</p>
                     <p className="line-clamp-2 text-[11px] text-muted-foreground">{gz ? `${r.s} · ${wallDetail(gz)}` : r.s}</p>
@@ -79,12 +94,19 @@ export function Summary({ q, setQ, catalog, money, editingId, onEdit, onCopy, on
                     size="sm"
                     className="w-24"
                     value={r.adet}
-                    onChange={(n) => (gz ? (n <= 0 ? removeCart(gz.id) : setCart(gz.id, { qty: Math.min(99, n) })) : setProd(r.key, n))}
+                    onChange={(n) =>
+                      gz ? (n <= 0 ? removeCart(gz.id) : setCart(gz.id, { qty: Math.min(99, n) })) : ex ? (n <= 0 ? removeExtra(ex.id) : setExtra(ex.id, { adet: Math.min(999, n) })) : setProd(r.key, n)
+                    }
                   />
                   <DiscountButton
                     value={r.isk}
-                    onChange={(isk) => (gz ? setCart(gz.id, { isk }) : setQ({ ...q, prodIsk: { ...q.prodIsk, [r.key]: isk } }))}
+                    onChange={(isk) => (gz ? setCart(gz.id, { isk }) : ex ? setExtra(ex.id, { isk }) : setQ({ ...q, prodIsk: { ...q.prodIsk, [r.key]: isk } }))}
                   />
+                  {ex && (
+                    <IconBtn label="Düzenle" onClick={() => setExtraOpen(ex)}>
+                      <Pencil />
+                    </IconBtn>
+                  )}
                   {gz && (
                     <>
                       <IconBtn label="Düzenle" onClick={() => onEdit(gz.id)}>
@@ -95,7 +117,7 @@ export function Summary({ q, setQ, catalog, money, editingId, onEdit, onCopy, on
                       </IconBtn>
                     </>
                   )}
-                  <IconBtn label="Kaldır" onClick={() => (gz ? removeCart(gz.id) : setProd(r.key, 0))}>
+                  <IconBtn label="Kaldır" onClick={() => (gz ? removeCart(gz.id) : ex ? removeExtra(ex.id) : setProd(r.key, 0))}>
                     <Trash2 />
                   </IconBtn>
                 </div>
@@ -104,6 +126,22 @@ export function Summary({ q, setQ, catalog, money, editingId, onEdit, onCopy, on
           })}
         </ul>
       )}
+
+      <button
+        type="button"
+        onClick={() => setExtraOpen("yeni")}
+        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-input py-2.5 text-xs font-semibold text-muted-foreground hover:border-primary hover:text-foreground"
+      >
+        <Plus className="size-3.5" /> Ek kalem · nakliye, montaj, baskı ücreti…
+      </button>
+      <ExtraSheet
+        key={extraOpen === "yeni" ? "yeni" : (extraOpen?.id ?? "kapali")}
+        open={!!extraOpen}
+        onClose={() => setExtraOpen(null)}
+        line={extraOpen === "yeni" ? null : extraOpen}
+        vat={q.vat}
+        onSave={saveExtra}
+      />
 
       <dl className="mt-3 space-y-1.5 border-t border-border pt-3 text-sm">
         <Row label="Liste toplamı" value={money(H.araListe)} muted />

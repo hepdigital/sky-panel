@@ -74,6 +74,13 @@ export function colorText(g: Gazebo) {
 export type Isk = { tip: "yuzde" | "tutar"; d: number };
 /** views: teklife eklenirken 3D'den alınan iki çapraz açı görüntüsü (sol-ön, sağ-arka); PDF'e basılır */
 export type CartGazebo = Gazebo & { id: string; qty: number; isk: Isk; views?: string[] };
+/**
+ * Ek kalem: katalogdan bağımsız, adı ve fiyatı elle yazılan satır (nakliye, montaj, baskı ücreti…).
+ * birim KDV hariç saklanır ve fiyat listesinden (toptan/perakende) etkilenmez.
+ */
+export type ExtraLine = { id: string; ad: string; aciklama: string; adet: number; birim: number; isk: Isk };
+/** Ek kalem hazır adları */
+export const EXTRA_PRESETS = ["Nakliye bedeli", "Montaj bedeli", "Baskı ücreti", "Tasarım ücreti", "Kurulum ve söküm"];
 /** Teklifin tamamı (terminalin localStorage durumuyla aynı alanlar: eski teklifler aynen açılır) */
 export type QuoteState = {
   mode: Mode;
@@ -84,6 +91,8 @@ export type QuoteState = {
   isk: Isk;
   /** Genel iskonto müşterinin iskonto grubundan geldiyse grubun adı (elle değişince silinir) */
   iskGrup?: string;
+  /** Ek kalemler (eski kayıtlarda yoktur) */
+  extra?: ExtraLine[];
 };
 
 export const newIsk = (): Isk => ({ tip: "yuzde", d: 0 });
@@ -197,7 +206,7 @@ export function iskEtiket(i?: Isk) {
 
 export type Row = { key: string; t: string; s: string; birim: number; net: number; adet: number; isk?: Isk; liste: number; v: number; bad?: boolean };
 
-/** Teklifin tüm satırları (gazeboler + katalog ürünleri) */
+/** Teklifin tüm satırları (gazeboler + katalog ürünleri + ek kalemler) */
 export function allRows(q: QuoteState, catalog: Catalog): Row[] {
   const rows: Row[] = [];
   for (const c of q.cart) {
@@ -221,6 +230,10 @@ export function allRows(q: QuoteState, catalog: Catalog): Row[] {
         rows.push({ key: it.id, t: it.n + (qty > 1 ? ` × ${qty}` : ""), s: it.s, birim: pr, net, adet: qty, isk: i, liste: pr * qty, v: net * qty });
       }
     }
+  for (const x of q.extra ?? []) {
+    const net = netBirim(x.birim, x.isk);
+    rows.push({ key: x.id, t: x.ad + (x.adet > 1 ? ` × ${x.adet}` : ""), s: x.aciklama, birim: x.birim, net, adet: x.adet, isk: x.isk, liste: x.birim * x.adet, v: net * x.adet });
+  }
   return rows;
 }
 
@@ -280,6 +293,9 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog) {
         return [{ ad: it.n, alt: it.s, adet: qty, birim: adj(pr), isk: iskEtiket(i), tutar: adj(netBirim(pr, i) * qty), img: it.img, parcalar: [] }];
       }),
     ),
+    ...(q.extra ?? []).map((x) => ({
+      ad: x.ad, alt: x.aciklama, adet: x.adet, birim: adj(x.birim), isk: iskEtiket(x.isk), tutar: adj(netBirim(x.birim, x.isk) * x.adet), img: null as string | null, parcalar: [],
+    })),
   ];
   const H = hesap(q, catalog);
   const ham = H.net;

@@ -47,6 +47,11 @@ function parseState(raw: unknown): QuoteState | null {
     prodIsk: d.prodIsk && typeof d.prodIsk === "object" ? d.prodIsk : base.prodIsk,
     isk: d.isk ?? base.isk,
     iskGrup: typeof d.iskGrup === "string" ? d.iskGrup : undefined,
+    extra: Array.isArray(d.extra)
+      ? d.extra
+          .filter((x) => x && typeof x.ad === "string" && Number.isFinite(x.birim))
+          .map((x) => ({ id: x.id || newId(), ad: x.ad, aciklama: x.aciklama ?? "", adet: Math.max(1, Math.min(999, x.adet || 1)), birim: x.birim, isk: x.isk ?? newIsk() }))
+      : undefined,
   };
 }
 
