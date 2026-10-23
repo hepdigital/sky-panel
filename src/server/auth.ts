@@ -7,13 +7,13 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { cache } from "react";
 import { db, schema } from "./db";
+import { COOKIE, RENEW_BELOW_DAYS, SESSION_DAYS, sessionCookie } from "./session-cookie";
 
 // Personel girişi: kullanıcı adı (ya da e-posta) + şifre, oturum veritabanında.
 // Çerezde rastgele anahtar durur, veritabanında yalnızca SHA-256 özeti saklanır.
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
-const COOKIE = "sky_oturum";
-const SESSION_DAYS = 30;
+
 
 export async function hashPassword(password: string) {
   const salt = randomBytes(16);
@@ -37,7 +37,7 @@ export async function createSession(userId: number) {
   const bitis = new Date(Date.now() + SESSION_DAYS * 86_400_000);
   await db().insert(schema.oturumlar).values({ tokenHash: sha256(token), kullaniciId: userId, bitis });
   await db().update(schema.kullanicilar).set({ sonGiris: new Date() }).where(eq(schema.kullanicilar.id, userId));
-  (await cookies()).set(COOKIE, token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", expires: bitis });
+  (await cookies()).set(COOKIE, token, sessionCookie(bitis));
   // Süresi dolan oturumlar ara ara temizlenir
   if (Math.random() < 0.05) await db().delete(schema.oturumlar).where(lt(schema.oturumlar.bitis, new Date()));
 }
@@ -59,11 +59,16 @@ export const getMe = cache(async (): Promise<Me | null> => {
   await connection();
   const k = schema.kullanicilar;
   const [row] = await db()
-    .select({ id: k.id, kullaniciAdi: k.kullaniciAdi, adSoyad: k.adSoyad, eposta: k.eposta, telefon: k.telefon, rol: k.rol })
+    .select({ id: k.id, kullaniciAdi: k.kullaniciAdi, adSoyad: k.adSoyad, eposta: k.eposta, telefon: k.telefon, rol: k.rol, bitis: schema.oturumlar.bitis })
     .from(schema.oturumlar)
     .innerJoin(k, eq(k.id, schema.oturumlar.kullaniciId))
     .where(and(eq(schema.oturumlar.tokenHash, sha256(token)), gt(schema.oturumlar.bitis, new Date()), eq(k.aktif, true)));
-  return row ?? null;
+  if (!row) return null;
+  const { bitis, ...me } = row;
+  // Kullandıkça uzar (en çok ayda bir yazılır)
+  if (bitis.getTime() - Date.now() < RENEW_BELOW_DAYS * 86_400_000)
+    await db().update(schema.oturumlar).set({ bitis: new Date(Date.now() + SESSION_DAYS * 86_400_000) }).where(eq(schema.oturumlar.tokenHash, sha256(token)));
+  return me;
 });
 
 export async function requireMe() {
