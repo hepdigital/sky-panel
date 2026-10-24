@@ -171,6 +171,35 @@ export const teklifler = mysqlTable(
   ],
 );
 
+/**
+ * Site bağlantısı: markanın e-ticaret sitesi (GazeboTente sitesi ya da WooCommerce). Panel siteden siparişleri çeker,
+ * paneldeki durum/ödeme/kargo değişikliğini siteye yazar. anahtar: GazeboTente için API anahtarı, WooCommerce için "ck_…:cs_…".
+ */
+export const siteBaglantilari = mysqlTable(
+  "site_baglantilari",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    markaId: int("marka_id", { unsigned: true })
+      .notNull()
+      .references(() => markalar.id),
+    tur: mysqlEnum("tur", ["gazebotente", "woocommerce"]).notNull(),
+    ad: varchar("ad", { length: 120 }).notNull(),
+    /** Sitenin adresi (https://…) */
+    adres: varchar("adres", { length: 255 }).notNull(),
+    anahtar: varchar("anahtar", { length: 255 }),
+    aktif: boolean("aktif").notNull().default(true),
+    /** Son çekilen değişiklik anı (bir sonraki çekme buradan devam eder) */
+    imlec: varchar("imlec", { length: 40 }),
+    sonDeneme: timestamp("son_deneme"),
+    sonBasari: timestamp("son_basari"),
+    sonHata: text("son_hata"),
+    /** Sitenin durum, ödeme ve kargo listeleri (JSON; siteden gelir) */
+    sozluk: longtext("sozluk"),
+    olusturma: timestamp("olusturma").notNull().defaultNow(),
+  },
+  (t) => [index("site_marka").on(t.markaId)],
+);
+
 /** Sipariş durumu: alındı → üretimde → hazır → kargoda/sevkiyatta → teslim edildi (ya da iptal) */
 export const SIPARIS_DURUMLARI = ["alindi", "uretimde", "hazir", "kargoda", "teslim", "iptal"] as const;
 
@@ -191,16 +220,34 @@ export const siparisler = mysqlTable(
     markaId: int("marka_id", { unsigned: true })
       .notNull()
       .references(() => markalar.id),
+    /** teklif: panelde tekliften dönüştü · site: e-ticaret sitesinden geldi */
+    kaynak: mysqlEnum("kaynak", ["teklif", "site"]).notNull().default("teklif"),
+    siteId: int("site_id", { unsigned: true }).references(() => siteBaglantilari.id),
+    /** Sitedeki sipariş numarası ve durumu (sitenin kendi durum anahtarı) */
+    disNo: varchar("dis_no", { length: 40 }),
+    disDurum: varchar("dis_durum", { length: 32 }),
+    odemeYontemi: varchar("odeme_yontemi", { length: 80 }),
+    odemeDurumu: varchar("odeme_durumu", { length: 32 }),
     musteriAdi: varchar("musteri_adi", { length: 200 }),
+    /** Panelin genel durumu (site siparişlerinde sitenin durumundan türetilir) */
     durum: mysqlEnum("durum", SIPARIS_DURUMLARI).notNull().default("alindi"),
     tutarKdvHaric: decimal("tutar_kdv_haric", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
     tutarKdvDahil: decimal("tutar_kdv_dahil", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
     veri: longtext("veri").notNull(),
+    /** Site siparişinin tüm ayrıntısı (JSON: müşteri, adres, fatura, kalemler, kargo, geçmiş, dosyalar, linkler) */
+    siteVeri: longtext("site_veri"),
+    /** Siparişin sitede verildiği an */
+    disTarih: timestamp("dis_tarih"),
     notlar: text("notlar"),
     olusturma: timestamp("olusturma").notNull().defaultNow(),
     guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
   },
-  (t) => [uniqueIndex("siparis_yil_sira").on(t.yil, t.sira), index("siparis_musteri").on(t.musteriId), index("siparis_kullanici").on(t.kullaniciId)],
+  (t) => [
+    uniqueIndex("siparis_site_dis_no").on(t.siteId, t.disNo),
+    index("siparis_kaynak").on(t.kaynak),
+    index("siparis_musteri").on(t.musteriId),
+    index("siparis_kullanici").on(t.kullaniciId),
+  ],
 );
 
 /** Ürün kategorisi: terminalin üst menüsünde sırasıyla görünür (modüler gazebo hariç tüm ürünler) */

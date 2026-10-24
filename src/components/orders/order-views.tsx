@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, CircleCheckBig, ListPlus, ClipboardList, Factory, FileDown, PackageCheck, Search, Truck, XCircle, type LucideIcon } from "lucide-react";
-import { siparisDurumu } from "@/app/panel/siparisler/actions";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, CircleCheckBig, Globe, ListPlus, RefreshCw, ClipboardList, Factory, FileDown, PackageCheck, Search, Truck, XCircle, type LucideIcon } from "lucide-react";
+import { siparisDurumu, siteleriEsitle } from "@/app/panel/siparisler/actions";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -47,16 +47,49 @@ export type OrderRow = {
   teklifNo: string | null;
   marka: string | null;
   markaRenk: string | null;
+  kaynak: "teklif" | "site";
+  site: string | null;
+  disDurumAd: string | null;
+  odemeYontemi: string | null;
+  odemeDurumu: string | null;
 };
 
-export function OrderTable({ rows, q, brands, activeBrand }: { rows: OrderRow[]; q: string; brands: BrandOption[]; activeBrand: string | null }) {
+type SiteStatus = { id: number; ad: string; sonBasari: string | null; sonHata: string | null };
+
+export function OrderTable({
+  rows,
+  q,
+  brands,
+  activeBrand,
+  kaynak,
+  sites,
+  showSiteFilter,
+}: {
+  rows: OrderRow[];
+  q: string;
+  brands: BrandOption[];
+  activeBrand: string | null;
+  kaynak: "teklif" | "site" | null;
+  sites: SiteStatus[];
+  showSiteFilter: boolean;
+}) {
   const router = useRouter();
+  const pathname = usePathname();
+  const sp = useSearchParams();
+  const [syncing, startSync] = useTransition();
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const kaynakHref = (k: string | null) => {
+    const p = new URLSearchParams(sp.toString());
+    if (k) p.set("kaynak", k);
+    else p.delete("kaynak");
+    return p.size ? `${pathname}?${p}` : pathname;
+  };
   return (
     <div className="mx-auto max-w-[1400px]">
       <div className="pt-1">
         <h1 className="text-2xl font-bold tracking-tight md:text-[28px]">Siparişler</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {rows.length} sipariş{q ? " bulundu" : ""} · onaylanan teklifler “Siparişe dönüştür” ile buraya gelir
+          {rows.length} sipariş{q ? " bulundu" : ""} · onaylanan teklifler ve sitelerden gelen siparişler
         </p>
       </div>
       <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -77,7 +110,47 @@ export function OrderTable({ rows, q, brands, activeBrand }: { rows: OrderRow[];
         </label>
       </form>
         <BrandFilter brands={brands} active={activeBrand} />
+        {showSiteFilter && (
+          <div className="inline-flex rounded-full bg-muted p-1">
+            {(
+              [
+                [null, "Tümü"],
+                ["teklif", "Tekliften"],
+                ["site", "Siteden"],
+              ] as const
+            ).map(([k, l]) => (
+              <Link key={l} href={kaynakHref(k)} className={cn("flex h-9 items-center rounded-full px-3.5 text-sm font-semibold", kaynak === k ? "bg-card shadow-card" : "text-muted-foreground")}>
+                {l}
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
+      {sites.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+          {sites.map((s) => (
+            <span key={s.id} className="inline-flex items-center gap-1.5" title={s.sonHata ?? undefined}>
+              <span className={cn("size-2 rounded-full", s.sonHata ? "bg-danger" : s.sonBasari ? "bg-success" : "bg-border")} />
+              {s.ad}: {s.sonHata ? "bağlantı hatası" : s.sonBasari ? `eşitlendi ${formatDate(s.sonBasari, { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })}` : "henüz eşitlenmedi"}
+            </span>
+          ))}
+          <button
+            type="button"
+            disabled={syncing}
+            onClick={() =>
+              startSync(async () => {
+                const r = await siteleriEsitle();
+                setSyncMsg(r.ok ? `${r.adet ?? 0} sipariş güncellendi${r.hatalar?.length ? ` · ${r.hatalar.join(" · ")}` : ""}` : r.hata);
+                router.refresh();
+              })
+            }
+            className="inline-flex items-center gap-1 font-semibold text-primary hover:underline disabled:opacity-50"
+          >
+            <RefreshCw className={cn("size-3.5", syncing && "animate-spin")} /> {syncing ? "Eşitleniyor…" : "Şimdi eşitle"}
+          </button>
+          {syncMsg && <span>{syncMsg}</span>}
+        </div>
+      )}
       <Card className="mt-4 overflow-hidden">
         {!rows.length ? (
           <p className="px-5 py-12 text-center text-sm text-muted-foreground">Henüz sipariş yok.</p>
@@ -91,15 +164,27 @@ export function OrderTable({ rows, q, brands, activeBrand }: { rows: OrderRow[];
                     <p className="truncate text-xs text-muted-foreground">
                       {o.no}
                       {o.teklifNo ? ` · teklif ${o.teklifNo}` : ""}
+                      {o.kaynak === "site" && o.site ? ` · ${o.site}` : ""}
                     </p>
                   </div>
                   <p className="tabular text-right text-sm font-bold md:order-last">{formatTRY(o.dahil, { whole: true })}</p>
-                  <div className="col-span-2 md:col-span-1">
-                    <OrderBadge durum={o.durum} />
+                  <div className="col-span-2 flex flex-wrap items-center gap-1.5 md:col-span-1">
+                    {o.kaynak === "site" ? (
+                      <Badge tone={ORDER_STATUS[o.durum].tone} dot={false}>
+                        <Globe className="size-3" /> {o.disDurumAd ?? ORDER_STATUS[o.durum].label}
+                      </Badge>
+                    ) : (
+                      <OrderBadge durum={o.durum} />
+                    )}
+                    {o.kaynak === "site" && o.odemeYontemi && (
+                      <span className={cn("text-[11px] font-semibold", o.odemeDurumu === "odendi" ? "text-success" : "text-warning")}>
+                        {o.odemeYontemi} · {o.odemeDurumu === "odendi" ? "ödendi" : "ödeme bekleniyor"}
+                      </span>
+                    )}
                   </div>
                   <p className="col-span-2 text-xs text-muted-foreground md:col-span-1">
                     {brands.length > 1 && <BrandTag ad={o.marka} renk={o.markaRenk} className="mr-1.5" />}
-                    {o.satisci ?? "—"} · {formatDate(o.olusturma, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    {o.kaynak === "site" ? "Site siparişi" : (o.satisci ?? "—")} · {formatDate(o.olusturma, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </Link>
               </li>

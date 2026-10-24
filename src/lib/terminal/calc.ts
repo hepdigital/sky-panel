@@ -72,8 +72,8 @@ export const PRESETS: { n: string; v: WallKind[] }[] = [
   { n: "Duvarsız", v: ["yok", "yok", "yok", "yok"] },
 ];
 
-/** Görsel adresi: terminalin görsel anahtarı ("w:duz-tam", "r:3x3") → /terminal/img/w-duz-tam.webp; adres ya da data: olduğu gibi */
-export const imgSrc = (key: string) => (key.startsWith("/") || key.startsWith("data:") ? key : `/terminal/img/${key.replace(":", "-")}.webp`);
+/** Görsel adresi: terminalin görsel anahtarı ("w:duz-tam", "r:3x3") → /terminal/img/w-duz-tam.webp; adres, site görseli (https://) ya da data: olduğu gibi */
+export const imgSrc = (key: string) => (/^(\/|data:|https?:\/\/)/.test(key) ? key : `/terminal/img/${key.replace(":", "-")}.webp`);
 
 export type Mode = 0 | 1; // 0 toptan, 1 perakende
 /**

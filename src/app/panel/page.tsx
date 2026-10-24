@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { connection } from "next/server";
+import { after, connection } from "next/server";
 import { Dashboard } from "@/components/admin/dashboard";
-import { canSell, requireMe } from "@/server/auth";
+import { canSell, isAdmin, requireMe } from "@/server/auth";
+import { listSites, syncStale } from "@/server/sites";
 import { brandFilter } from "@/server/brands";
 import { dashboard, type Period } from "@/server/dashboard";
 import { myOpenTasks } from "@/server/tasks";
@@ -25,7 +26,13 @@ async function Home({ searchParams }: { searchParams: Promise<{ donem?: string |
   const raw = sp.donem;
   const period: Period = raw === "30" || raw === "yil" || raw === "tum" ? raw : "ay";
   const brands = canSell(me) ? await brandFilter(me, sp.marka) : { options: [], active: null };
-  const [data, tasks] = await Promise.all([canSell(me) ? dashboard(me, period, brands.active?.id ?? null) : null, myOpenTasks(me, canSell(me) ? 6 : 20)]);
+  const [data, tasks, sites] = await Promise.all([
+    canSell(me) ? dashboard(me, period, brands.active?.id ?? null) : null,
+    myOpenTasks(me, canSell(me) ? 6 : 20),
+    isAdmin(me) ? listSites() : [],
+  ]);
+  // Siteler arka planda yoklanır (son deneme 90 sn'den eskiyse)
+  if (canSell(me)) after(() => syncStale(90).catch((e) => console.error("syncStale", e)));
   return (
     <Dashboard
       greeting={greeting(me.adSoyad)}
@@ -33,6 +40,7 @@ async function Home({ searchParams }: { searchParams: Promise<{ donem?: string |
       period={period}
       brands={brands.options}
       activeBrand={brands.active?.kod ?? null}
+      sites={sites.filter((s) => s.aktif).map((s) => ({ id: s.id, ad: s.ad, sonBasari: s.sonBasari?.toISOString() ?? null, sonHata: s.sonHata, siparis: s.siparis }))}
       data={data}
       tasks={tasks.map((t) => ({ ...t, olusturma: t.olusturma.toISOString(), tamamlanma: t.tamamlanma?.toISOString() ?? null }))}
     />

@@ -203,26 +203,58 @@ CREATE TABLE `siparisler` (
   `musteri_id` int(10) unsigned DEFAULT NULL,
   `kullanici_id` int(10) unsigned DEFAULT NULL,
   `marka_id` int(10) unsigned NOT NULL,
+  `kaynak` enum('teklif','site') NOT NULL DEFAULT 'teklif',
+  `site_id` int(10) unsigned DEFAULT NULL,
+  `dis_no` varchar(40) DEFAULT NULL,
+  `dis_durum` varchar(32) DEFAULT NULL,
+  `odeme_yontemi` varchar(80) DEFAULT NULL,
+  `odeme_durumu` varchar(32) DEFAULT NULL,
   `musteri_adi` varchar(200) DEFAULT NULL,
   `durum` enum('alindi','uretimde','hazir','kargoda','teslim','iptal') NOT NULL DEFAULT 'alindi',
   `tutar_kdv_haric` decimal(12,2) NOT NULL DEFAULT 0.00,
   `tutar_kdv_dahil` decimal(12,2) NOT NULL DEFAULT 0.00,
   `veri` longtext NOT NULL,
+  `site_veri` longtext DEFAULT NULL,
+  `dis_tarih` timestamp NULL DEFAULT NULL,
   `notlar` text DEFAULT NULL,
   `olusturma` timestamp NOT NULL DEFAULT current_timestamp(),
   `guncelleme` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `siparisler_no_unique` (`no`),
-  UNIQUE KEY `siparis_yil_sira` (`yil`,`sira`),
   UNIQUE KEY `siparisler_teklif_id_unique` (`teklif_id`),
+  UNIQUE KEY `siparis_site_dis_no` (`site_id`,`dis_no`),
   KEY `siparis_musteri` (`musteri_id`),
   KEY `siparis_kullanici` (`kullanici_id`),
   KEY `siparis_marka` (`marka_id`),
+  KEY `siparis_kaynak` (`kaynak`),
   CONSTRAINT `siparisler_kullanici_id_kullanicilar_id_fk` FOREIGN KEY (`kullanici_id`) REFERENCES `kullanicilar` (`id`) ON DELETE SET NULL,
   CONSTRAINT `siparisler_marka_id_markalar_id_fk` FOREIGN KEY (`marka_id`) REFERENCES `markalar` (`id`),
   CONSTRAINT `siparisler_musteri_id_musteriler_id_fk` FOREIGN KEY (`musteri_id`) REFERENCES `musteriler` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `siparisler_site_id_site_baglantilari_id_fk` FOREIGN KEY (`site_id`) REFERENCES `site_baglantilari` (`id`),
   CONSTRAINT `siparisler_teklif_id_teklifler_id_fk` FOREIGN KEY (`teklif_id`) REFERENCES `teklifler` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_turkish_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `site_baglantilari`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `site_baglantilari` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `marka_id` int(10) unsigned NOT NULL,
+  `tur` enum('gazebotente','woocommerce') NOT NULL,
+  `ad` varchar(120) NOT NULL,
+  `adres` varchar(255) NOT NULL,
+  `anahtar` varchar(255) DEFAULT NULL,
+  `aktif` tinyint(1) NOT NULL DEFAULT 1,
+  `imlec` varchar(40) DEFAULT NULL,
+  `son_deneme` timestamp NULL DEFAULT NULL,
+  `son_basari` timestamp NULL DEFAULT NULL,
+  `son_hata` text DEFAULT NULL,
+  `sozluk` longtext DEFAULT NULL,
+  `olusturma` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `site_marka` (`marka_id`),
+  CONSTRAINT `site_baglantilari_marka_id_markalar_id_fk` FOREIGN KEY (`marka_id`) REFERENCES `markalar` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `teklifler`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;

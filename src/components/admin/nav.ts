@@ -5,6 +5,7 @@ import {
   ClipboardCheck,
   Factory,
   FileText,
+  Globe,
   History,
   LayoutDashboard,
   MonitorSmartphone,
@@ -59,7 +60,10 @@ export const adminNav: AdminNavGroup[] = [
   },
   {
     label: "Marka Yönetimi",
-    items: [{ href: "/panel/markalar", label: "Markalar ve şablonlar", icon: Building2, roles: ["admin"] }],
+    items: [
+      { href: "/panel/markalar", label: "Markalar ve şablonlar", icon: Building2, roles: ["admin"] },
+      { href: "/panel/siteler", label: "Site bağlantıları", icon: Globe, roles: ["admin"] },
+    ],
   },
   {
     label: "Ayarlar",
@@ -71,7 +75,7 @@ export const adminNav: AdminNavGroup[] = [
 ];
 
 /** 1. aşamada açık ekranlar: teklif, sipariş, cari, ürün ve kullanıcı yönetimi (diğerleri sonraki aşamalarda açılacak) */
-const PHASE1 = new Set(["/panel", "/panel/gorevler", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/urunler", "/panel/markalar", "/panel/kullanicilar"]);
+const PHASE1 = new Set(["/panel", "/panel/gorevler", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/urunler", "/panel/markalar", "/panel/siteler", "/panel/kullanicilar"]);
 
 /** openTasks: Görevler'in yanında bana atanan açık görev sayısı */
 export function navFor(role: Role, openTasks = 0) {

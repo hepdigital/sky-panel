@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { OrderDetail } from "@/components/orders/order-views";
+import { SiteOrderDetail } from "@/components/orders/site-order";
 import { requireSeller } from "@/server/auth";
 import { getOrder } from "@/server/orders";
 
@@ -15,6 +16,13 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const o = await getOrder(await requireSeller(), Number((await params).id));
   if (!o) notFound();
+  if (o.kaynak === "site" && o.site && o.siteVeri)
+    return (
+      <SiteOrderDetail
+        id={o.id} no={o.no} marka={o.marka} site={o.site} disDurum={o.disDurum} odemeYontemi={o.odemeYontemi} odemeDurumu={o.odemeDurumu}
+        veri={o.veri} o={o.siteVeri}
+      />
+    );
   return (
     <OrderDetail
       order={{

@@ -37,12 +37,14 @@ type Props = {
   period: Period;
   brands: BrandOption[];
   activeBrand: string | null;
+  /** Yönetici: site bağlantılarının durumu */
+  sites: { id: number; ad: string; sonBasari: string | null; sonHata: string | null; siparis: number }[];
   data: DashboardData | null;
   tasks: TaskRow[];
 };
 
 /** Dashboard: yalnızca veritabanındaki kayıtlar. Yönetici herkesi, satışçı kendini, personel görevlerini görür. */
-export function Dashboard({ greeting, role, period, brands, activeBrand, data, tasks }: Props) {
+export function Dashboard({ greeting, role, period, brands, activeBrand, sites, data, tasks }: Props) {
   const admin = role === "yonetici";
   return (
     <div className="mx-auto max-w-[1400px] space-y-5 md:space-y-6">
@@ -93,6 +95,7 @@ export function Dashboard({ greeting, role, period, brands, activeBrand, data, t
               <RecentOrders rows={data.sonSiparisler} admin={admin} />
             </div>
             <div className="min-w-0 space-y-4 md:space-y-5 lg:col-span-4">
+              {sites.length > 0 && <Sites sites={sites} />}
               <OpenOrders acik={data.acik} />
               <Channels rows={data.kanallar} />
               <MyTasks tasks={tasks} />
@@ -243,6 +246,28 @@ function RecentOrders({ rows, admin }: { rows: DashboardData["sonSiparisler"]; a
           ))}
         </ul>
       )}
+    </Section>
+  );
+}
+
+/** Site bağlantıları: siparişler sitelerden düzenli geliyor mu */
+function Sites({ sites }: { sites: Props["sites"] }) {
+  return (
+    <Section title="Site bağlantıları" href="/panel/siteler" action="Yönet">
+      <ul className="divide-y divide-border border-t border-border">
+        {sites.map((s) => (
+          <li key={s.id} className="flex items-center gap-3 px-5 py-3 text-sm">
+            <span className={cn("size-2.5 shrink-0 rounded-full", s.sonHata ? "bg-danger" : s.sonBasari ? "bg-success" : "bg-border")} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold">{s.ad}</p>
+              <p className={cn("truncate text-[11px]", s.sonHata ? "text-danger" : "text-muted-foreground")}>
+                {s.sonHata ? s.sonHata : s.sonBasari ? `Eşitlendi ${when(s.sonBasari)}` : "Henüz eşitlenmedi"}
+              </p>
+            </div>
+            <span className="tabular text-xs text-muted-foreground">{s.siparis} sipariş</span>
+          </li>
+        ))}
+      </ul>
     </Section>
   );
 }
