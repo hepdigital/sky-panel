@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getSeller, isAdmin } from "@/server/auth";
 import { moveCategory, moveProduct, saveCategory, saveProduct, setProductPrice, type CategoryInput, type ProductInput } from "@/server/catalog";
+import { setColorStock } from "@/server/colors";
 import { saveWebp } from "@/server/files";
 
 type Result = { ok: true } | { ok: false; hata: string };
@@ -46,6 +47,15 @@ export async function urunTasi(id: number, yon: -1 | 1): Promise<Result> {
   await moveProduct(me, id, yon === -1 ? -1 : 1);
   refresh();
   return { ok: true };
+}
+
+/** Kumaş rengi stokta / stokta yok: teklif ekranı ve GazeboTente sitesi buna göre gösterir */
+export async function renkStok(hex: string, aktif: boolean): Promise<{ ok: true; uyari: string | null } | { ok: false; hata: string }> {
+  const me = await getSeller();
+  if (!me || !isAdmin(me)) return { ok: false, hata: "Renk stoklarını yalnızca yönetici değiştirir." };
+  const hatalar = await setColorStock(String(hex).slice(0, 7), !!aktif);
+  refresh();
+  return { ok: true, uyari: hatalar.length ? `Panelde kaydedildi, siteye yazılamadı: ${hatalar.join(" · ")}` : null };
 }
 
 export async function kategoriKaydet(input: CategoryInput): Promise<Result> {

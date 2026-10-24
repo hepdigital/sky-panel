@@ -3,8 +3,8 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowUp, ImagePlus, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { kategoriKaydet, kategoriTasi, urunFiyat, urunGorselYukle, urunKaydet, urunTasi } from "@/app/panel/urunler/actions";
+import { AlertTriangle, ArrowDown, ArrowUp, EyeOff, ImagePlus, Palette, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { kategoriKaydet, kategoriTasi, renkStok, urunFiyat, urunGorselYukle, urunKaydet, urunTasi } from "@/app/panel/urunler/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -31,7 +31,14 @@ type Product = {
   secenekPerakende: number | null;
   ekleyen: string | null;
   duzenlenebilir: boolean;
+  /** Yalnızca yöneticiye dolu gelir */
+  maliyet: number | null;
+  secenekMaliyet: number | null;
+  markalar: Override[];
 };
+type Override = { markaId: number; toptan: number | null; perakende: number | null; gorsel: string | null; gizli: boolean };
+type Brand = { id: number; ad: string; renk: string };
+type FabricColor = { hex: string; ad: string; aktif: boolean };
 
 const input = "h-10 w-full rounded-xl border border-input bg-card px-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
 const label = "mb-1 block text-xs font-semibold text-muted-foreground";
@@ -48,8 +55,22 @@ const showPrice = (n: number | null) => (n === null ? "" : n.toLocaleString("tr-
  * Ürünler (modüler gazebo dışındaki her şey): kategorilere göre liste, satır içi fiyat düzenleme, yeni ürün ve görsel.
  * Teklif ekranının ürün menüsü buradan beslenir; fiyat değişikliği kayıtlı teklifleri etkilemez (teklif o anki fiyatı saklar).
  */
-export function ProductAdmin({ admin, kategoriler, urunler }: { admin: boolean; kategoriler: Category[]; urunler: Product[] }) {
+export function ProductAdmin({
+  admin,
+  brands,
+  colors,
+  kategoriler,
+  urunler,
+}: {
+  admin: boolean;
+  brands: Brand[];
+  colors: FabricColor[];
+  kategoriler: Category[];
+  urunler: Product[];
+}) {
   const [q, setQ] = useState("");
+  const [colorsOpen, setColorsOpen] = useState(false);
+  const outCount = colors.filter((c) => !c.aktif).length;
   const [editing, setEditing] = useState<Product | "yeni" | null>(null);
   const [cat, setCat] = useState<Category | "yeni" | null>(null);
   const [newIn, setNewIn] = useState<number | null>(null);
@@ -72,6 +93,12 @@ export function ProductAdmin({ admin, kategoriler, urunler }: { admin: boolean; 
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {admin && (
+            <Button variant="outline" onClick={() => setColorsOpen(true)}>
+              <Palette /> Kumaş renkleri
+              {outCount > 0 && <Badge tone="danger">{outCount} stokta yok</Badge>}
+            </Button>
+          )}
           {admin && (
             <Button variant="outline" onClick={() => setCat("yeni")}>
               <Plus /> Kategori
@@ -170,7 +197,16 @@ export function ProductAdmin({ admin, kategoriler, urunler }: { admin: boolean; 
         )}
       </div>
 
-      <ProductSheet key={editing === "yeni" ? `yeni-${newIn}` : (editing ? `urun-${editing.id}` : "urun-kapali")} product={editing} kategoriId={newIn} kategoriler={kategoriler} onClose={() => setEditing(null)} />
+      <ProductSheet
+        key={editing === "yeni" ? `yeni-${newIn}` : editing ? `urun-${editing.id}` : "urun-kapali"}
+        product={editing}
+        kategoriId={newIn}
+        kategoriler={kategoriler}
+        admin={admin}
+        brands={brands}
+        onClose={() => setEditing(null)}
+      />
+      {admin && <ColorSheet open={colorsOpen} colors={colors} onClose={() => setColorsOpen(false)} />}
       {admin && <CategorySheet key={cat === "yeni" ? "yeni" : (cat ? `kat-${cat.id}` : "kat-kapali")} category={cat} onClose={() => setCat(null)} />}
     </div>
   );
@@ -236,6 +272,8 @@ function ProductRow({ u, onEdit, move }: { u: Product; onEdit: () => void; move:
           {!u.aktif && <Badge tone="neutral">Pasif</Badge>}
           {u.renkSecimi && <Badge tone="info">Renkli</Badge>}
           {u.secenekAd && <Badge tone="info">+ {u.secenekAd}</Badge>}
+          {u.markalar.some((o) => o.gizli) && <Badge tone="neutral">Bazı markalarda gizli</Badge>}
+          {u.markalar.some((o) => o.toptan !== null || o.perakende !== null || o.gorsel) && <Badge tone="neutral">Markaya özel fiyat/görsel</Badge>}
         </p>
         <p className="truncate text-xs text-muted-foreground">{u.aciklama || "—"}</p>
         {u.uyari && <p className="truncate text-[11px] font-medium text-warning">{u.uyari}</p>}
@@ -271,9 +309,32 @@ function ProductRow({ u, onEdit, move }: { u: Product; onEdit: () => void; move:
 }
 
 
-function ProductSheet({ product, kategoriId, kategoriler, onClose }: { product: Product | "yeni" | null; kategoriId: number | null; kategoriler: Category[]; onClose: () => void }) {
+function ProductSheet({
+  product,
+  kategoriId,
+  kategoriler,
+  admin,
+  brands,
+  onClose,
+}: {
+  product: Product | "yeni" | null;
+  kategoriId: number | null;
+  kategoriler: Category[];
+  admin: boolean;
+  brands: Brand[];
+  onClose: () => void;
+}) {
   const router = useRouter();
   const p = product && product !== "yeni" ? product : null;
+  // Markaya özel değerler: her marka için bir satır (boş = ortak değer)
+  const [ov, setOv] = useState(() =>
+    brands.map((b) => {
+      const o = p?.markalar.find((x) => x.markaId === b.id);
+      return { markaId: b.id, toptan: showPrice(o?.toptan ?? null), perakende: showPrice(o?.perakende ?? null), gorsel: o?.gorsel ?? null, gizli: o?.gizli ?? false };
+    }),
+  );
+  const [ovOpen, setOvOpen] = useState(() => !!p?.markalar.length);
+  const [maliyet, setMaliyet] = useState({ m: showPrice(p?.maliyet ?? null), s: showPrice(p?.secenekMaliyet ?? null) });
   const [f, setF] = useState({
     kategoriId: p?.kategoriId ?? kategoriId ?? kategoriler[0]?.id ?? 0,
     ad: p?.ad ?? "",
@@ -310,9 +371,16 @@ function ProductSheet({ product, kategoriId, kategoriler, onClose }: { product: 
     const perakende = parsePrice(f.perakende);
     const sToptan = parsePrice(f.secenekToptan);
     const sPerakende = parsePrice(f.secenekPerakende);
-    if (Number.isNaN(toptan) || Number.isNaN(perakende) || Number.isNaN(sToptan) || Number.isNaN(sPerakende)) return setErr("Fiyatları rakamla yazın (ör. 1.250).");
+    const mal = parsePrice(maliyet.m);
+    const sMal = parsePrice(maliyet.s);
+    const markalar = ov.map((o) => ({ markaId: o.markaId, toptan: parsePrice(o.toptan), perakende: parsePrice(o.perakende), gorsel: o.gorsel, gizli: o.gizli }));
+    if ([toptan, perakende, sToptan, sPerakende, mal, sMal, ...markalar.flatMap((o) => [o.toptan, o.perakende])].some((n) => Number.isNaN(n))) return setErr("Fiyatları rakamla yazın (ör. 1.250).");
     setBusy(true);
-    const r = await urunKaydet({ id: p?.id ?? null, kategoriId: f.kategoriId, ad: f.ad, aciklama: f.aciklama, gorsel: f.gorsel, toptan, perakende, uyari: f.uyari, aktif: f.aktif, renkSecimi: f.renkSecimi, secenekAd: f.secenekAd, secenekToptan: sToptan, secenekPerakende: sPerakende });
+    const r = await urunKaydet({
+      id: p?.id ?? null, kategoriId: f.kategoriId, ad: f.ad, aciklama: f.aciklama, gorsel: f.gorsel, toptan, perakende, uyari: f.uyari, aktif: f.aktif, renkSecimi: f.renkSecimi,
+      secenekAd: f.secenekAd, secenekToptan: sToptan, secenekPerakende: sPerakende,
+      ...(admin ? { maliyet: mal, secenekMaliyet: sMal, markalar } : {}),
+    });
     setBusy(false);
     if (!r.ok) return setErr(r.hata);
     router.refresh();
@@ -383,6 +451,57 @@ function ProductSheet({ product, kategoriId, kategoriler, onClose }: { product: 
             <input value={f.perakende} onChange={(e) => setF({ ...f, perakende: e.target.value })} inputMode="decimal" className={`${input} tabular text-right`} placeholder="boş = sorunuz" />
           </label>
         </div>
+        {admin && (
+          <div className="rounded-xl border border-dashed border-border p-3">
+            <span className={label}>Maliyet (KDV hariç) · yalnızca yönetici görür; boş bırakılabilir</span>
+            <div className="grid grid-cols-2 gap-3">
+              <input value={maliyet.m} onChange={(e) => setMaliyet({ ...maliyet, m: e.target.value })} inputMode="decimal" className={`${input} tabular text-right`} placeholder="boş = girilmedi" aria-label="Birim maliyet" />
+              {f.secenekAd.trim() ? (
+                <input value={maliyet.s} onChange={(e) => setMaliyet({ ...maliyet, s: e.target.value })} inputMode="decimal" className={`${input} tabular text-right`} placeholder="seçenek maliyeti (+)" aria-label="Seçenek maliyeti" />
+              ) : (
+                <span />
+              )}
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">Maliyet girilirse satışçı bu ürünü (iskontolar sonrası) maliyetin altında teklif edemez.</p>
+          </div>
+        )}
+        {admin && brands.length > 0 && (
+          <div className="rounded-xl bg-muted/50 p-3">
+            <button type="button" onClick={() => setOvOpen(!ovOpen)} className="flex w-full items-center justify-between text-left text-xs font-semibold text-muted-foreground">
+              Markaya özel fiyat ve görsel (isteğe bağlı)
+              <span className="text-primary">{ovOpen ? "Gizle" : "Aç"}</span>
+            </button>
+            {ovOpen && (
+              <div className="mt-2 space-y-3">
+                <p className="text-[11px] text-muted-foreground">Boş alanlar yukarıdaki ortak fiyat ve görseli kullanır.</p>
+                {brands.map((b, i) => {
+                  const o = ov[i];
+                  const set = (patch: Partial<typeof o>) => setOv(ov.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+                  return (
+                    <div key={b.id} className={cn("rounded-lg bg-card p-2.5 ring-1 ring-border", o.gizli && "opacity-70")}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-1.5 text-xs font-semibold">
+                          <span className="size-2 rounded-full" style={{ background: b.renk }} /> {b.ad}
+                        </span>
+                        <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
+                          <input type="checkbox" checked={o.gizli} onChange={(e) => set({ gizli: e.target.checked })} className="size-3.5 accent-[var(--primary)]" />
+                          <EyeOff className="size-3" /> Bu markada gösterme
+                        </label>
+                      </div>
+                      {!o.gizli && (
+                        <div className="mt-2 grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+                          <input value={o.toptan} onChange={(e) => set({ toptan: e.target.value })} inputMode="decimal" className={`${input} h-9 tabular text-right`} placeholder={`toptan · ${f.toptan || "ortak"}`} aria-label={`${b.ad} toptan`} />
+                          <input value={o.perakende} onChange={(e) => set({ perakende: e.target.value })} inputMode="decimal" className={`${input} h-9 tabular text-right`} placeholder={`perakende · ${f.perakende || "ortak"}`} aria-label={`${b.ad} perakende`} />
+                          <BrandImage value={o.gorsel} onChange={(gorsel) => set({ gorsel })} onError={setErr} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
         <label className="block">
           <span className={label}>Satışçıya uyarı (isteğe bağlı)</span>
           <input value={f.uyari} onChange={(e) => setF({ ...f, uyari: e.target.value })} maxLength={500} className={input} placeholder="ör. Dolgu malzemesi fiyata dahil değildir." />
@@ -417,6 +536,94 @@ function ProductSheet({ product, kategoriId, kategoriler, onClose }: { product: 
           {busy ? "Kaydediliyor…" : "Kaydet"}
         </Button>
       </div>
+    </Sheet>
+  );
+}
+
+/** Markaya özel görsel: küçük kutu, tıklayınca yüklenir; doluysa kaldırma düğmesi */
+function BrandImage({ value, onChange, onError }: { value: string | null; onChange: (v: string | null) => void; onError: (e: string) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <span className="relative">
+      <button
+        type="button"
+        title={value ? "Markaya özel görseli değiştir" : "Markaya özel görsel (boş = ortak görsel)"}
+        disabled={busy}
+        onClick={() => ref.current?.click()}
+        className="relative grid size-9 place-items-center overflow-hidden rounded-lg border border-dashed border-input bg-white text-muted-foreground hover:border-primary"
+      >
+        {value ? <Image src={imgSrc(value)} alt="" fill sizes="36px" className="object-contain" unoptimized /> : <ImagePlus className="size-4" />}
+      </button>
+      {value && (
+        <button type="button" aria-label="Görseli kaldır" onClick={() => onChange(null)} className="absolute -right-1.5 -top-1.5 grid size-4 place-items-center rounded-full bg-danger text-[10px] font-bold text-white">
+          ×
+        </button>
+      )}
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file) return;
+          setBusy(true);
+          try {
+            const r = await urunGorselYukle(await toWebp(file));
+            if (r.ok) onChange(r.yol);
+            else onError(r.hata);
+          } catch (err) {
+            onError(err instanceof Error ? err.message : "Görsel okunamadı.");
+          }
+          setBusy(false);
+        }}
+      />
+    </span>
+  );
+}
+
+/** Kumaş renkleri: stokta olmayan renk teklif ekranında seçilemez ve GazeboTente sitesinde gösterilmez */
+function ColorSheet({ open, colors, onClose }: { open: boolean; colors: FabricColor[]; onClose: () => void }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [busyHex, setBusyHex] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const toggle = (c: FabricColor) =>
+    start(async () => {
+      setBusyHex(c.hex);
+      const r = await renkStok(c.hex, !c.aktif);
+      setBusyHex(null);
+      setMsg(r.ok ? (r.uyari ? { ok: false, text: r.uyari } : { ok: true, text: `${c.ad}: ${c.aktif ? "stokta yok olarak işaretlendi" : "yeniden stokta"}.` }) : { ok: false, text: r.hata });
+      router.refresh();
+    });
+  return (
+    <Sheet open={open} onClose={onClose} title="Kumaş renkleri" className="md:max-w-lg">
+      <p className="text-sm text-muted-foreground">Stokta olmayan renk teklif ekranında seçilemez (satışçılar “stokta yok” görür) ve GazeboTente sitesinde gösterilmez.</p>
+      <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+        {colors.map((c) => (
+          <li key={c.hex}>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => toggle(c)}
+              aria-pressed={c.aktif}
+              className={cn("flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors disabled:opacity-60", c.aktif ? "border-border bg-card" : "border-danger/30 bg-danger-soft")}
+            >
+              <span className={cn("size-7 shrink-0 rounded-full ring-1 ring-black/15", !c.aktif && "opacity-40")} style={{ background: c.hex }} />
+              <span className="min-w-0 flex-1">
+                <span className={cn("block text-sm font-semibold", !c.aktif && "line-through")}>{c.ad}</span>
+                <span className={cn("block text-[11px] font-semibold", c.aktif ? "text-success" : "text-danger")}>{busyHex === c.hex ? "Kaydediliyor…" : c.aktif ? "Stokta" : "Stokta yok"}</span>
+              </span>
+              <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", c.aktif ? "bg-success" : "bg-border")}>
+                <span className={cn("absolute top-0.5 size-4 rounded-full bg-white shadow transition-all", c.aktif ? "left-[18px]" : "left-0.5")} />
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {msg && <p className={cn("mt-3 rounded-xl px-3 py-2 text-xs font-medium", msg.ok ? "bg-success-soft text-success" : "bg-warning-soft text-warning")}>{msg.text}</p>}
     </Sheet>
   );
 }

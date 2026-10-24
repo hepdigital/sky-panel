@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { eq } from "drizzle-orm";
 import { QuoteDetail } from "@/components/terminal/quote-detail";
-import { requireSeller } from "@/server/auth";
+import { isAdmin, requireSeller } from "@/server/auth";
 import { db, schema } from "@/server/db";
 import { mailReady } from "@/server/mail";
 import { quoteLink } from "@/server/quote-flow";
@@ -19,7 +19,8 @@ const iso = (d: Date | null) => d?.toISOString() ?? null;
 
 async function Detail({ params }: { params: Promise<{ id: string }> }) {
   await connection();
-  const t = await getQuote(await requireSeller(), Number((await params).id));
+  const me = await requireSeller();
+  const t = await getQuote(me, Number((await params).id));
   if (!t) notFound();
   const [o] = await db().select({ id: schema.siparisler.id }).from(schema.siparisler).where(eq(schema.siparisler.teklifId, t.id));
   const [m] = t.musteriId
@@ -27,7 +28,9 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     : [];
   return (
     <QuoteDetail
-      quote={{ id: t.id, no: t.no, olusturma: t.olusturma.toISOString(), kullanici: t.kullanici, fiyatTipi: t.fiyatTipi, musteriId: t.musteriId, veri: t.veri, durum: t.durum, kanal: t.kanal, marka: t.marka }}
+      quote={{ id: t.id, no: t.no, olusturma: t.olusturma.toISOString(), kullanici: t.kullanici, fiyatTipi: t.fiyatTipi, musteriId: t.musteriId, veri: t.veri, durum: t.durum, kanal: t.kanal, marka: t.marka,
+        // Maliyet ve kâr yalnızca yöneticiye
+        kar: isAdmin(me) && t.maliyet !== null ? { maliyet: t.maliyet, net: t.tutarKdvHaric, eksik: t.maliyetEksik } : null }}
       flow={{
         asama: t.asama,
         link: t.token ? quoteLink(t.token) : null,

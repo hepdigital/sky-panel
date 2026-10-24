@@ -6,7 +6,8 @@ import { AlertTriangle, Copy, FileDown, Pencil, Percent, Plus, ReceiptText, Tras
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QtyStepper } from "@/components/ui/qty-stepper";
-import { SZ, cartUnpriced, hesap, iskEtiket, iskYok, imgSrc, modeName, splitKey, wallDetail, type Catalog, type ExtraLine, type Isk, type QuoteState } from "@/lib/terminal/calc";
+import { SZ, TL, cartUnpriced, hesap, iskEtiket, iskYok, imgSrc, modeName, splitKey, wallDetail, type Catalog, type ExtraLine, type Isk, type QuoteState } from "@/lib/terminal/calc";
+import type { costOf } from "@/lib/terminal/cost";
 import { cn } from "@/lib/utils";
 import { ExtraSheet } from "./extra-sheet";
 
@@ -14,6 +15,8 @@ type Props = {
   q: QuoteState;
   setQ: (q: QuoteState) => void;
   catalog: Catalog;
+  /** Yalnızca yöneticide: maliyet ve kâr (satışçıya hiç gönderilmez) */
+  cost: ReturnType<typeof costOf> | null;
   money: (n: number) => string;
   editingId: string | null;
   onEdit: (id: string) => void;
@@ -23,7 +26,7 @@ type Props = {
 };
 
 /** Teklif özeti: sepetteki gazeboler, ürünler ve ek kalemler; satır ve genel iskonto, toplamlar */
-export function Summary({ q, setQ, catalog, money, editingId, onEdit, onCopy, onSave, onClear }: Props) {
+export function Summary({ q, setQ, catalog, cost, money, editingId, onEdit, onCopy, onSave, onClear }: Props) {
   const H = hesap(q, catalog);
   const unpriced = cartUnpriced(q);
   const all = catalog.flatMap((g) => g.items);
@@ -161,6 +164,27 @@ export function Summary({ q, setQ, catalog, money, editingId, onEdit, onCopy, on
         <span className="tabular text-2xl font-bold tracking-tight">{money(H.net * 1.2)}</span>
       </div>
       <p className="mt-1 text-right text-[11px] text-muted-foreground">{modeName(q.mode)} fiyat listesi · KDV dahil</p>
+
+      {cost && cost.maliyet !== null && (
+        <div className="mt-3 rounded-xl border border-dashed border-border px-3 py-2.5 text-xs">
+          <p className="font-semibold text-muted-foreground">Yalnızca yönetici görür · KDV hariç</p>
+          <div className="mt-1 flex flex-wrap justify-between gap-x-4 gap-y-1">
+            <span>
+              Maliyet <b className="tabular">{TL(cost.maliyet)}</b>
+            </span>
+            <span className={cn(cost.kar !== null && cost.kar < 0 ? "text-danger" : "text-success")}>
+              Kâr <b className="tabular">{TL(cost.kar ?? 0)}</b>
+              {cost.net > 0 && cost.kar !== null ? ` · %${Math.round((cost.kar / cost.net) * 100)}` : ""}
+            </span>
+          </div>
+          {cost.eksik && <p className="mt-1 text-muted-foreground">Bazı kalemlerin maliyeti girilmemiş; kâr bu kalemler hariç hesaplandı.</p>}
+          {cost.alti.length > 0 && (
+            <p className="mt-1.5 flex items-start gap-1.5 font-medium text-danger">
+              <AlertTriangle className="mt-px size-3.5 shrink-0" /> Maliyetin altında: {cost.alti.join(", ")}. Satışçı bu teklifi kaydedemez; siz kaydedebilirsiniz.
+            </p>
+          )}
+        </div>
+      )}
 
       {!q.mode && (
         <p className="mt-3 flex items-start gap-2 rounded-xl bg-warning-soft px-3 py-2.5 text-xs font-medium text-warning">

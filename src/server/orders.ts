@@ -49,7 +49,7 @@ export async function convertQuote(me: Me, quoteId: number) {
         no: `SP-${yil}-${String(sira).padStart(4, "0")}`,
         yil, sira,
         teklifId: t.id, musteriId: t.musteriId, kullaniciId: t.kullaniciId ?? me.id, markaId: t.markaId, musteriAdi: t.musteriAdi,
-        tutarKdvHaric: t.tutarKdvHaric, tutarKdvDahil: t.tutarKdvDahil, veri: t.veri,
+        tutarKdvHaric: t.tutarKdvHaric, tutarKdvDahil: t.tutarKdvDahil, maliyet: t.maliyet, maliyetEksik: t.maliyetEksik, veri: t.veri,
       })
       .$returningId();
     await tx.update(teklifler).set({ asama: "siparis" }).where(eq(teklifler.id, t.id));

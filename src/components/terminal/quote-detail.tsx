@@ -9,7 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { PdfData } from "@/lib/terminal/calc";
 import { downloadPdf } from "@/lib/terminal/pdf";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate, formatTRY } from "@/lib/utils";
 import { QuoteFlow, type QuoteFlowInfo } from "./quote-flow";
 import { QuoteItems } from "./quote-items";
 import { OPEN_KEY } from "./terminal";
@@ -25,6 +25,8 @@ type Quote = {
   durum: unknown;
   kanal: string | null;
   marka: string | null;
+  /** Yalnızca yöneticide: kayıt anındaki maliyet (KDV hariç) */
+  kar: { maliyet: number; net: number; eksik: boolean } | null;
 };
 
 /** Teklif ayrıntısı: kalemler, toplamlar; PDF kayıttaki veriden aynen üretilir, "Terminalde aç" sepeti bu teklifle doldurur */
@@ -108,6 +110,20 @@ export function QuoteDetail({ quote, flow }: { quote: Quote; flow: QuoteFlowInfo
             <dd>{v.gecerlilik || "—"}</dd>
             <dt className="text-muted-foreground">Satır tutarları</dt>
             <dd>{v.vatOn ? "KDV dahil" : "KDV hariç"}</dd>
+            {quote.kar && (
+              <>
+                <dt className="text-muted-foreground">Maliyet</dt>
+                <dd className="tabular">
+                  {formatTRY(quote.kar.maliyet, { whole: true })} <span className="text-xs text-muted-foreground">KDV hariç · yalnızca yönetici görür</span>
+                </dd>
+                <dt className="text-muted-foreground">Kâr</dt>
+                <dd className={cn("tabular font-semibold", quote.kar.net - quote.kar.maliyet < 0 ? "text-danger" : "text-success")}>
+                  {formatTRY(quote.kar.net - quote.kar.maliyet, { whole: true })}
+                  {quote.kar.net > 0 ? ` · %${Math.round(((quote.kar.net - quote.kar.maliyet) / quote.kar.net) * 100)}` : ""}
+                  {quote.kar.eksik && <span className="block text-xs font-normal text-muted-foreground">Bazı kalemlerin maliyeti girilmemiş; bu kalemler hariç.</span>}
+                </dd>
+              </>
+            )}
           </dl>
         </Card>
       </div>

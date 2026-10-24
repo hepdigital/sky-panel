@@ -24,6 +24,7 @@ import {
 } from "@/lib/terminal/calc";
 import { cn } from "@/lib/utils";
 import { WallEditor } from "@/modules/gazebo/wall-editor";
+import { useOutOfStock } from "./color-stock";
 import { Gazebo3D, type CaptureViews } from "./gazebo-3d";
 
 export type GazeboCardProps = {
@@ -188,6 +189,7 @@ function priceText(v: number | null, money: (n: number) => string) {
 }
 
 function ColorRow({ label, value, onPick, className }: { label: string; value: string; onPick: (hex: string) => void; className?: string }) {
+  const out = useOutOfStock();
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
       <span className="w-12 shrink-0 text-xs font-semibold text-muted-foreground">{label}</span>
@@ -195,17 +197,20 @@ function ColorRow({ label, value, onPick, className }: { label: string; value: s
         <button
           key={c.hex}
           type="button"
-          title={c.name}
-          aria-label={`${label}: ${c.name}`}
+          title={out.has(c.hex) ? `${c.name} · stokta yok` : c.name}
+          aria-label={`${label}: ${c.name}${out.has(c.hex) ? " (stokta yok)" : ""}`}
           aria-pressed={value === c.hex}
+          disabled={out.has(c.hex) && value !== c.hex}
           onClick={() => onPick(c.hex)}
           className={cn(
             "size-8 rounded-full ring-1 ring-border transition-transform",
             value === c.hex ? "scale-110 ring-2 ring-primary ring-offset-2 ring-offset-card" : "hover:scale-105",
+            out.has(c.hex) && "cursor-not-allowed opacity-25 hover:scale-100",
           )}
           style={{ background: c.hex }}
         />
       ))}
+      {out.has(value) && <span className="text-xs font-semibold text-danger">{COLORS.find((c) => c.hex === value)?.name} stokta yok</span>}
     </div>
   );
 }

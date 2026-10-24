@@ -145,6 +145,10 @@ export const teklifler = mysqlTable(
     kalemSayisi: smallint("kalem_sayisi", { unsigned: true }).notNull().default(0),
     tutarKdvHaric: decimal("tutar_kdv_haric", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
     tutarKdvDahil: decimal("tutar_kdv_dahil", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+    /** Kayıt anındaki toplam maliyet (KDV hariç; yalnızca yönetici görür). null = hiçbir kalemin maliyeti girilmemiş */
+    maliyet: decimal("maliyet", { precision: 12, scale: 2, mode: "number" }),
+    /** Bazı kalemlerin (gazebo, ek kalem, maliyetsiz ürün) maliyeti bilinmiyor: kâr eksik hesaplanmıştır */
+    maliyetEksik: boolean("maliyet_eksik").notNull().default(false),
     /** PDF'in tüm verisi (JSON): yeniden indirme ve aktarım için */
     veri: longtext("veri").notNull(),
     /** Terminal sepeti (JSON): teklifi yeniden açıp kopyalamak için */
@@ -235,6 +239,10 @@ export const siparisler = mysqlTable(
     durum: mysqlEnum("durum", SIPARIS_DURUMLARI).notNull().default("alindi"),
     tutarKdvHaric: decimal("tutar_kdv_haric", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
     tutarKdvDahil: decimal("tutar_kdv_dahil", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+    /** Kayıt anındaki toplam maliyet (KDV hariç; yalnızca yönetici görür). null = hiçbir kalemin maliyeti girilmemiş */
+    maliyet: decimal("maliyet", { precision: 12, scale: 2, mode: "number" }),
+    /** Bazı kalemlerin (gazebo, ek kalem, maliyetsiz ürün) maliyeti bilinmiyor: kâr eksik hesaplanmıştır */
+    maliyetEksik: boolean("maliyet_eksik").notNull().default(false),
     veri: longtext("veri").notNull(),
     /** Site siparişinin tüm ayrıntısı (JSON: müşteri, adres, fatura, kalemler, kargo, geçmiş, dosyalar, linkler) */
     siteVeri: longtext("site_veri"),
@@ -279,6 +287,8 @@ export const urunler = mysqlTable(
     gorsel: varchar("gorsel", { length: 255 }),
     toptan: decimal("toptan", { precision: 12, scale: 2, mode: "number" }),
     perakende: decimal("perakende", { precision: 12, scale: 2, mode: "number" }),
+    /** Birim maliyet (KDV hariç); yalnızca yönetici görür. Boşsa maliyet kontrolü yapılmaz */
+    maliyet: decimal("maliyet", { precision: 12, scale: 2, mode: "number" }),
     uyari: varchar("uyari", { length: 500 }),
     /** Renk seçilebilir ürün (gazebo renkleri): her renk teklifte ayrı satırdır */
     renkSecimi: boolean("renk_secimi").notNull().default(false),
@@ -286,6 +296,8 @@ export const urunler = mysqlTable(
     secenekAd: varchar("secenek_ad", { length: 120 }),
     secenekToptan: decimal("secenek_toptan", { precision: 12, scale: 2, mode: "number" }),
     secenekPerakende: decimal("secenek_perakende", { precision: 12, scale: 2, mode: "number" }),
+    /** Seçeneğin ek maliyeti */
+    secenekMaliyet: decimal("secenek_maliyet", { precision: 12, scale: 2, mode: "number" }),
     sira: int("sira").notNull().default(0),
     aktif: boolean("aktif").notNull().default(true),
     /** Ürünü ekleyen; satışçı yalnızca kendi eklediği ürünleri düzenleyebilir */
@@ -295,6 +307,31 @@ export const urunler = mysqlTable(
   },
   (t) => [index("urun_kategori").on(t.kategoriId)],
 );
+
+/**
+ * Ürünün markaya özel fiyatı/görseli: boş alanlar ürünün ortak değerini kullanır; gizli = o markanın teklif ekranında görünmez.
+ */
+export const urunMarkalari = mysqlTable(
+  "urun_markalari",
+  {
+    urunId: int("urun_id", { unsigned: true }).notNull().references(() => urunler.id, { onDelete: "cascade" }),
+    markaId: int("marka_id", { unsigned: true }).notNull().references(() => markalar.id, { onDelete: "cascade" }),
+    toptan: decimal("toptan", { precision: 12, scale: 2, mode: "number" }),
+    perakende: decimal("perakende", { precision: 12, scale: 2, mode: "number" }),
+    gorsel: varchar("gorsel", { length: 255 }),
+    gizli: boolean("gizli").notNull().default(false),
+  },
+  (t) => [primaryKey({ columns: [t.urunId, t.markaId] }), index("urun_markalari_marka").on(t.markaId)],
+);
+
+/** Kumaş renkleri: aktif = stokta. Stokta olmayan renk teklif ekranında seçilemez, GazeboTente sitesinde gösterilmez */
+export const kumasRenkleri = mysqlTable("kumas_renkleri", {
+  hex: varchar("hex", { length: 7 }).primaryKey(),
+  ad: varchar("ad", { length: 40 }).notNull(),
+  sira: int("sira").notNull().default(0),
+  aktif: boolean("aktif").notNull().default(true),
+  guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+});
 
 /** Görev durumları: yapılacak → devam ediyor → (beklemede) → tamamlandı */
 export const GOREV_DURUMLARI = ["yapilacak", "devam", "bekliyor", "tamam"] as const;

@@ -418,3 +418,17 @@ export async function testSite(siteId: number) {
     return { ok: false as const, hata: e instanceof Error ? e.message : "Bağlanılamadı." };
   }
 }
+
+/**
+ * Kumaş renklerinin stok durumu GazeboTente sitelerine yazılır (stokta olmayan renk sitede seçilemez).
+ * Dönen liste: yazılamayan sitelerin hataları.
+ */
+export async function pushColors(renkler: { ad: string; hex: string; aktif: boolean }[]) {
+  const list = await db().select().from(sites).where(and(eq(sites.tur, "gazebotente"), eq(sites.aktif, true)));
+  const hatalar: string[] = [];
+  for (const site of list) {
+    if (!site.anahtar) continue;
+    await gtRequest(site, "/api/panel/renkler/", { method: "POST", body: JSON.stringify({ renkler }) }).catch((e) => hatalar.push(`${site.ad}: ${e instanceof Error ? e.message : "yazılamadı"}`));
+  }
+  return hatalar;
+}

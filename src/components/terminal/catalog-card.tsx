@@ -6,6 +6,7 @@ import { AlertTriangle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QtyStepper } from "@/components/ui/qty-stepper";
+import { useOutOfStock } from "./color-stock";
 import { COLORS, OPT_SUFFIX, colorName, imgSrc, prodKey, splitKey, val, type CatalogGroup, type CatalogItem, type Mode } from "@/lib/terminal/calc";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +74,8 @@ export function CatalogCard({
  * Her birleşim teklifte ayrı satırdır ("1×1 panel · Kumaş baskı dahil", "… · Sarı").
  */
 function VariantItem({ it, prod, setProd, mode, money }: { it: CatalogItem; prod: Record<string, number>; setProd: (id: string, n: number) => void; mode: Mode; money: (n: number) => string }) {
-  const [hex, setHex] = useState<string | null>(it.renk ? COLORS[0].hex : null);
+  const out = useOutOfStock();
+  const [hex, setHex] = useState<string | null>(it.renk ? (COLORS.find((c) => !out.has(c.hex)) ?? COLORS[0]).hex : null);
   const [on, setOn] = useState(false);
   const base = val(it.p, mode);
   const extra = it.opt ? val(it.opt.p, mode) : null;
@@ -108,19 +110,22 @@ function VariantItem({ it, prod, setProd, mode, money }: { it: CatalogItem; prod
         <div>
           <p className="mb-1 text-[11px] font-semibold text-muted-foreground">
             Renk: <span className="text-foreground">{colorName(hex ?? undefined)}</span>
+            {hex && out.has(hex) && <span className="ml-1 text-danger">· stokta yok</span>}
           </p>
           <div className="flex flex-wrap gap-1">
             {COLORS.map((c) => (
               <button
                 key={c.hex}
                 type="button"
-                title={c.name}
-                aria-label={c.name}
+                title={out.has(c.hex) ? `${c.name} · stokta yok` : c.name}
+                aria-label={out.has(c.hex) ? `${c.name} (stokta yok)` : c.name}
                 aria-pressed={hex === c.hex}
+                disabled={out.has(c.hex) && hex !== c.hex}
                 onClick={() => setHex(c.hex)}
                 style={{ background: c.hex }}
                 className={cn(
                   "relative size-6 rounded-full ring-1 ring-black/15",
+                  out.has(c.hex) && "cursor-not-allowed opacity-25",
                   hex === c.hex && "ring-2 ring-primary ring-offset-2 ring-offset-card",
                   lines.some((k) => splitKey(k).hex === c.hex) && "after:absolute after:-right-0.5 after:-top-0.5 after:size-2 after:rounded-full after:bg-primary",
                 )}

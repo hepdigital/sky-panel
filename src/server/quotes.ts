@@ -1,8 +1,11 @@
 import "server-only";
 import { and, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
 import { pdfFileName, type PdfData } from "@/lib/terminal/calc";
+import { costOf } from "@/lib/terminal/cost";
+import { parseState } from "@/lib/terminal/state";
 import { isAdmin, randomToken, type Me } from "./auth";
 import { brandCard, canUseBrand } from "./brands";
+import { getCatalog, getCosts } from "./catalog";
 import { db, schema } from "./db";
 
 const { musteriler, teklifler, kullanicilar } = schema;
@@ -59,6 +62,23 @@ export type SaveInput = {
 
 const clip = (v: string | undefined, max: number) => (v?.trim() ? v.trim().slice(0, max) : null);
 
+/** Kullanıcıya olduğu gibi gösterilen kayıt hatası */
+export class QuoteError extends Error {}
+
+/**
+ * Maliyet: sunucudaki fiyat ve maliyetlerle hesaplanır (tarayıcıdan gelen tutara güvenilmez). Satışçı, birim fiyatı
+ * (iskontolar sonrası) maliyetin altına düşen teklifi kaydedemez; maliyet rakamı ona söylenmez. Yönetici uyarıyı terminalde görür.
+ */
+async function quoteCost(me: Me, durum: unknown, markaId: number) {
+  const q = parseState(durum);
+  if (!q) return { maliyet: null, eksik: true };
+  const [catalog, costs] = await Promise.all([getCatalog(markaId), getCosts()]);
+  const c = costOf(q, catalog, costs);
+  if (c.alti.length && !isAdmin(me))
+    throw new QuoteError(`Fiyat izin verilen alt sınırın altında: ${c.alti.join(", ")}. İndirimi azaltın, perakende listeye geçin ya da yöneticinize danışın.`);
+  return { maliyet: c.maliyet, eksik: c.eksik };
+}
+
 /**
  * Teklifi oturumdaki satışçı adına kaydeder. Müşteri: seçilen kayıt ya da (satışçının carileri içinde) aynı adlı kayıt
  * kullanılır, yoksa yenisi açılır ve sahibi bu satışçı olur; kayıtlı müşterinin boş iletişim alanları tekliften doldurulur.
@@ -74,6 +94,7 @@ export async function saveQuote(me: Me, input: SaveInput) {
   if (!kanal) throw new Error("Kanal seçin.");
   const marka = input.markaId ? await canUseBrand(me, input.markaId) : null;
   if (!marka) throw new Error("Marka seçin.");
+  const cost = await quoteCost(me, input.durum, marka.id);
   return db().transaction(async (tx) => {
     let musteriId: number | null = null;
     const m = input.musteri;
@@ -126,6 +147,8 @@ export async function saveQuote(me: Me, input: SaveInput) {
         kalemSayisi: veri.kalemler.length,
         tutarKdvHaric: Math.round(veri.araToplam * 100) / 100,
         tutarKdvDahil: Math.round(veri.genelToplam * 100) / 100,
+        maliyet: cost.maliyet,
+        maliyetEksik: cost.eksik,
         veri: JSON.stringify(stored),
         durum: input.durum ? JSON.stringify(input.durum) : null,
         token: randomToken(24),
