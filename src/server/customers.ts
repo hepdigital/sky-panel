@@ -1,6 +1,7 @@
 import "server-only";
 import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
 import { isAdmin, type Me } from "./auth";
+import { canUseBrand } from "./brands";
 import { db, schema } from "./db";
 
 const { musteriler, iskontoGruplari, teklifler, siparisler, kullanicilar } = schema;
@@ -16,7 +17,8 @@ export async function listGroups(): Promise<(Group & { musteri: number })[]> {
   return db()
     .select({
       id: iskontoGruplari.id, ad: iskontoGruplari.ad, fiyatListesi: iskontoGruplari.fiyatListesi, oran: iskontoGruplari.oran, aciklama: iskontoGruplari.aciklama,
-      musteri: sql<number>`(SELECT COUNT(*) FROM ${musteriler} WHERE ${musteriler.iskontoGrubuId} = ${iskontoGruplari.id})`.mapWith(Number),
+      // Dış tablo adı açıkça yazılır (tek tablolu sorguda Drizzle sütunu tablo adı olmadan yazar)
+      musteri: sql<number>`(SELECT COUNT(*) FROM musteriler AS m2 WHERE m2.iskonto_grubu_id = iskonto_gruplari.id)`.mapWith(Number),
     })
     .from(iskontoGruplari)
     .orderBy(asc(iskontoGruplari.oran), asc(iskontoGruplari.ad));
@@ -57,11 +59,13 @@ export async function listCustomers(me: Me, q: string) {
     .select({
       id: musteriler.id, firma: musteriler.firma, yetkili: musteriler.yetkili, telefon: musteriler.telefon, il: musteriler.il,
       grup: iskontoGruplari.ad, grupOran: iskontoGruplari.oran, temsilci: kullanicilar.adSoyad,
+      marka: schema.markalar.ad, markaRenk: schema.markalar.renk,
       teklif: teklifSayisi, siparis: siparisSayisi, ciro: siparisTutari, sonIslem,
     })
     .from(musteriler)
     .leftJoin(iskontoGruplari, eq(iskontoGruplari.id, musteriler.iskontoGrubuId))
     .leftJoin(kullanicilar, eq(kullanicilar.id, musteriler.sahipId))
+    .leftJoin(schema.markalar, eq(schema.markalar.id, musteriler.markaId))
     .where(and(own(me), search))
     .orderBy(desc(sonIslem))
     .limit(300);
@@ -72,10 +76,11 @@ export async function listCustomers(me: Me, q: string) {
 
 export async function getCustomer(me: Me, id: number) {
   const [m] = await db()
-    .select({ m: musteriler, grup: iskontoGruplari, temsilci: kullanicilar.adSoyad })
+    .select({ m: musteriler, grup: iskontoGruplari, temsilci: kullanicilar.adSoyad, marka: schema.markalar.ad, markaRenk: schema.markalar.renk })
     .from(musteriler)
     .leftJoin(iskontoGruplari, eq(iskontoGruplari.id, musteriler.iskontoGrubuId))
     .leftJoin(kullanicilar, eq(kullanicilar.id, musteriler.sahipId))
+    .leftJoin(schema.markalar, eq(schema.markalar.id, musteriler.markaId))
     .where(and(eq(musteriler.id, id), own(me)));
   if (!m) return null;
   const [quotes, orders] = await Promise.all([
@@ -97,7 +102,7 @@ export async function getCustomer(me: Me, id: number) {
       .orderBy(desc(siparisler.id))
       .limit(100),
   ]);
-  return { ...m.m, grup: m.grup, temsilci: m.temsilci, quotes, orders };
+  return { ...m.m, grup: m.grup, temsilci: m.temsilci, marka: m.marka, markaRenk: m.markaRenk, quotes, orders };
 }
 
 export type CustomerInput = {
@@ -114,6 +119,8 @@ export type CustomerInput = {
   /** Yalnızca yönetici değiştirebilir */
   iskontoGrubuId: number | null;
   sahipId: number | null;
+  /** Geldiği marka (kullanıcının markalarından) */
+  markaId: number | null;
 };
 
 /** Yeni müşterinin sahibi kaydeden satışçıdır. Satışçı yalnızca kendi müşterisini düzenler; grup ve temsilciyi yönetici atar. */
@@ -125,6 +132,8 @@ export async function saveCustomer(me: Me, c: CustomerInput): Promise<{ ok: true
     vergiDairesi: clip(c.vergiDairesi, 120), vergiNo: clip(c.vergiNo, 20), il: clip(c.il, 60), adres: clip(c.adres, 2000), notlar: clip(c.notlar, 4000),
   };
   const admin = isAdmin(me) ? { iskontoGrubuId: c.iskontoGrubuId || null, ...(c.sahipId ? { sahipId: c.sahipId } : {}) } : {};
+  const marka = c.markaId ? await canUseBrand(me, c.markaId) : null;
+  Object.assign(values, marka ? { markaId: marka.id } : {});
   if (c.id) {
     const r = await db().update(musteriler).set({ ...values, ...admin }).where(and(eq(musteriler.id, c.id), own(me)));
     return r[0].affectedRows ? { ok: true, id: c.id } : { ok: false, hata: "Müşteri bulunamadı." };

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatDate, formatTRY } from "@/lib/utils";
+import { BrandFilter, BrandTag, type BrandOption } from "@/components/brand/brand-filter";
 import { ChannelSheet, type Channel } from "./channel-sheet";
 import { ASAMA, type Asama } from "./quote-flow";
 
@@ -22,12 +23,14 @@ export type QuoteRow = {
   asama: Asama;
   ilkGorulme: string | null;
   kanal: string | null;
+  marka: string | null;
+  markaRenk: string | null;
   haric: number;
   dahil: number;
 };
 
 /** Kayıtlı teklifler: arama (no, müşteri, hazırlayan) */
-export function QuoteTable({ rows, q, channels }: { rows: QuoteRow[]; q: string; channels: Channel[] | null }) {
+export function QuoteTable({ rows, q, channels, brands, activeBrand }: { rows: QuoteRow[]; q: string; channels: Channel[] | null; brands: BrandOption[]; activeBrand: string | null }) {
   const router = useRouter();
   const [chOpen, setChOpen] = useState(false);
   return (
@@ -52,19 +55,25 @@ export function QuoteTable({ rows, q, channels }: { rows: QuoteRow[]; q: string;
       </div>
       {channels && <ChannelSheet open={chOpen} onClose={() => setChOpen(false)} channels={channels} />}
 
+      <div className="mt-5 flex flex-wrap items-center gap-3">
       <form
-        className="mt-5"
+        className="min-w-0 max-w-md flex-1"
         onSubmit={(e) => {
           e.preventDefault();
           const v = new FormData(e.currentTarget).get("q")?.toString().trim() ?? "";
-          router.push(v ? `/panel/teklifler?q=${encodeURIComponent(v)}` : "/panel/teklifler");
+          const p = new URLSearchParams();
+          if (v) p.set("q", v);
+          if (activeBrand) p.set("marka", activeBrand);
+          router.push(p.size ? `/panel/teklifler?${p}` : "/panel/teklifler");
         }}
       >
-        <label className="flex h-11 max-w-md items-center gap-2.5 rounded-xl border border-input bg-card px-4 text-sm focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/15">
+        <label className="flex h-11 items-center gap-2.5 rounded-xl border border-input bg-card px-4 text-sm focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/15">
           <Search className="size-4 text-muted-foreground" />
           <input name="q" defaultValue={q} placeholder="Teklif no, müşteri ya da hazırlayan" className="w-full bg-transparent outline-none placeholder:text-muted-foreground" />
         </label>
       </form>
+        <BrandFilter brands={brands} active={activeBrand} />
+      </div>
 
       <Card className="mt-4 overflow-hidden">
         {!rows.length ? (
@@ -97,6 +106,7 @@ export function QuoteTable({ rows, q, channels }: { rows: QuoteRow[]; q: string;
                     {t.fiyatTipi === "toptan" && <Badge tone="warning">Toptan</Badge>}
                   </div>
                   <p className="col-span-2 text-xs text-muted-foreground md:col-span-1">
+                    {brands.length > 1 && <BrandTag ad={t.marka} renk={t.markaRenk} className="mr-1.5" />}
                     {t.kanal && <span className="font-semibold text-foreground/80">{t.kanal} · </span>}
                     {t.kullanici ?? "—"} · {formatDate(t.olusturma, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                   </p>

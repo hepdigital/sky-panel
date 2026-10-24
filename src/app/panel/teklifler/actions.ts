@@ -20,7 +20,7 @@ export async function teklifKaydet(input: SaveInput): Promise<{ ok: true; id: nu
     return { ok: true, ...(await saveQuote(me, input)) };
   } catch (e) {
     console.error("teklifKaydet", e);
-    return { ok: false, hata: e instanceof Error && (e.message === "Teklifte kalem yok." || e.message === "Kanal seçin.") ? e.message : "Teklif kaydedilemedi. Tekrar deneyin." };
+    return { ok: false, hata: e instanceof Error && ["Teklifte kalem yok.", "Kanal seçin.", "Marka seçin."].includes(e.message) ? e.message : "Teklif kaydedilemedi. Tekrar deneyin." };
   }
 }
 

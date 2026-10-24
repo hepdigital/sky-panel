@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, FilePlus2, ListPlus, Mail, MapPin, MessageCircle, Pencil, Phone, Plus, Search, Tags } from "lucide-react";
 import { OrderBadge, type OrderStatus } from "@/components/orders/order-views";
 import { ASAMA, type Asama } from "@/components/terminal/quote-flow";
+import { BrandTag } from "@/components/brand/brand-filter";
 import { Avatar } from "@/components/tasks/task-meta";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -26,6 +27,8 @@ export type CustomerRow = {
   telefon: string | null;
   il: string | null;
   grup: string | null;
+  marka: string | null;
+  markaRenk: string | null;
   grupOran: number | null;
   temsilci: string | null;
   teklif: number;
@@ -35,7 +38,9 @@ export type CustomerRow = {
 };
 
 /** Müşteriler: satışçı kendi müşterilerini, yönetici hepsini görür */
-export function CustomerList({ rows, q, admin, groups, staff, openNew }: { rows: CustomerRow[]; q: string; admin: boolean; groups: Group[]; staff: Staff[]; openNew: boolean }) {
+type BrandOpt = { id: number; ad: string };
+
+export function CustomerList({ rows, q, admin, groups, staff, brands, openNew }: { rows: CustomerRow[]; q: string; admin: boolean; groups: Group[]; staff: Staff[]; brands: BrandOpt[]; openNew: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const [adding, setAdding] = useState(openNew);
@@ -93,6 +98,7 @@ export function CustomerList({ rows, q, admin, groups, staff, openNew }: { rows:
                     <span className="block text-[11px] font-normal text-muted-foreground">{c.siparis} sipariş</span>
                   </p>
                   <div className="col-span-2 flex flex-wrap items-center gap-1.5 md:col-span-1">
+                    {brands.length > 1 && <BrandTag ad={c.marka} renk={c.markaRenk} />}
                     {c.grup ? <Badge tone="success">{groupText({ ad: c.grup, oran: c.grupOran ?? 0 })}</Badge> : <span className="text-xs text-muted-foreground">Grup yok</span>}
                   </div>
                   <p className="col-span-2 text-xs text-muted-foreground md:col-span-1">
@@ -114,10 +120,11 @@ export function CustomerList({ rows, q, admin, groups, staff, openNew }: { rows:
           setAdding(false);
           if (openNew) router.replace(pathname);
         }}
-        initial={emptyCustomer()}
+        initial={emptyCustomer(brands.length === 1 ? brands[0].id : null)}
         admin={admin}
         groups={groups}
         staff={staff}
+        brands={brands}
       />
       {admin && <GroupSheet open={grouping} onClose={() => setGrouping(false)} groups={groups} />}
     </div>
@@ -128,6 +135,8 @@ type Detail = CustomerDraft & {
   olusturma: string;
   temsilci: string | null;
   grup: GroupOption | null;
+  marka: string | null;
+  markaRenk: string | null;
   quotes: { id: number; no: string; olusturma: string; asama: Asama; dahil: number; satisci: string | null }[];
   orders: { id: number; no: string; olusturma: string; durum: OrderStatus; dahil: number; satisci: string | null }[];
 };
@@ -140,7 +149,7 @@ function wa(tel: string) {
   return d;
 }
 
-export function CustomerDetail({ c, admin, groups, staff }: { c: Detail; admin: boolean; groups: Group[]; staff: Staff[] }) {
+export function CustomerDetail({ c, admin, groups, staff, brands }: { c: Detail; admin: boolean; groups: Group[]; staff: Staff[]; brands: BrandOpt[] }) {
   const [editing, setEditing] = useState(false);
   const ciro = c.orders.filter((o) => o.durum !== "iptal").reduce((a, o) => a + o.dahil, 0);
   const onay = c.quotes.filter((q) => q.asama === "onaylandi" || q.asama === "siparis").length;
@@ -153,6 +162,7 @@ export function CustomerDetail({ c, admin, groups, staff }: { c: Detail; admin: 
         <div className="min-w-0">
           <h1 className="text-xl font-bold tracking-tight md:text-[26px]">{c.firma}</h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            {c.marka && <BrandTag ad={`Geldiği marka: ${c.marka}`} renk={c.markaRenk} />}
             {c.grup ? <Badge tone="success">İskonto: {groupText(c.grup)} · {c.grup.fiyatListesi === "toptan" ? "Toptan" : "Perakende"}</Badge> : <Badge tone="neutral">İskonto grubu yok</Badge>}
             {c.temsilci && (
               <span className="flex items-center gap-1.5">
@@ -262,7 +272,7 @@ export function CustomerDetail({ c, admin, groups, staff }: { c: Detail; admin: 
         </div>
       </div>
 
-      <CustomerForm key={editing ? "acik" : "kapali"} open={editing} onClose={() => setEditing(false)} initial={c} admin={admin} groups={groups} staff={staff} />
+      <CustomerForm key={editing ? "acik" : "kapali"} open={editing} onClose={() => setEditing(false)} initial={c} admin={admin} groups={groups} staff={staff} brands={brands} />
     </div>
   );
 }

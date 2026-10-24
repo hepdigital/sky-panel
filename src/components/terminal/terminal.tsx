@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, FileDown } from "lucide-react";
 import { useRole } from "@/components/admin/role-context";
 import { Button } from "@/components/ui/button";
-import { FRAMES, OPT_SUFFIX, TL, cfgKey, emptySides, hesap, newIsk, sideFrom, splitKey, type CartGazebo, type Catalog, type Gazebo, type QuoteState } from "@/lib/terminal/calc";
+import { FRAMES, OPT_SUFFIX, TL, cfgKey, emptySides, hesap, newIsk, sideFrom, splitKey, type BrandCard, type CartGazebo, type Catalog, type Gazebo, type QuoteState } from "@/lib/terminal/calc";
 import { cn } from "@/lib/utils";
 import { READY_GAZEBOS } from "@/modules/gazebo/ready";
 import { CatalogCard } from "./catalog-card";
@@ -46,6 +46,7 @@ function parseState(raw: unknown): QuoteState | null {
     prod: d.prod && typeof d.prod === "object" ? d.prod : base.prod,
     prodIsk: d.prodIsk && typeof d.prodIsk === "object" ? d.prodIsk : base.prodIsk,
     isk: d.isk ?? base.isk,
+    markaId: typeof d.markaId === "number" ? d.markaId : undefined,
     iskGrup: typeof d.iskGrup === "string" ? d.iskGrup : undefined,
     extra: Array.isArray(d.extra)
       ? d.extra
@@ -65,7 +66,18 @@ function withCustomer(q: QuoteState, c: QuoteCustomer | null): QuoteState {
 }
 
 /** catalog: veritabanındaki ürünler (Ürünler ekranı); initialCustomer: müşteri sayfasından "Teklif oluştur" ile gelindiyse */
-export function Terminal({ catalog, initialCustomer, channels }: { catalog: Catalog; initialCustomer: QuoteCustomer | null; channels: { id: number; ad: string }[] }) {
+/** brands: kullanıcının satış yapabildiği markalar (en az biri); birden fazlaysa üstte seçilir */
+export function Terminal({
+  catalog,
+  initialCustomer,
+  channels,
+  brands,
+}: {
+  catalog: Catalog;
+  initialCustomer: QuoteCustomer | null;
+  channels: { id: number; ad: string }[];
+  brands: BrandCard[];
+}) {
   const { user } = useRole();
   const [q, setQ] = useState<QuoteState>(emptyQuote);
   const [draft, setDraft] = useState<Gazebo>(newDraft);
@@ -114,6 +126,8 @@ export function Terminal({ catalog, initialCustomer, channels }: { catalog: Cata
   }, [q, customer, loaded]);
 
   const money = (n: number) => TL(q.vat ? n * 1.2 : n);
+  // Seçili marka: kayıttaki marka artık yetkili değilse ilk marka
+  const brand = brands.find((b) => b.id === q.markaId) ?? brands[0];
   const twin = !editing && q.cart.some((c) => cfgKey(c) === cfgKey(draft));
   const H = hesap(q, catalog);
   const pickCustomer = (c: QuoteCustomer | null) => {
@@ -151,7 +165,7 @@ export function Terminal({ catalog, initialCustomer, channels }: { catalog: Cata
   }
   function clear() {
     if (!confirm("Teklifteki tüm gazebolar ve ürünler silinsin mi?")) return;
-    setQ({ ...emptyQuote(), mode: q.mode, vat: q.vat });
+    setQ({ ...emptyQuote(), mode: q.mode, vat: q.vat, markaId: q.markaId });
     setCustomer(null);
     setEditing(null);
   }
@@ -167,6 +181,7 @@ export function Terminal({ catalog, initialCustomer, channels }: { catalog: Cata
           <p className="mt-1 text-sm text-muted-foreground">Gazebo kurun, ürün ekleyin; teklif kaydedilir ve PDF olarak iner.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {brands.length > 1 && <Segment value={brand.id} onChange={(markaId) => setQ({ ...q, markaId })} options={brands.map((b) => [b.id, b.ad])} />}
           <Segment value={q.mode} onChange={(mode) => setQ({ ...q, mode })} options={[[0, "Toptan"], [1, "Perakende"]]} warn={q.mode === 0} />
           <Segment value={q.vat} onChange={(vat) => setQ({ ...q, vat })} options={[[0, "KDV hariç"], [1, "KDV dahil"]]} />
         </div>
@@ -272,12 +287,13 @@ export function Terminal({ catalog, initialCustomer, channels }: { catalog: Cata
         q={q}
         catalog={catalog}
         channels={channels}
+        brand={brand}
         user={user.user}
         customer={customer}
         onPickCustomer={pickCustomer}
         onSaved={() => {
           // Kaydedilen teklif Teklifler'de durur; ekran yeni teklif için sıfırlanır (fiyat tipi ve KDV tercihi korunur)
-          setQ((prev) => ({ ...emptyQuote(), mode: prev.mode, vat: prev.vat }));
+          setQ((prev) => ({ ...emptyQuote(), mode: prev.mode, vat: prev.vat, markaId: prev.markaId }));
           setCustomer(null);
           setDraft(newDraft());
           setEditing(null);

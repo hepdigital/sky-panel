@@ -113,6 +113,31 @@ export type QuoteState = {
   iskGrup?: string;
   /** Ek kalemler (eski kayıtlarda yoktur) */
   extra?: ExtraLine[];
+  /** Teklifi veren marka (eski kayıtlarda yoktur → varsayılan marka) */
+  markaId?: number;
+};
+
+/**
+ * Markanın teklifte görünen kimliği: PDF başlığı, alt bilgi, banka bloğu, müşteri linki ve mesaj metni.
+ * Teklif kaydedilirken veriye kopyalanır; marka bilgileri sonradan değişse de eski PDF aynen kalır.
+ */
+export type BrandCard = {
+  id: number;
+  kod: string;
+  ad: string;
+  renk: string;
+  logo: string | null;
+  onEk: string;
+  unvan: string;
+  adres: string;
+  telefon: string;
+  eposta: string;
+  web: string;
+  vergi: string;
+  ticSicil: string;
+  mersis: string;
+  banka: { banka: string; hesapAdi: string; musteriNo: string; iban: string };
+  notlar: string[];
 };
 
 export const newIsk = (): Isk => ({ tip: "yuzde", d: 0 });
@@ -270,8 +295,6 @@ export function hesap(q: QuoteState, catalog: Catalog, rows = allRows(q, catalog
 
 export const cartUnpriced = (q: QuoteState) => q.cart.reduce((a, c) => a + unpricedWalls(c, q.mode), 0);
 
-/** Sabit teklif notları (PDF'in altına) — terminaldeki firma.js ile aynı */
-export const SABIT_NOTLAR = ["Fiyatlar 2026 fiyat listesine göre hazırlanmıştır."];
 
 export type PdfForm = {
   musteri: string;
@@ -285,7 +308,7 @@ export type PdfForm = {
 };
 
 /** PDF'in ihtiyaç duyduğu her şey (terminalin js/pdf.js biçimi); numara ve dosya adını kayıt sırasında sunucu verir */
-export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog) {
+export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: BrandCard) {
   const adj = (n: number) => (q.vat ? n * 1.2 : n);
   const kalemler = [
     ...q.cart.map((c) => {
@@ -357,8 +380,10 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog) {
     kdv: ham * 0.2,
     genelToplam: ham * 1.2,
     uyarilar,
-    notlar: [...SABIT_NOTLAR, ...f.not.split("\n")].map((s) => s.trim()).filter(Boolean),
+    notlar: [...brand.notlar, ...f.not.split("\n")].map((s) => s.trim()).filter(Boolean),
     dosyaAdi: "",
+    /** Markanın kimliği (PDF ve müşteri linki); eski kayıtlarda yoktur → SKY */
+    firma: brand as BrandCard | undefined,
   };
 }
 export type PdfData = ReturnType<typeof quoteData>;

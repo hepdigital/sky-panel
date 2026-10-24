@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet } from "@/components/ui/sheet";
+import { toWebp } from "@/lib/image";
 import { imgSrc } from "@/lib/terminal/calc";
 import { cn } from "@/lib/utils";
 
@@ -269,26 +270,6 @@ function ProductRow({ u, onEdit, move }: { u: Product; onEdit: () => void; move:
   );
 }
 
-/** Seçilen görseli en fazla 900 px'e küçültüp webp'e çevirir */
-async function toWebp(file: File) {
-  const bmp = await createImageBitmap(file);
-  const scale = Math.min(1, 900 / Math.max(bmp.width, bmp.height));
-  const cv = document.createElement("canvas");
-  cv.width = Math.round(bmp.width * scale);
-  cv.height = Math.round(bmp.height * scale);
-  cv.getContext("2d")!.drawImage(bmp, 0, 0, cv.width, cv.height);
-  for (const quality of [0.85, 0.7, 0.55]) {
-    const blob = await new Promise<Blob | null>((r) => cv.toBlob(r, "image/webp", quality));
-    if (!blob) break;
-    if (blob.size < 600_000) {
-      const bytes = new Uint8Array(await blob.arrayBuffer());
-      let bin = "";
-      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-      return btoa(bin);
-    }
-  }
-  throw new Error("Görsel küçültülemedi.");
-}
 
 function ProductSheet({ product, kategoriId, kategoriler, onClose }: { product: Product | "yeni" | null; kategoriId: number | null; kategoriler: Category[]; onClose: () => void }) {
   const router = useRouter();

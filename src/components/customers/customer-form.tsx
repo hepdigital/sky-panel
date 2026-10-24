@@ -22,8 +22,11 @@ export type CustomerDraft = {
   notlar: string;
   iskontoGrubuId: number | null;
   sahipId: number | null;
+  markaId: number | null;
 };
-export const emptyCustomer = (): CustomerDraft => ({ id: null, firma: "", yetkili: "", telefon: "", eposta: "", vergiDairesi: "", vergiNo: "", il: "", adres: "", notlar: "", iskontoGrubuId: null, sahipId: null });
+export const emptyCustomer = (markaId: number | null = null): CustomerDraft => ({
+  id: null, firma: "", yetkili: "", telefon: "", eposta: "", vergiDairesi: "", vergiNo: "", il: "", adres: "", notlar: "", iskontoGrubuId: null, sahipId: null, markaId,
+});
 
 export type GroupOption = { id: number; ad: string; fiyatListesi: "perakende" | "toptan"; oran: number };
 
@@ -35,6 +38,7 @@ export function CustomerForm({
   admin,
   groups,
   staff,
+  brands,
 }: {
   open: boolean;
   onClose: () => void;
@@ -42,6 +46,8 @@ export function CustomerForm({
   admin: boolean;
   groups: GroupOption[];
   staff: { id: number; adSoyad: string }[];
+  /** Kullanıcının markaları; birden fazlaysa "Geldiği marka" seçilir */
+  brands: { id: number; ad: string }[];
 }) {
   const router = useRouter();
   const [f, setF] = useState(initial);
@@ -87,6 +93,19 @@ export function CustomerForm({
           <span className={label}>Not (yalnızca panelde görünür)</span>
           <textarea rows={2} value={f.notlar} onChange={(e) => setF({ ...f, notlar: e.target.value })} className={`${input} h-auto resize-none py-2`} />
         </label>
+        {brands.length > 1 && (
+          <label className="block">
+            <span className={label}>Geldiği marka</span>
+            <select value={f.markaId ?? ""} onChange={(e) => setF({ ...f, markaId: Number(e.target.value) || null })} className={input}>
+              {!f.markaId && <option value="">Seçin…</option>}
+              {brands.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.ad}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {admin && (
           <div className="grid gap-3 rounded-xl bg-muted/50 p-3 sm:grid-cols-2">
             <label className="block">

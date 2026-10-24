@@ -27,7 +27,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     : [];
   return (
     <QuoteDetail
-      quote={{ id: t.id, no: t.no, olusturma: t.olusturma.toISOString(), kullanici: t.kullanici, fiyatTipi: t.fiyatTipi, musteriId: t.musteriId, veri: t.veri, durum: t.durum, kanal: t.kanal }}
+      quote={{ id: t.id, no: t.no, olusturma: t.olusturma.toISOString(), kullanici: t.kullanici, fiyatTipi: t.fiyatTipi, musteriId: t.musteriId, veri: t.veri, durum: t.durum, kanal: t.kanal, marka: t.marka }}
       flow={{
         asama: t.asama,
         link: t.token ? quoteLink(t.token) : null,

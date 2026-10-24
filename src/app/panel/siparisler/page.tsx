@@ -3,16 +3,19 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { OrderTable } from "@/components/orders/order-views";
 import { requireSeller } from "@/server/auth";
+import { brandFilter } from "@/server/brands";
 import { listOrders } from "@/server/orders";
 
 export const metadata: Metadata = { title: "Siparişler" };
 
-async function Orders({ searchParams }: { searchParams: Promise<{ q?: string | string[] }> }) {
+async function Orders({ searchParams }: { searchParams: Promise<{ q?: string | string[]; marka?: string | string[] }> }) {
   await connection();
-  const raw = (await searchParams).q;
-  const q = typeof raw === "string" ? raw : "";
-  const rows = await listOrders(await requireSeller(), q);
-  return <OrderTable rows={rows.map((r) => ({ ...r, olusturma: r.olusturma.toISOString() }))} q={q} />;
+  const sp = await searchParams;
+  const q = typeof sp.q === "string" ? sp.q : "";
+  const me = await requireSeller();
+  const brands = await brandFilter(me, sp.marka);
+  const rows = await listOrders(me, q, brands.active?.id ?? null);
+  return <OrderTable rows={rows.map((r) => ({ ...r, olusturma: r.olusturma.toISOString() }))} q={q} brands={brands.options} activeBrand={brands.active?.kod ?? null} />;
 }
 
 export default function OrdersPage({ searchParams }: PageProps<"/panel/siparisler">) {

@@ -26,6 +26,12 @@ type Q = {
 
 const input = "w-full rounded-xl border border-input bg-card px-4 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
 
+/** Sayfanın ana rengi teklifi veren markanın rengi olur (düğmeler, odak halkası); eski tekliflerde panelin rengi */
+const brandStyle = (renk?: string) =>
+  renk && /^#[0-9a-f]{6}$/i.test(renk)
+    ? ({ "--primary": renk, "--primary-hover": `color-mix(in srgb, ${renk} 85%, black)`, "--ring": renk } as React.CSSProperties)
+    : undefined;
+
 /** Müşterinin teklif görünümü: inceleme, PDF, kabul ya da revizyon isteği */
 export function CustomerQuote({ token, q }: { token: string; q: Q }) {
   const router = useRouter();
@@ -51,9 +57,15 @@ export function CustomerQuote({ token, q }: { token: string; q: Q }) {
     });
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 md:py-10">
+    <div className="mx-auto max-w-3xl px-4 py-6 md:py-10" style={brandStyle(v.firma?.renk)}>
       <header className="flex items-center justify-between gap-3">
-        <Logo className="h-8" />
+        {/* Teklifi veren markanın logosu (eski tekliflerde SKY) */}
+        {v.firma?.logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={v.firma.logo} alt={v.firma.ad} className="h-8 w-auto max-w-[200px] object-contain" />
+        ) : (
+          <Logo className="h-8" />
+        )}
         <span className="text-right text-xs text-muted-foreground">
           Fiyat teklifi
           <span className="block text-sm font-bold text-foreground">{q.no}</span>
@@ -174,7 +186,9 @@ export function CustomerQuote({ token, q }: { token: string; q: Q }) {
           )}
         </Card>
       )}
-      <p className="mt-6 text-center text-xs text-muted-foreground">SKY Görsel Çözümler · Bu sayfa yalnızca size gönderilen teklif içindir.</p>
+      <p className="mt-6 text-center text-xs text-muted-foreground">
+        {v.firma?.unvan || v.firma?.ad || "SKY Görsel Çözümler"} · Bu sayfa yalnızca size gönderilen teklif içindir.
+      </p>
     </div>
   );
 }

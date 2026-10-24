@@ -37,16 +37,20 @@ export async function epostaGonder(id: number, to: string, pdfBase64: string | n
   if (!t || !t.token) return { ok: false, hata: "Teklif bulunamadı." };
   const link = quoteLink(t.token);
   const ad = t.veri.yetkili || t.veri.musteri || "";
+  // Teklifi veren marka: konu, imza, düğme rengi ve gönderen adı
+  const marka = t.veri.firma?.ad ?? "SKY Görsel Çözümler";
+  const renk = t.veri.firma?.renk ?? "#1d3a76";
   try {
     await sendMail({
       to,
-      replyTo: me.eposta ?? undefined,
-      subject: `Fiyat teklifi ${t.no} · SKY Görsel Çözümler`,
+      fromName: marka,
+      replyTo: me.eposta ?? t.veri.firma?.eposta ?? undefined,
+      subject: `Fiyat teklifi ${t.no} · ${marka}`,
       html: `<p>Merhaba${ad ? ` ${esc(ad)}` : ""},</p>
 <p>${esc(t.no)} numaralı fiyat teklifimizi aşağıdaki bağlantıdan inceleyebilir, PDF olarak indirebilir ve onaylayabilirsiniz:</p>
-<p><a href="${link}" style="display:inline-block;padding:12px 20px;background:#1d3a76;color:#fff;border-radius:999px;text-decoration:none;font-weight:600">Teklifi görüntüle</a></p>
+<p><a href="${link}" style="display:inline-block;padding:12px 20px;background:${renk};color:#fff;border-radius:999px;text-decoration:none;font-weight:600">Teklifi görüntüle</a></p>
 <p style="color:#5e6b82;font-size:13px">${link}</p>
-<p>Saygılarımızla,<br>${esc(me.adSoyad)}${me.telefon ? `<br>${esc(me.telefon)}` : ""}<br>SKY Görsel Çözümler</p>`,
+<p>Saygılarımızla,<br>${esc(me.adSoyad)}${me.telefon ? `<br>${esc(me.telefon)}` : ""}<br>${esc(marka)}</p>`,
       attachments: pdfBase64 ? [{ filename: t.veri.dosyaAdi || `Teklif-${t.no}.pdf`, content: Buffer.from(pdfBase64, "base64") }] : undefined,
     });
   } catch (e) {

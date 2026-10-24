@@ -38,7 +38,7 @@ export async function convertQuote(me: Me, quoteId: number) {
       .values({
         no: `SP-${yil}-${String(sira).padStart(4, "0")}`,
         yil, sira,
-        teklifId: t.id, musteriId: t.musteriId, kullaniciId: t.kullaniciId ?? me.id, musteriAdi: t.musteriAdi,
+        teklifId: t.id, musteriId: t.musteriId, kullaniciId: t.kullaniciId ?? me.id, markaId: t.markaId, musteriAdi: t.musteriAdi,
         tutarKdvHaric: t.tutarKdvHaric, tutarKdvDahil: t.tutarKdvDahil, veri: t.veri,
       })
       .$returningId();
@@ -47,31 +47,35 @@ export async function convertQuote(me: Me, quoteId: number) {
   });
 }
 
-export async function listOrders(me: Me, q: string) {
+/** markaId: yalnızca o markanın siparişleri (null = hepsi) */
+export async function listOrders(me: Me, q: string, markaId: number | null = null) {
   const search: SQL | undefined = q.trim() ? or(like(siparisler.no, likeOf(q)), like(siparisler.musteriAdi, likeOf(q))) : undefined;
   return db()
     .select({
       id: siparisler.id, no: siparisler.no, olusturma: siparisler.olusturma, musteriId: siparisler.musteriId, musteri: siparisler.musteriAdi,
       durum: siparisler.durum, dahil: siparisler.tutarKdvDahil, haric: siparisler.tutarKdvHaric,
       satisci: kullanicilar.adSoyad, teklifNo: teklifler.no, teklifId: siparisler.teklifId,
+      marka: schema.markalar.ad, markaRenk: schema.markalar.renk,
     })
     .from(siparisler)
     .leftJoin(kullanicilar, eq(kullanicilar.id, siparisler.kullaniciId))
     .leftJoin(teklifler, eq(teklifler.id, siparisler.teklifId))
-    .where(and(own(me), search))
+    .leftJoin(schema.markalar, eq(schema.markalar.id, siparisler.markaId))
+    .where(and(own(me), search, markaId ? eq(siparisler.markaId, markaId) : undefined))
     .orderBy(desc(siparisler.id))
     .limit(200);
 }
 
 export async function getOrder(me: Me, id: number) {
   const [o] = await db()
-    .select({ s: siparisler, satisci: kullanicilar.adSoyad, teklifNo: teklifler.no })
+    .select({ s: siparisler, satisci: kullanicilar.adSoyad, teklifNo: teklifler.no, marka: schema.markalar.ad })
     .from(siparisler)
     .leftJoin(kullanicilar, eq(kullanicilar.id, siparisler.kullaniciId))
     .leftJoin(teklifler, eq(teklifler.id, siparisler.teklifId))
+    .leftJoin(schema.markalar, eq(schema.markalar.id, siparisler.markaId))
     .where(and(eq(siparisler.id, id), own(me)));
   if (!o) return null;
-  return { ...o.s, satisci: o.satisci, teklifNo: o.teklifNo, veri: JSON.parse(o.s.veri) as PdfData };
+  return { ...o.s, satisci: o.satisci, teklifNo: o.teklifNo, marka: o.marka, veri: JSON.parse(o.s.veri) as PdfData };
 }
 
 export async function setOrderStatus(me: Me, id: number, durum: (typeof schema.SIPARIS_DURUMLARI)[number], notlar?: string) {

@@ -2,7 +2,7 @@ import "server-only";
 import { asc, eq, sql } from "drizzle-orm";
 import { db, schema } from "./db";
 
-const { kanallar, teklifler } = schema;
+const { kanallar } = schema;
 
 export type Channel = { id: number; ad: string; aktif: boolean; teklif: number };
 
@@ -11,7 +11,8 @@ export async function listChannels(): Promise<Channel[]> {
   return db()
     .select({
       id: kanallar.id, ad: kanallar.ad, aktif: kanallar.aktif,
-      teklif: sql<number>`(SELECT COUNT(*) FROM ${teklifler} WHERE ${teklifler.kanalId} = ${kanallar.id})`.mapWith(Number),
+      // Dış tablo adı açıkça yazılır (tek tablolu sorguda Drizzle sütunu tablo adı olmadan yazar)
+      teklif: sql<number>`(SELECT COUNT(*) FROM teklifler AS t2 WHERE t2.kanal_id = kanallar.id)`.mapWith(Number),
     })
     .from(kanallar)
     .orderBy(asc(kanallar.sira), asc(kanallar.id));

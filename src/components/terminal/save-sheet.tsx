@@ -6,7 +6,7 @@ import { CheckCircle2, Search } from "lucide-react";
 import { musteriAra, teklifKaydet } from "@/app/panel/teklifler/actions";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
-import { quoteData, type Catalog, type QuoteState } from "@/lib/terminal/calc";
+import { quoteData, type BrandCard, type Catalog, type QuoteState } from "@/lib/terminal/calc";
 import { downloadPdf } from "@/lib/terminal/pdf";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +36,7 @@ export function SaveSheet({
   q,
   catalog,
   channels,
+  brand,
   user,
   customer,
   onPickCustomer,
@@ -46,6 +47,8 @@ export function SaveSheet({
   q: QuoteState;
   catalog: Catalog;
   channels: { id: number; ad: string }[];
+  /** Teklifi veren marka (PDF bu markanın kimliğiyle çıkar) */
+  brand: BrandCard;
   user: string;
   customer: QuoteCustomer | null;
   /** Kayıtlı müşteri seçilince terminale bildirilir (iskonto grubu fiyatlara uygulanır) */
@@ -90,9 +93,9 @@ export function SaveSheet({
     if (!c.firma.trim() && !confirm("Müşteri adı boş. Müşterisiz kaydedilsin mi?")) return;
     setBusy(true);
     setErr(null);
-    const data = quoteData(q, { musteri: c.firma, yetkili: c.yetkili, telefon: c.telefon, eposta: c.eposta, gun, hazirlayan, not, gorsel }, catalog);
+    const data = quoteData(q, { musteri: c.firma, yetkili: c.yetkili, telefon: c.telefon, eposta: c.eposta, gun, hazirlayan, not, gorsel }, catalog, brand);
     const musteri = c.firma.trim() ? c : null;
-    const r = await teklifKaydet({ veri: data, durum: q, musteri, gun, kanalId }).catch(() => ({ ok: false as const, hata: "Sunucuya ulaşılamadı." }));
+    const r = await teklifKaydet({ veri: data, durum: { ...q, markaId: brand.id }, musteri, gun, kanalId, markaId: brand.id }).catch(() => ({ ok: false as const, hata: "Sunucuya ulaşılamadı." }));
     if (!r.ok) {
       setBusy(false);
       return setErr(r.hata);

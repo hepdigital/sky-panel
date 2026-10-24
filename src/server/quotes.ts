@@ -2,6 +2,7 @@ import "server-only";
 import { and, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
 import { pdfFileName, type PdfData } from "@/lib/terminal/calc";
 import { isAdmin, randomToken, type Me } from "./auth";
+import { brandCard, canUseBrand } from "./brands";
 import { db, schema } from "./db";
 
 const { musteriler, teklifler, kullanicilar } = schema;
@@ -52,6 +53,8 @@ export type SaveInput = {
   gun: number;
   /** Müşterinin geldiği kanal (zorunlu; aktif kanallardan) */
   kanalId: number | null;
+  /** Teklifi veren marka (kullanıcının satabildiği markalardan) */
+  markaId: number | null;
 };
 
 const clip = (v: string | undefined, max: number) => (v?.trim() ? v.trim().slice(0, max) : null);
@@ -59,7 +62,8 @@ const clip = (v: string | undefined, max: number) => (v?.trim() ? v.trim().slice
 /**
  * Teklifi oturumdaki satışçı adına kaydeder. Müşteri: seçilen kayıt ya da (satışçının carileri içinde) aynı adlı kayıt
  * kullanılır, yoksa yenisi açılır ve sahibi bu satışçı olur; kayıtlı müşterinin boş iletişim alanları tekliften doldurulur.
- * Numara yıl içinde sıralıdır. Müşteriye gidecek link kodu baştan üretilir.
+ * Numara marka ve yıl içinde sıralıdır (SKY-2026-1012, GT-2026-1001). Şirket bilgisi tarayıcıdan gelene değil,
+ * veritabanındaki marka kartına göre veriye yazılır. Müşteriye gidecek link kodu baştan üretilir.
  */
 export async function saveQuote(me: Me, input: SaveInput) {
   const { veri } = input;
@@ -68,6 +72,8 @@ export async function saveQuote(me: Me, input: SaveInput) {
     ? await db().select({ id: schema.kanallar.id }).from(schema.kanallar).where(and(eq(schema.kanallar.id, input.kanalId), eq(schema.kanallar.aktif, true)))
     : [];
   if (!kanal) throw new Error("Kanal seçin.");
+  const marka = input.markaId ? await canUseBrand(me, input.markaId) : null;
+  if (!marka) throw new Error("Marka seçin.");
   return db().transaction(async (tx) => {
     let musteriId: number | null = null;
     const m = input.musteri;
@@ -90,7 +96,7 @@ export async function saveQuote(me: Me, input: SaveInput) {
           })
           .where(eq(musteriler.id, musteriId));
       } else {
-        const [r] = await tx.insert(musteriler).values({ firma, yetkili, telefon, eposta, sahipId: me.id, olusturan: me.adSoyad }).$returningId();
+        const [r] = await tx.insert(musteriler).values({ firma, yetkili, telefon, eposta, sahipId: me.id, olusturan: me.adSoyad, markaId: marka.id }).$returningId();
         musteriId = r.id;
       }
     }
@@ -99,12 +105,12 @@ export async function saveQuote(me: Me, input: SaveInput) {
     const [{ max }] = await tx
       .select({ max: sql<number>`COALESCE(MAX(${teklifler.sira}), ${SIRA_BASLANGIC})` })
       .from(teklifler)
-      .where(eq(teklifler.yil, yil))
+      .where(and(eq(teklifler.markaId, marka.id), eq(teklifler.yil, yil)))
       .for("update");
     const sira = Number(max) + 1;
-    const no = `SKY-${yil}-${String(sira).padStart(4, "0")}`;
+    const no = `${marka.teklifOnEki}-${yil}-${String(sira).padStart(4, "0")}`;
     const musteriAdi = veri.musteri.trim() || firma;
-    const stored = { ...veri, no, dosyaAdi: pdfFileName(no, musteriAdi ?? "") };
+    const stored = { ...veri, no, dosyaAdi: pdfFileName(no, musteriAdi ?? ""), firma: brandCard(marka) };
     const gun = Math.max(0, Math.min(365, Math.round(input.gun) || 0));
 
     const [r] = await tx
@@ -113,6 +119,7 @@ export async function saveQuote(me: Me, input: SaveInput) {
         no, yil, sira, musteriId,
         kullaniciId: me.id,
         kanalId: kanal.id,
+        markaId: marka.id,
         kullanici: me.adSoyad,
         musteriAdi,
         fiyatTipi: veri.toptan ? "toptan" : "perakende",
@@ -129,7 +136,8 @@ export async function saveQuote(me: Me, input: SaveInput) {
   });
 }
 
-export async function listQuotes(me: Me, q: string) {
+/** markaId: yalnızca o markanın teklifleri (null = hepsi) */
+export async function listQuotes(me: Me, q: string, markaId: number | null = null) {
   const search: SQL | undefined = q.trim()
     ? or(like(teklifler.no, likeOf(q)), like(teklifler.musteriAdi, likeOf(q)), like(teklifler.kullanici, likeOf(q)))
     : undefined;
@@ -137,13 +145,15 @@ export async function listQuotes(me: Me, q: string) {
     .select({
       id: teklifler.id, no: teklifler.no, olusturma: teklifler.olusturma, musteriId: teklifler.musteriId,
       musteri: teklifler.musteriAdi, kullanici: sql<string | null>`COALESCE(${kullanicilar.adSoyad}, ${teklifler.kullanici})`, kanal: schema.kanallar.ad,
+      marka: schema.markalar.ad, markaRenk: schema.markalar.renk,
       fiyatTipi: teklifler.fiyatTipi, asama: teklifler.asama, ilkGorulme: teklifler.ilkGorulme,
       kalemSayisi: teklifler.kalemSayisi, haric: teklifler.tutarKdvHaric, dahil: teklifler.tutarKdvDahil,
     })
     .from(teklifler)
     .leftJoin(kullanicilar, eq(kullanicilar.id, teklifler.kullaniciId))
     .leftJoin(schema.kanallar, eq(schema.kanallar.id, teklifler.kanalId))
-    .where(and(ownQuotes(me), search))
+    .leftJoin(schema.markalar, eq(schema.markalar.id, teklifler.markaId))
+    .where(and(ownQuotes(me), search, markaId ? eq(teklifler.markaId, markaId) : undefined))
     .orderBy(desc(teklifler.id))
     .limit(200);
 }
@@ -151,11 +161,12 @@ export async function listQuotes(me: Me, q: string) {
 /** Teklif ayrıntısı; satışçı başkasının teklifini göremez (null döner) */
 export async function getQuote(me: Me, id: number) {
   const [row] = await db()
-    .select({ t: teklifler, kanal: schema.kanallar.ad })
+    .select({ t: teklifler, kanal: schema.kanallar.ad, marka: schema.markalar.ad })
     .from(teklifler)
     .leftJoin(schema.kanallar, eq(schema.kanallar.id, teklifler.kanalId))
+    .leftJoin(schema.markalar, eq(schema.markalar.id, teklifler.markaId))
     .where(and(eq(teklifler.id, id), ownQuotes(me)));
   if (!row) return null;
-  const t = { ...row.t, kanal: row.kanal };
+  const t = { ...row.t, kanal: row.kanal, marka: row.marka };
   return { ...t, veri: JSON.parse(t.veri) as PdfData, durum: t.durum ? (JSON.parse(t.durum) as unknown) : null };
 }

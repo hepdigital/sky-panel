@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { CustomerList } from "@/components/customers/customer-views";
 import { isAdmin, requireSeller } from "@/server/auth";
+import { brandsFor } from "@/server/brands";
 import { listCustomers, listGroups, staffList } from "@/server/customers";
 
 export const metadata: Metadata = { title: "Müşteriler" };
@@ -13,8 +14,8 @@ async function Customers({ searchParams }: { searchParams: Promise<{ q?: string 
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q : "";
   const admin = isAdmin(me);
-  const [rows, groups, staff] = await Promise.all([listCustomers(me, q), listGroups(), admin ? staffList() : []]);
-  return <CustomerList rows={rows} q={q} admin={admin} groups={groups} staff={staff} openNew={sp.yeni === "1"} />;
+  const [rows, groups, staff, brands] = await Promise.all([listCustomers(me, q), listGroups(), admin ? staffList() : [], brandsFor(me)]);
+  return <CustomerList rows={rows} q={q} admin={admin} groups={groups} staff={staff} brands={brands.map((b) => ({ id: b.id, ad: b.ad }))} openNew={sp.yeni === "1"} />;
 }
 
 export default function CustomersPage({ searchParams }: PageProps<"/panel/musteriler">) {

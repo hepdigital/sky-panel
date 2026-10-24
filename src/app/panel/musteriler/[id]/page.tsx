@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { CustomerDetail } from "@/components/customers/customer-views";
 import { isAdmin, requireSeller } from "@/server/auth";
+import { brandsFor } from "@/server/brands";
 import { getCustomer, listGroups, staffList } from "@/server/customers";
 
 export const metadata: Metadata = { title: "Müşteri" };
@@ -15,17 +16,18 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const me = await requireSeller();
   const admin = isAdmin(me);
-  const [c, groups, staff] = await Promise.all([getCustomer(me, Number((await params).id)), listGroups(), admin ? staffList() : []]);
+  const [c, groups, staff, brands] = await Promise.all([getCustomer(me, Number((await params).id)), listGroups(), admin ? staffList() : [], brandsFor(me)]);
   if (!c) notFound();
   return (
     <CustomerDetail
       admin={admin}
       groups={groups}
       staff={staff}
+      brands={brands.map((b) => ({ id: b.id, ad: b.ad }))}
       c={{
         id: c.id, firma: c.firma, yetkili: c.yetkili ?? "", telefon: c.telefon ?? "", eposta: c.eposta ?? "",
         vergiDairesi: c.vergiDairesi ?? "", vergiNo: c.vergiNo ?? "", il: c.il ?? "", adres: c.adres ?? "", notlar: c.notlar ?? "",
-        iskontoGrubuId: c.iskontoGrubuId, sahipId: c.sahipId,
+        iskontoGrubuId: c.iskontoGrubuId, sahipId: c.sahipId, markaId: c.markaId, marka: c.marka, markaRenk: c.markaRenk,
         olusturma: c.olusturma.toISOString(), temsilci: c.temsilci,
         grup: c.grup ? { id: c.grup.id, ad: c.grup.ad, fiyatListesi: c.grup.fiyatListesi, oran: c.grup.oran } : null,
         quotes: c.quotes.map((q) => ({ ...q, olusturma: q.olusturma.toISOString() })),

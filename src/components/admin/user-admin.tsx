@@ -2,7 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { KeyRound, UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { kullaniciEkle, kullaniciGuncelle, sifreSifirla, type UserFormState } from "@/app/panel/kullanicilar/actions";
+import { kullaniciMarkalari } from "@/app/panel/markalar/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -18,7 +20,10 @@ type User = {
   aktif: boolean;
   sonGiris: string | null;
   teklif: number;
+  /** Atanmış markalar; boş = tüm markalar */
+  markalar: number[];
 };
+type BrandOpt = { id: number; ad: string; renk: string };
 
 const ROL_AD = { yonetici: "Yönetici", satis: "Satışçı", personel: "Personel" } as const;
 
@@ -26,7 +31,7 @@ const input = "h-10 w-full rounded-xl border border-input bg-card px-3 text-sm o
 const label = "mb-1 block text-xs font-semibold text-muted-foreground";
 
 /** Personel hesapları (yalnızca yönetici): ekle, düzenle, pasife al, şifre sıfırla */
-export function UserAdmin({ users, meId }: { users: User[]; meId: number }) {
+export function UserAdmin({ users, meId, brands }: { users: User[]; meId: number; brands: BrandOpt[] }) {
   const [adding, setAdding] = useState(false);
   return (
     <div className="mx-auto max-w-[1100px]">
@@ -45,7 +50,7 @@ export function UserAdmin({ users, meId }: { users: User[]; meId: number }) {
       <Card className="mt-4 overflow-hidden">
         <ul className="divide-y divide-border">
           {users.map((u) => (
-            <UserRow key={u.id} u={u} self={u.id === meId} />
+            <UserRow key={u.id} u={u} self={u.id === meId} brands={brands} />
           ))}
         </ul>
       </Card>
@@ -115,7 +120,7 @@ function NewUser({ onDone }: { onDone: () => void }) {
   );
 }
 
-function UserRow({ u, self }: { u: User; self: boolean }) {
+function UserRow({ u, self, brands }: { u: User; self: boolean; brands: BrandOpt[] }) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(kullaniciGuncelle, undefined);
   const [pw, pwAction, pwPending] = useActionState(sifreSifirla, undefined);
@@ -132,6 +137,11 @@ function UserRow({ u, self }: { u: User; self: boolean }) {
         </div>
         <Badge tone={u.rol === "yonetici" ? "info" : u.rol === "satis" ? "success" : "neutral"}>{ROL_AD[u.rol]}</Badge>
         {!u.aktif && <Badge tone="danger">Pasif</Badge>}
+        {brands.length > 1 && u.rol === "satis" && (
+          <span className="text-[11px] text-muted-foreground">
+            {u.markalar.length ? brands.filter((b) => u.markalar.includes(b.id)).map((b) => b.ad).join(", ") : "Tüm markalar"}
+          </span>
+        )}
         <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
           Düzenle
         </Button>
@@ -172,6 +182,7 @@ function UserRow({ u, self }: { u: User; self: boolean }) {
               <Result state={state} />
             </div>
           </form>
+          {brands.length > 1 && u.rol === "satis" && <BrandAssign userId={u.id} brands={brands} initial={u.markalar} />}
           <form action={pwAction} className="flex flex-col gap-2 md:w-64">
             <input type="hidden" name="id" value={u.id} />
             <Button type="submit" size="sm" variant="outline" disabled={pwPending}>
@@ -182,5 +193,46 @@ function UserRow({ u, self }: { u: User; self: boolean }) {
         </div>
       )}
     </li>
+  );
+}
+
+/** Satışçının satış yapabileceği markalar; hiçbiri seçilmezse tüm markalar */
+function BrandAssign({ userId, brands, initial }: { userId: number; brands: BrandOpt[]; initial: number[] }) {
+  const router = useRouter();
+  const [sel, setSel] = useState<number[]>(initial);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="rounded-xl bg-card p-3 md:col-span-2">
+      <p className={label}>Satabileceği markalar (hiçbiri seçilmezse tüm markalar)</p>
+      <div className="flex flex-wrap items-center gap-3">
+        {brands.map((b) => (
+          <label key={b.id} className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={sel.includes(b.id)}
+              onChange={(e) => setSel(e.target.checked ? [...sel, b.id] : sel.filter((x) => x !== b.id))}
+              className="size-4 accent-[var(--primary)]"
+            />
+            <span className="size-2 rounded-full" style={{ background: b.renk }} /> {b.ad}
+          </label>
+        ))}
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            const r = await kullaniciMarkalari(userId, sel);
+            setBusy(false);
+            setMsg(r.ok ? "Markalar kaydedildi." : r.hata);
+            router.refresh();
+          }}
+        >
+          Markaları kaydet
+        </Button>
+        {msg && <span className="text-xs text-muted-foreground">{msg}</span>}
+      </div>
+    </div>
   );
 }

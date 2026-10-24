@@ -16,11 +16,54 @@ window.SKY_PDF = (function(){
   "use strict";
 
   var M = 15, PW = 210, PH = 297, CW = PW - 2 * M;
-  var GREEN = [0,131,85], INK = [17,26,38], INK2 = [61,78,100], INK3 = [128,142,160],
+  var GREEN0 = [0,131,85], GREEN = GREEN0, INK = [17,26,38], INK2 = [61,78,100], INK3 = [128,142,160],
       LINE = [219,226,235], SOFT = [244,246,250], WARN = [175,69,38], WARNBG = [250,232,226];
   var FF = "SKYSans";
 
   var money = function(n){ return Math.round(n).toLocaleString("tr-TR") + " TL"; };
+
+  /* ---------- marka ----------
+     Panelde teklif verisi markanin kimligini tasir (q.firma): firma kunyesi, banka, renk, logo.
+     Eski kayitlarda yoktur; o zaman firma.js'teki (SKY) bilgiler kullanilir. */
+  var F = typeof FIRMA !== "undefined" ? FIRMA : { ad: "" };
+  var B = typeof BANKA !== "undefined" ? BANKA : null;
+  function hexRgb(h){
+    var m = /^#?([0-9a-f]{6})$/i.exec(h || "");
+    if (!m) return GREEN0;
+    var n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function useBrand(q){
+    var f = q.firma;
+    if (!f){
+      F = typeof FIRMA !== "undefined" ? FIRMA : { ad: "" };
+      B = typeof BANKA !== "undefined" ? BANKA : null;
+      GREEN = GREEN0;
+      return;
+    }
+    F = { ad: f.ad, unvan: f.unvan, adres: f.adres, telefon: f.telefon, eposta: f.eposta, web: f.web,
+          vergi: f.vergi, ticSicil: f.ticSicil, mersis: f.mersis };
+    B = f.banka || null;
+    GREEN = hexRgb(f.renk);
+  }
+  /* markanin logo dosyasini (svg/webp/png) PNG'ye cevir */
+  function brandLogo(url){
+    return new Promise(function(resolve){
+      var img = new Image();
+      img.onload = function(){
+        try {
+          var iw = img.naturalWidth || 300, ih = img.naturalHeight || 100;
+          var ratio = iw / ih, w = 1400, h = Math.max(1, Math.round(w / ratio));
+          var cv = document.createElement("canvas");
+          cv.width = w; cv.height = h;
+          cv.getContext("2d").drawImage(img, 0, 0, w, h);
+          resolve({ data: cv.toDataURL("image/png"), ratio: ratio });
+        } catch (e) { resolve(null); }
+      };
+      img.onerror = function(){ resolve(null); };
+      img.src = url;
+    });
+  }
 
   /* ---------- sayfadaki SVG logoyu PNG'ye cevir ---------- */
   function logoImage(){
@@ -83,22 +126,22 @@ window.SKY_PDF = (function(){
       doc.addImage(logo.data, "PNG", M, y - 2, lw, lh);
     } else {
       setF(doc, 15, "bold", GREEN);
-      doc.text(FIRMA.ad, M, y + 6);
+      doc.text(F.ad, M, y + 6);
     }
 
     /* sag ust: firma kunyesi — sadece doldurulmus alanlar basilir */
     var bw = 100, ry = y;   /* logo 63 mm'de biter, sag blok 95 mm'den baslar */
     setF(doc, 8.6, "bold", INK);
-    doc.splitTextToSize(FIRMA.unvan || FIRMA.ad, bw).forEach(function(l){
+    doc.splitTextToSize(F.unvan || F.ad, bw).forEach(function(l){
       doc.text(l, right, ry, { align: "right" }); ry += 3.7;
     });
     ry += 0.8;
     var kunye = [
-      FIRMA.adres,
-      FIRMA.telefon ? "Tel: " + FIRMA.telefon : "",
-      [FIRMA.eposta, FIRMA.web].filter(Boolean).join(" · "),
-      [FIRMA.vergi, FIRMA.ticSicil ? "Tic. Sic. " + FIRMA.ticSicil : ""].filter(Boolean).join(" · "),
-      FIRMA.mersis ? "Mersis: " + FIRMA.mersis : ""
+      F.adres,
+      F.telefon ? "Tel: " + F.telefon : "",
+      [F.eposta, F.web].filter(Boolean).join(" · "),
+      [F.vergi, F.ticSicil ? "Tic. Sic. " + F.ticSicil : ""].filter(Boolean).join(" · "),
+      F.mersis ? "Mersis: " + F.mersis : ""
     ].filter(Boolean);
     setF(doc, 7.4, "normal", INK3);
     kunye.forEach(function(s){
@@ -382,11 +425,11 @@ window.SKY_PDF = (function(){
 
   /* ---------- son sayfanin en altinda odeme bilgileri ---------- */
   function bank(doc, y){
-    if (typeof BANKA === "undefined" || !BANKA || !BANKA.banka) return;
-    var ust = [BANKA.banka, BANKA.musteriNo ? "Müşteri No: " + BANKA.musteriNo : ""]
+    if (!B || !B.banka) return;
+    var ust = [B.banka, B.musteriNo ? "Müşteri No: " + B.musteriNo : ""]
                 .filter(Boolean).join("   ·   ");
     /* 6 ust bosluk + 5.6 banka satiri + satirlar + 3 alt bosluk */
-    var h = 14.6 + (BANKA.iban ? 6.4 : 0) + (BANKA.hesapAdi ? 5 : 0);
+    var h = 14.6 + (B.iban ? 6.4 : 0) + (B.hesapAdi ? 5 : 0);
 
     if (y + 6 + h > PH - 19){ doc.addPage(); y = 24; }
     var by = Math.max(y + 6, PH - 19 - h);   /* yer varsa sayfanin dibine yaslanir */
@@ -403,17 +446,17 @@ window.SKY_PDF = (function(){
     yy += 5.6;
     setF(doc, 8.6, "normal", INK2);
     doc.text(ust, M + 7, yy);
-    if (BANKA.iban){
+    if (B.iban){
       yy += 6.4;
       setF(doc, 7.2, "bold", INK3);
       doc.text("IBAN", M + 7, yy);
       setF(doc, 10.5, "bold", INK);
-      doc.text(BANKA.iban, M + 21, yy + 0.2);
+      doc.text(B.iban, M + 21, yy + 0.2);
     }
-    if (BANKA.hesapAdi){
+    if (B.hesapAdi){
       yy += 5;
       setF(doc, 7.6, "normal", INK3);
-      doc.text("Hesap adı: " + BANKA.hesapAdi, M + 7, yy);
+      doc.text("Hesap adı: " + B.hesapAdi, M + 7, yy);
     }
   }
 
@@ -426,7 +469,7 @@ window.SKY_PDF = (function(){
       doc.setLineWidth(0.2);
       doc.line(M, PH - 15, PW - M, PH - 15);
       setF(doc, 7.4, "normal", INK3);
-      doc.text((FIRMA.unvan || FIRMA.ad) + (FIRMA.telefon ? " · " + FIRMA.telefon : "") +
+      doc.text((F.unvan || F.ad) + (F.telefon ? " · " + F.telefon : "") +
                " · Teklif " + q.no, M, PH - 10.5);
       doc.text(i + " / " + n, PW - M, PH - 10.5, { align: "right" });
     }
@@ -434,15 +477,17 @@ window.SKY_PDF = (function(){
 
   /* ---------- ana kurulum ---------- */
   function build(q){
-    return Promise.all([logoImage(), prepImages(q)]).then(function(hazir){
+    useBrand(q);
+    var logoJob = q.firma && q.firma.logo ? brandLogo(q.firma.logo) : logoImage();
+    return Promise.all([logoJob, prepImages(q)]).then(function(hazir){
       var logo = hazir[0];
       var doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4", compress: true });
       window.SKY_PDF_FONT.install(doc);
       doc.setProperties({
         title: "Fiyat teklifi " + q.no,
         subject: q.musteri || "",
-        author: FIRMA.ad,
-        creator: "SKY Fiyat Terminali"
+        author: F.ad,
+        creator: (F.ad || "SKY") + " teklif"
       });
 
       var y = header(doc, q, logo);

@@ -6,6 +6,7 @@ import { OrderBadge, ORDER_STATUS, type OrderStatus } from "@/components/orders/
 import { ASAMA } from "@/components/terminal/quote-flow";
 import { Avatar, PriorityTag, STATUS, dueText } from "@/components/tasks/task-meta";
 import type { TaskRow } from "@/components/tasks/task-board";
+import { BrandFilter, type BrandOption } from "@/components/brand/brand-filter";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,6 +20,13 @@ const PERIODS: { id: Period; label: string }[] = [
   { id: "tum", label: "Tümü" },
 ];
 const OPEN: OrderStatus[] = ["alindi", "uretimde", "hazir", "kargoda"];
+/** Dönem bağlantısı: seçili marka korunur */
+const periodHref = (donem: Period, marka: string | null) => {
+  const p = new URLSearchParams();
+  if (donem !== "ay") p.set("donem", donem);
+  if (marka) p.set("marka", marka);
+  return p.size ? `/panel?${p}` : "/panel";
+};
 const TL = (n: number) => formatTRY(n, { whole: true });
 const pct = (n: number) => `%${Math.round(n * 100)}`;
 const when = (iso: string) => formatDate(iso, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -27,12 +35,14 @@ type Props = {
   greeting: { hello: string; date: string; name: string };
   role: "yonetici" | "satis" | "personel";
   period: Period;
+  brands: BrandOption[];
+  activeBrand: string | null;
   data: DashboardData | null;
   tasks: TaskRow[];
 };
 
 /** Dashboard: yalnızca veritabanındaki kayıtlar. Yönetici herkesi, satışçı kendini, personel görevlerini görür. */
-export function Dashboard({ greeting, role, period, data, tasks }: Props) {
+export function Dashboard({ greeting, role, period, brands, activeBrand, data, tasks }: Props) {
   const admin = role === "yonetici";
   return (
     <div className="mx-auto max-w-[1400px] space-y-5 md:space-y-6">
@@ -45,10 +55,11 @@ export function Dashboard({ greeting, role, period, data, tasks }: Props) {
           <p className="mt-1 text-sm text-muted-foreground">{admin ? "Ekibin teklif, sipariş ve görev özeti." : role === "satis" ? "Tekliflerinin, siparişlerinin ve görevlerinin özeti." : "Sana atanan görevler."}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {data && <BrandFilter brands={brands} active={activeBrand} />}
           {data && (
             <div className="inline-flex rounded-full bg-muted p-1">
               {PERIODS.map((p) => (
-                <Link key={p.id} href={p.id === "ay" ? "/panel" : `/panel?donem=${p.id}`} className={cn("flex h-9 items-center rounded-full px-3.5 text-sm font-semibold", period === p.id ? "bg-card shadow-card" : "text-muted-foreground")}>
+                <Link key={p.id} href={periodHref(p.id, activeBrand)} className={cn("flex h-9 items-center rounded-full px-3.5 text-sm font-semibold", period === p.id ? "bg-card shadow-card" : "text-muted-foreground")}>
                   {p.label}
                 </Link>
               ))}

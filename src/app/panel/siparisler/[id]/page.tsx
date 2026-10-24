@@ -19,7 +19,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     <OrderDetail
       order={{
         id: o.id, no: o.no, olusturma: o.olusturma.toISOString(), durum: o.durum, notlar: o.notlar, satisci: o.satisci,
-        teklifId: o.teklifId, teklifNo: o.teklifNo, musteriId: o.musteriId, veri: o.veri,
+        teklifId: o.teklifId, teklifNo: o.teklifNo, musteriId: o.musteriId, veri: o.veri, marka: o.marka,
       }}
     />
   );

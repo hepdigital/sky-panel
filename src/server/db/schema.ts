@@ -2,7 +2,7 @@
 // terminaldeki kayıtlar tek seferde aktarılabilir. Her teklif o anki halini (fiyatlar dahil) "veri" alanında eksiksiz saklar.
 //
 // Görünürlük: satışçı yalnızca kendi teklif, sipariş ve carilerini görür (sahip/kullanici_id); yönetici hepsini.
-import { boolean, date, decimal, index, int, longtext, mysqlEnum, mysqlTable, smallint, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { boolean, date, decimal, index, int, longtext, mysqlEnum, mysqlTable, primaryKey, smallint, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 export const kullanicilar = mysqlTable("kullanicilar", {
   id: int("id", { unsigned: true }).autoincrement().primaryKey(),
@@ -15,6 +15,38 @@ export const kullanicilar = mysqlTable("kullanicilar", {
   rol: mysqlEnum("rol", ["yonetici", "satis", "personel"]).notNull().default("satis"),
   aktif: boolean("aktif").notNull().default(true),
   sonGiris: timestamp("son_giris"),
+  olusturma: timestamp("olusturma").notNull().defaultNow(),
+});
+
+/**
+ * Marka (şirket kartı): SKY Görsel, GazeboTente… Teklif hangi markayla verilirse PDF, numara öneki, müşteri linki
+ * ve mesaj metni o markanın olur. Her marka ayrı şirket olabilir (unvan, vergi, IBAN ayrı).
+ */
+export const markalar = mysqlTable("markalar", {
+  id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+  kod: varchar("kod", { length: 20 }).notNull().unique(),
+  ad: varchar("ad", { length: 120 }).notNull(),
+  unvan: varchar("unvan", { length: 200 }),
+  adres: varchar("adres", { length: 300 }),
+  telefon: varchar("telefon", { length: 40 }),
+  eposta: varchar("eposta", { length: 160 }),
+  web: varchar("web", { length: 160 }),
+  vergi: varchar("vergi", { length: 160 }),
+  ticSicil: varchar("tic_sicil", { length: 40 }),
+  mersis: varchar("mersis", { length: 40 }),
+  banka: varchar("banka", { length: 160 }),
+  hesapAdi: varchar("hesap_adi", { length: 200 }),
+  musteriNo: varchar("musteri_no", { length: 40 }),
+  iban: varchar("iban", { length: 40 }),
+  /** Logo adresi (/brand/… ya da yüklenen /dosya/marka/…) */
+  logo: varchar("logo", { length: 255 }),
+  renk: varchar("renk", { length: 7 }).notNull().default("#008355"),
+  /** Teklif numarası öneki: SKY-2026-1001, GT-2026-1001 */
+  teklifOnEki: varchar("teklif_on_eki", { length: 10 }).notNull().unique(),
+  /** PDF'in altına her teklifte basılan sabit notlar (satır satır) */
+  notlar: text("notlar"),
+  aktif: boolean("aktif").notNull().default(true),
+  sira: int("sira").notNull().default(0),
   olusturma: timestamp("olusturma").notNull().defaultNow(),
 });
 
@@ -56,6 +88,8 @@ export const musteriler = mysqlTable(
     il: varchar("il", { length: 60 }),
     notlar: text("notlar"),
     iskontoGrubuId: int("iskonto_grubu_id", { unsigned: true }).references(() => iskontoGruplari.id, { onDelete: "set null" }),
+    /** Geldiği marka (ilk teklifinin markası) */
+    markaId: int("marka_id", { unsigned: true }).references(() => markalar.id, { onDelete: "set null" }),
     /** Cariyi açan satışçı (sahibi); satışçı yalnızca kendi carilerini görür */
     sahipId: int("sahip_id", { unsigned: true }).references(() => kullanicilar.id, { onDelete: "set null" }),
     olusturan: varchar("olusturan", { length: 120 }),
@@ -93,6 +127,10 @@ export const teklifler = mysqlTable(
     kullaniciId: int("kullanici_id", { unsigned: true }).references(() => kullanicilar.id, { onDelete: "set null" }),
     /** Müşterinin geldiği kanal */
     kanalId: int("kanal_id", { unsigned: true }).references(() => kanallar.id, { onDelete: "set null" }),
+    /** Teklifi veren marka; numara marka başına sayar */
+    markaId: int("marka_id", { unsigned: true })
+      .notNull()
+      .references(() => markalar.id),
     /** Teklifi kaydedenin adı (kayıt anındaki; eski kayıtlarda yalnızca bu vardır) */
     kullanici: varchar("kullanici", { length: 120 }),
     /** Teklif anındaki müşteri adı (müşteri kartı sonradan değişse de) */
@@ -121,7 +159,7 @@ export const teklifler = mysqlTable(
     olusturma: timestamp("olusturma").notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("teklif_yil_sira").on(t.yil, t.sira),
+    uniqueIndex("teklif_marka_yil_sira").on(t.markaId, t.yil, t.sira),
     index("teklif_musteri").on(t.musteriId),
     index("teklif_kullanici").on(t.kullaniciId),
     index("teklif_kanal").on(t.kanalId),
@@ -145,6 +183,10 @@ export const siparisler = mysqlTable(
       .references(() => teklifler.id, { onDelete: "set null" }),
     musteriId: int("musteri_id", { unsigned: true }).references(() => musteriler.id, { onDelete: "set null" }),
     kullaniciId: int("kullanici_id", { unsigned: true }).references(() => kullanicilar.id, { onDelete: "set null" }),
+    /** Tekliften gelen marka */
+    markaId: int("marka_id", { unsigned: true })
+      .notNull()
+      .references(() => markalar.id),
     musteriAdi: varchar("musteri_adi", { length: 200 }),
     durum: mysqlEnum("durum", SIPARIS_DURUMLARI).notNull().default("alindi"),
     tutarKdvHaric: decimal("tutar_kdv_haric", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
@@ -245,4 +287,18 @@ export const gorevKayitlari = mysqlTable(
     olusturma: timestamp("olusturma").notNull().defaultNow(),
   },
   (t) => [index("gorev_kayit_gorev").on(t.gorevId)],
+);
+
+/** Satışçının satış yapabileceği markalar; kaydı olmayan kullanıcı tüm markalarla çalışır */
+export const kullaniciMarkalar = mysqlTable(
+  "kullanici_markalar",
+  {
+    kullaniciId: int("kullanici_id", { unsigned: true })
+      .notNull()
+      .references(() => kullanicilar.id, { onDelete: "cascade" }),
+    markaId: int("marka_id", { unsigned: true })
+      .notNull()
+      .references(() => markalar.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.kullaniciId, t.markaId] }), index("km_marka").on(t.markaId)],
 );

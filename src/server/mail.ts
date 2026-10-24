@@ -17,7 +17,10 @@ function smtp() {
   return transport;
 }
 
-export async function sendMail(opts: { to: string; subject: string; html: string; replyTo?: string; attachments?: { filename: string; content: Buffer }[] }) {
+/** fromName: gönderen adı (teklifi veren marka); adres SMTP hesabınınkidir */
+export async function sendMail({ fromName, ...opts }: { to: string; subject: string; html: string; fromName?: string; replyTo?: string; attachments?: { filename: string; content: Buffer }[] }) {
   if (!mailReady()) throw new Error("E-posta ayarları (SMTP) henüz yapılmadı.");
-  await smtp().sendMail({ from: process.env.SMTP_FROM ?? process.env.SMTP_USER, ...opts });
+  const address = process.env.SMTP_FROM ?? process.env.SMTP_USER!;
+  const from = fromName && !address.includes("<") ? { name: fromName, address } : address;
+  await smtp().sendMail({ from, ...opts });
 }

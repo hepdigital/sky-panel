@@ -8,6 +8,7 @@ import { siparisDurumu } from "@/app/panel/siparisler/actions";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { BrandFilter, BrandTag, type BrandOption } from "@/components/brand/brand-filter";
 import { QuoteItems } from "@/components/terminal/quote-items";
 import type { PdfData } from "@/lib/terminal/calc";
 import { downloadPdf } from "@/lib/terminal/pdf";
@@ -44,9 +45,11 @@ export type OrderRow = {
   dahil: number;
   satisci: string | null;
   teklifNo: string | null;
+  marka: string | null;
+  markaRenk: string | null;
 };
 
-export function OrderTable({ rows, q }: { rows: OrderRow[]; q: string }) {
+export function OrderTable({ rows, q, brands, activeBrand }: { rows: OrderRow[]; q: string; brands: BrandOption[]; activeBrand: string | null }) {
   const router = useRouter();
   return (
     <div className="mx-auto max-w-[1400px]">
@@ -56,19 +59,25 @@ export function OrderTable({ rows, q }: { rows: OrderRow[]; q: string }) {
           {rows.length} sipariş{q ? " bulundu" : ""} · onaylanan teklifler “Siparişe dönüştür” ile buraya gelir
         </p>
       </div>
+      <div className="mt-5 flex flex-wrap items-center gap-3">
       <form
-        className="mt-5"
+        className="min-w-0 max-w-md flex-1"
         onSubmit={(e) => {
           e.preventDefault();
           const v = new FormData(e.currentTarget).get("q")?.toString().trim() ?? "";
-          router.push(v ? `/panel/siparisler?q=${encodeURIComponent(v)}` : "/panel/siparisler");
+          const p = new URLSearchParams();
+          if (v) p.set("q", v);
+          if (activeBrand) p.set("marka", activeBrand);
+          router.push(p.size ? `/panel/siparisler?${p}` : "/panel/siparisler");
         }}
       >
-        <label className="flex h-11 max-w-md items-center gap-2.5 rounded-xl border border-input bg-card px-4 text-sm focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/15">
+        <label className="flex h-11 items-center gap-2.5 rounded-xl border border-input bg-card px-4 text-sm focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/15">
           <Search className="size-4 text-muted-foreground" />
           <input name="q" defaultValue={q} placeholder="Sipariş no ya da müşteri" className="w-full bg-transparent outline-none placeholder:text-muted-foreground" />
         </label>
       </form>
+        <BrandFilter brands={brands} active={activeBrand} />
+      </div>
       <Card className="mt-4 overflow-hidden">
         {!rows.length ? (
           <p className="px-5 py-12 text-center text-sm text-muted-foreground">Henüz sipariş yok.</p>
@@ -89,6 +98,7 @@ export function OrderTable({ rows, q }: { rows: OrderRow[]; q: string }) {
                     <OrderBadge durum={o.durum} />
                   </div>
                   <p className="col-span-2 text-xs text-muted-foreground md:col-span-1">
+                    {brands.length > 1 && <BrandTag ad={o.marka} renk={o.markaRenk} className="mr-1.5" />}
                     {o.satisci ?? "—"} · {formatDate(o.olusturma, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </Link>
@@ -112,6 +122,7 @@ type Order = {
   teklifNo: string | null;
   musteriId: number | null;
   veri: PdfData;
+  marka: string | null;
 };
 
 export function OrderDetail({ order }: { order: Order }) {
@@ -138,6 +149,7 @@ export function OrderDetail({ order }: { order: Order }) {
           <h1 className="text-2xl font-bold tracking-tight md:text-[28px]">{order.no}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {formatDate(order.olusturma, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · {order.satisci ?? "—"}
+            {order.marka && <span className="font-semibold text-foreground/80"> · {order.marka}</span>}
             {order.teklifId && (
               <>
                 {" · "}

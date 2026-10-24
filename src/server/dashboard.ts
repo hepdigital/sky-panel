@@ -26,11 +26,12 @@ function since(p: Period): Date | null {
 const n = (v: unknown) => Number(v ?? 0);
 
 /** Dashboard verisi: yönetici herkesin, satışçı kendi kayıtlarının özetini görür */
-export async function dashboard(me: Me, p: Period) {
+/** markaId: yalnızca o markanın kayıtları (null = tüm markalar) */
+export async function dashboard(me: Me, p: Period, markaId: number | null = null) {
   const from = since(p);
   const admin = isAdmin(me);
-  const qOwn: SQL | undefined = admin ? undefined : eq(teklifler.kullaniciId, me.id);
-  const oOwn: SQL | undefined = admin ? undefined : eq(siparisler.kullaniciId, me.id);
+  const qOwn: SQL | undefined = and(admin ? undefined : eq(teklifler.kullaniciId, me.id), markaId ? eq(teklifler.markaId, markaId) : undefined);
+  const oOwn: SQL | undefined = and(admin ? undefined : eq(siparisler.kullaniciId, me.id), markaId ? eq(siparisler.markaId, markaId) : undefined);
   const qIn = and(qOwn, from ? gte(teklifler.olusturma, from) : undefined);
   const oIn = and(oOwn, from ? gte(siparisler.olusturma, from) : undefined, sql`${siparisler.durum} <> 'iptal'`);
 

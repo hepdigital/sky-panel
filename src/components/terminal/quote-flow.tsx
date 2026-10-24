@@ -58,7 +58,7 @@ export function QuoteFlow({ id, no, veri, flow, satisci }: { id: number; no: str
   const [to, setTo] = useState(flow.eposta ?? "");
   const st = ASAMA[flow.asama];
   const ad = veri.yetkili || veri.musteri;
-  const text = `Merhaba${ad ? ` ${ad}` : ""}, ${no} numaralı fiyat teklifimizi aşağıdaki bağlantıdan inceleyebilir, PDF olarak indirebilir ve onaylayabilirsiniz:\n${flow.link}\n\n${satisci} · SKY Görsel Çözümler`;
+  const text = `Merhaba${ad ? ` ${ad}` : ""}, ${no} numaralı fiyat teklifimizi aşağıdaki bağlantıdan inceleyebilir, PDF olarak indirebilir ve onaylayabilirsiniz:\n${flow.link}\n\n${satisci} · ${veri.firma?.ad ?? "SKY Görsel Çözümler"}`;
   const run = (fn: () => Promise<{ ok: true } | { ok: false; hata: string }>, okText: string) =>
     start(async () => {
       const r = await fn();

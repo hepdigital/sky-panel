@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Building2,
   CheckSquare,
   ClipboardCheck,
   Factory,
@@ -59,6 +60,7 @@ export const adminNav: AdminNavGroup[] = [
   {
     label: "Ayarlar",
     items: [
+      { href: "/panel/markalar", label: "Markalar", icon: Building2, roles: ["admin"] },
       { href: "/panel/kullanicilar", label: "Kullanıcı & roller", icon: ShieldCheck, roles: ["admin"] },
       { href: "/panel/kayitlar", label: "İşlem kayıtları", icon: History, roles: ["admin"] },
     ],
@@ -66,7 +68,7 @@ export const adminNav: AdminNavGroup[] = [
 ];
 
 /** 1. aşamada açık ekranlar: teklif, sipariş, cari, ürün ve kullanıcı yönetimi (diğerleri sonraki aşamalarda açılacak) */
-const PHASE1 = new Set(["/panel", "/panel/gorevler", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/urunler", "/panel/kullanicilar"]);
+const PHASE1 = new Set(["/panel", "/panel/gorevler", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/urunler", "/panel/markalar", "/panel/kullanicilar"]);
 
 /** openTasks: Görevler'in yanında bana atanan açık görev sayısı */
 export function navFor(role: Role, openTasks = 0) {
