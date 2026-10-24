@@ -1,0 +1,41 @@
+{
+  "status": 200,
+  "headers": {
+    "link": "</_next/static/media/1a099d89ee94ee96-s.p.35a5cae5tspm2.woff2>; rel=preload; as=\"font\"; crossorigin=\"\"; type=\"font/woff2\", </_next/static/media/fba5a26ea33df6a3-s.p.18rizl4rsrl42.woff2>; rel=preload; as=\"font\"; crossorigin=\"\"; type=\"font/woff2\", </brand/logo-white.svg>; rel=preload; as=\"image\"",
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/portal/layout,_N_T_/portal/siparis-ver/layout,_N_T_/portal/siparis-ver/page,_N_T_/portal/siparis-ver"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/portal/siparis-ver/__PAGE__"
+  ],
+  "prefetchHints": {
+    "hints": 49216,
+    "slots": {
+      "children": {
+        "hints": 49248,
+        "slots": {
+          "children": {
+            "hints": 49248,
+            "slots": {
+              "children": {
+                "hints": 49312,
+                "slots": null
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/62b5a0074ebdbb16416a7da7eec2914393b928b73b529df70f74f9386976d761/$/portal/siparis-ver",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/portal/siparis-ver/page"
+    },
+    "isFallback": false
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "node": {
+    "00afa7195ed97dfc412203fc8ec5e01bc74d3359a7": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 55661,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "400c10707c3099ac5ddd12afe13a29a6825e25b9d1": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 55661,
+          "async": false
+        }
+      },
+      "exportedName": "kategoriKaydet",
+      "filename": "src/app/panel/urunler/actions.ts"
+    },
+    "600b5f2d2fc6af59de96a3c7f085b25a9f6cfa965f": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 55661,
+          "async": false
+        }
+      },
+      "exportedName": "kategoriTasi",
+      "filename": "src/app/panel/urunler/actions.ts"
+    },
+    "707c6f5ff40b7c51cc1abfe4d2ee94e694de472254": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 55661,
+          "async": false
+        }
+      },
+      "exportedName": "urunFiyat",
+      "filename": "src/app/panel/urunler/actions.ts"
+    },
+    "40bdcd14a3cb31da26346caae7b771e9e3be7614f7": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 55661,
+          "async": false
+        }
+      },
+      "exportedName": "urunGorselYukle",
+      "filename": "src/app/panel/urunler/actions.ts"
+    },
+    "400b1db53ccf254b8f17160391bd0e9fee3fee8d6a": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 55661,
+          "async": false
+        }
+      },
+      "exportedName": "urunKaydet",
+      "filename": "src/app/panel/urunler/actions.ts"
+    },
+    "60ba717113124b7bb05e8fb6fa6d9b13bc52f99ecd": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 55661,
+          "async": false
+        }
+      },
+      "exportedName": "urunTasi",
+      "filename": "src/app/panel/urunler/actions.ts"
+    }
+  },
+  "edge": {}
+}

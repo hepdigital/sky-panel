@@ -1,0 +1,15 @@
+{
+  "node": {
+    "78081bf7cfdf57182b2db5372db904f22d843305b5": {
+      "workers": {
+        "app/t/[token]/page": {
+          "moduleId": 47358,
+          "async": false
+        }
+      },
+      "exportedName": "teklifYanit",
+      "filename": "src/app/t/[token]/actions.ts"
+    }
+  },
+  "edge": {}
+}

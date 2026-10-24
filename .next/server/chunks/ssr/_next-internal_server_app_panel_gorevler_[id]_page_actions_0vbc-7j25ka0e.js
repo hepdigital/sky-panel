@@ -1,0 +1,3 @@
+module.exports=[9819,a=>{"use strict";var b=a.i(64108),c=a.i(88338);a.S([b,"00afa7195ed97dfc412203fc8ec5e01bc74d3359a7,a",0,c,"40a90f5be16b17484d11ed2d4ed39a464741c9fdfd,d,40fe440cb3fc7deaa1c686fc04cf24cf1c777068f5,z,601c5d126c64d76b3c0eb5a96cc0ae5618da186383,$,6047207fa7d7adb8f71d4d7cb148d4826c8133a1a7,Y"],9819)}];
+
+//# sourceMappingURL=_next-internal_server_app_panel_gorevler_%5Bid%5D_page_actions_0vbc-7j25ka0e.js.map

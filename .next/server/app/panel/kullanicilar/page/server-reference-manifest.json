@@ -1,0 +1,55 @@
+{
+  "node": {
+    "00afa7195ed97dfc412203fc8ec5e01bc74d3359a7": {
+      "workers": {
+        "app/panel/kullanicilar/page": {
+          "moduleId": 65038,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "603fc82f3728173abb8e176ecdad4186c727dd0996": {
+      "workers": {
+        "app/panel/kullanicilar/page": {
+          "moduleId": 65038,
+          "async": false
+        }
+      },
+      "exportedName": "kullaniciEkle",
+      "filename": "src/app/panel/kullanicilar/actions.ts"
+    },
+    "6090a0e1b850a4a711311a02daa33ffee5ee6dabd0": {
+      "workers": {
+        "app/panel/kullanicilar/page": {
+          "moduleId": 65038,
+          "async": false
+        }
+      },
+      "exportedName": "kullaniciGuncelle",
+      "filename": "src/app/panel/kullanicilar/actions.ts"
+    },
+    "60ddf1acfb6dd045a3a4555395a01368a79d197710": {
+      "workers": {
+        "app/panel/kullanicilar/page": {
+          "moduleId": 65038,
+          "async": false
+        }
+      },
+      "exportedName": "sifreSifirla",
+      "filename": "src/app/panel/kullanicilar/actions.ts"
+    },
+    "604ae2e679f590122b9166fd9ec4e50188cd527eb7": {
+      "workers": {
+        "app/panel/kullanicilar/page": {
+          "moduleId": 65038,
+          "async": false
+        }
+      },
+      "exportedName": "kullaniciMarkalari",
+      "filename": "src/app/panel/markalar/actions.ts"
+    }
+  },
+  "edge": {}
+}
