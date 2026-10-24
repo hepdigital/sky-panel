@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/server/auth";
-import { saveBrand, setUserBrands, type BrandInput } from "@/server/brands";
+import { saveBrand, setBrandUsers, setUserBrands, type BrandInput } from "@/server/brands";
 import { saveWebp } from "@/server/files";
 
 type Result = { ok: true; id?: number } | { ok: false; hata: string };
@@ -12,6 +12,7 @@ export async function markaKaydet(input: BrandInput): Promise<Result> {
   const r = await saveBrand(input);
   if (r.ok) {
     revalidatePath("/panel/markalar");
+    revalidatePath(`/panel/markalar/${r.id}`);
     revalidatePath("/panel/teklifler/yeni");
   }
   return r;
@@ -31,6 +32,15 @@ export async function markaLogoYukle(base64: string): Promise<{ ok: true; yol: s
 export async function kullaniciMarkalari(userId: number, markaIds: number[]): Promise<Result> {
   await requireAdmin();
   await setUserBrands(Number(userId), (markaIds ?? []).map(Number).filter((n) => n > 0));
+  revalidatePath("/panel/kullanicilar");
+  return { ok: true };
+}
+
+/** Marka sayfası: bu markayla satış yapabilecek satışçılar */
+export async function markaSatiscilari(markaId: number, userIds: number[]): Promise<Result> {
+  await requireAdmin();
+  await setBrandUsers(Number(markaId), (userIds ?? []).map(Number).filter((n) => n > 0));
+  revalidatePath(`/panel/markalar/${markaId}`);
   revalidatePath("/panel/kullanicilar");
   return { ok: true };
 }

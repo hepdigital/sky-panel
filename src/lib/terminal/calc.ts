@@ -126,6 +126,9 @@ export type BrandCard = {
   kod: string;
   ad: string;
   renk: string;
+  /** İkinci (koyu) renk ve PDF şablonu */
+  renk2: string;
+  sablon: "klasik" | "modern";
   logo: string | null;
   onEk: string;
   unvan: string;

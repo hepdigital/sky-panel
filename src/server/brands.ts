@@ -10,7 +10,7 @@ type Row = typeof markalar.$inferSelect;
 /** Teklif ekranı ve PDF için markanın kimlik kartı (müşteriye giden bilgiler) */
 export function brandCard(m: Row): BrandCard {
   return {
-    id: m.id, kod: m.kod, ad: m.ad, renk: m.renk, logo: m.logo, onEk: m.teklifOnEki,
+    id: m.id, kod: m.kod, ad: m.ad, renk: m.renk, renk2: m.renk2, sablon: m.sablon, logo: m.logo, onEk: m.teklifOnEki,
     unvan: m.unvan ?? "", adres: m.adres ?? "", telefon: m.telefon ?? "", eposta: m.eposta ?? "", web: m.web ?? "",
     vergi: m.vergi ?? "", ticSicil: m.ticSicil ?? "", mersis: m.mersis ?? "",
     banka: { banka: m.banka ?? "", hesapAdi: m.hesapAdi ?? "", musteriNo: m.musteriNo ?? "", iban: m.iban ?? "" },
@@ -77,6 +77,8 @@ export type BrandInput = {
   iban: string;
   logo: string | null;
   renk: string;
+  renk2: string;
+  sablon: string;
   teklifOnEki: string;
   notlar: string;
   aktif: boolean;
@@ -97,12 +99,14 @@ export async function saveBrand(b: BrandInput): Promise<{ ok: true; id: number }
   const onEk = (b.teklifOnEki ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
   if (!onEk) return { ok: false, hata: "Teklif numarası öneki gerekli (ör. GT)." };
   const renk = /^#[0-9a-f]{6}$/i.test(b.renk) ? b.renk.toLowerCase() : "#008355";
+  const renk2 = /^#[0-9a-f]{6}$/i.test(b.renk2) ? b.renk2.toLowerCase() : "#111a26";
+  const sablon = b.sablon === "modern" ? ("modern" as const) : ("klasik" as const);
   const logo = b.logo && (/^\/brand\/[a-z0-9.-]+$/i.test(b.logo) || /^\/dosya\/marka\/[a-z0-9]+\.webp$/.test(b.logo)) ? b.logo : null;
   const values = {
     ad, unvan: clip(b.unvan, 200), adres: clip(b.adres, 300), telefon: clip(b.telefon, 40), eposta: clip(b.eposta, 160), web: clip(b.web, 160),
     vergi: clip(b.vergi, 160), ticSicil: clip(b.ticSicil, 40), mersis: clip(b.mersis, 40),
     banka: clip(b.banka, 160), hesapAdi: clip(b.hesapAdi, 200), musteriNo: clip(b.musteriNo, 40), iban: clip(b.iban, 40),
-    logo, renk, teklifOnEki: onEk, notlar: clip(b.notlar, 4000), aktif: !!b.aktif,
+    logo, renk, renk2, sablon, teklifOnEki: onEk, notlar: clip(b.notlar, 4000), aktif: !!b.aktif,
   };
   try {
     if (b.id) {
@@ -129,4 +133,34 @@ export async function brandFilter(me: Me, raw: string | string[] | undefined) {
   const kod = typeof raw === "string" ? raw : null;
   const active = list.find((b) => b.kod === kod) ?? null;
   return { options: list.map((b) => ({ kod: b.kod, ad: b.ad, renk: b.renk })), active };
+}
+
+export async function getBrand(id: number) {
+  const [m] = await db().select().from(markalar).where(eq(markalar.id, id));
+  return m ?? null;
+}
+
+/**
+ * Marka sayfasından satışçı ataması: seçilenler bu markayla satış yapabilir. Kural aynı: kaydı olmayan satışçı tüm
+ * markalarla çalışır; bu markadan çıkarılan "tümü" satışçıya diğer aktif markalar tek tek yazılır.
+ */
+export async function setBrandUsers(markaId: number, userIds: number[]) {
+  const active = (await db().select({ id: markalar.id }).from(markalar).where(eq(markalar.aktif, true))).map((r) => r.id);
+  const sellers = await db().select({ id: schema.kullanicilar.id }).from(schema.kullanicilar).where(eq(schema.kullanicilar.rol, "satis"));
+  const map = await userBrandMap();
+  const want = new Set(userIds);
+  for (const { id } of sellers) {
+    const cur = new Set(map.get(id)?.length ? map.get(id) : active);
+    if (want.has(id)) cur.add(markaId);
+    else cur.delete(markaId);
+    const next = [...cur].filter((x) => active.includes(x));
+    // Tüm aktif markalar seçiliyse kayıt tutulmaz ("tümü")
+    await setUserBrands(id, next.length === active.length ? [] : next);
+  }
+}
+
+/** Marka → verilen teklif sayısı */
+export async function brandQuoteCounts() {
+  const rows = await db().select({ id: teklifler.markaId, n: sql<number>`COUNT(*)` }).from(teklifler).groupBy(teklifler.markaId);
+  return new Map(rows.map((r) => [r.id, Number(r.n)]));
 }

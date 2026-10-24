@@ -58,9 +58,12 @@ export const adminNav: AdminNavGroup[] = [
     ],
   },
   {
+    label: "Marka Yönetimi",
+    items: [{ href: "/panel/markalar", label: "Markalar ve şablonlar", icon: Building2, roles: ["admin"] }],
+  },
+  {
     label: "Ayarlar",
     items: [
-      { href: "/panel/markalar", label: "Markalar", icon: Building2, roles: ["admin"] },
       { href: "/panel/kullanicilar", label: "Kullanıcı & roller", icon: ShieldCheck, roles: ["admin"] },
       { href: "/panel/kayitlar", label: "İşlem kayıtları", icon: History, roles: ["admin"] },
     ],

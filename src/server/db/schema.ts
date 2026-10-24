@@ -41,6 +41,10 @@ export const markalar = mysqlTable("markalar", {
   /** Logo adresi (/brand/… ya da yüklenen /dosya/marka/…) */
   logo: varchar("logo", { length: 255 }),
   renk: varchar("renk", { length: 7 }).notNull().default("#008355"),
+  /** İkinci (koyu) renk: modern şablonda üst ve alt şerit, toplam kutusu */
+  renk2: varchar("renk2", { length: 7 }).notNull().default("#111a26"),
+  /** PDF şablonu: klasik (beyaz başlık, sağda künye) ya da modern (koyu şerit başlık, künye altta) */
+  sablon: mysqlEnum("sablon", ["klasik", "modern"]).notNull().default("klasik"),
   /** Teklif numarası öneki: SKY-2026-1001, GT-2026-1001 */
   teklifOnEki: varchar("teklif_on_eki", { length: 10 }).notNull().unique(),
   /** PDF'in altına her teklifte basılan sabit notlar (satır satır) */

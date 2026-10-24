@@ -27,6 +27,7 @@ window.SKY_PDF = (function(){
      Eski kayitlarda yoktur; o zaman firma.js'teki (SKY) bilgiler kullanilir. */
   var F = typeof FIRMA !== "undefined" ? FIRMA : { ad: "" };
   var B = typeof BANKA !== "undefined" ? BANKA : null;
+  var TPL = "klasik", DARK = INK;   /* sablon ve ikinci (koyu) renk */
   function hexRgb(h){
     var m = /^#?([0-9a-f]{6})$/i.exec(h || "");
     if (!m) return GREEN0;
@@ -38,9 +39,11 @@ window.SKY_PDF = (function(){
     if (!f){
       F = typeof FIRMA !== "undefined" ? FIRMA : { ad: "" };
       B = typeof BANKA !== "undefined" ? BANKA : null;
-      GREEN = GREEN0;
+      GREEN = GREEN0; TPL = "klasik"; DARK = INK;
       return;
     }
+    TPL = f.sablon === "modern" ? "modern" : "klasik";
+    DARK = f.renk2 ? hexRgb(f.renk2) : INK;
     F = { ad: f.ad, unvan: f.unvan, adres: f.adres, telefon: f.telefon, eposta: f.eposta, web: f.web,
           vergi: f.vergi, ticSicil: f.ticSicil, mersis: f.mersis };
     B = f.banka || null;
@@ -170,6 +173,84 @@ window.SKY_PDF = (function(){
     doc.text("Tarih", lx, y3, { align: "right" });
 
     return y3 + 7;
+  }
+
+  /* ---------- modern sablon ----------
+     Sayfa boyu koyu serit: solda logo beyaz kartta, sagda buyuk TEKLIF, numara ve tarih; altinda marka renginde ince cizgi.
+     Firma kunyesi ustte degil, her sayfanin altindaki koyu seritte. */
+  var tint = function(c, a){ return c.map(function(v){ return Math.round(255 - (255 - v) * a); }); };
+  function headerModern(doc, q, logo){
+    var bh = 40;
+    doc.setFillColor.apply(doc, DARK);
+    doc.rect(0, 0, PW, bh, "F");
+    doc.setFillColor.apply(doc, GREEN);
+    doc.rect(0, bh, PW, 1.6, "F");
+
+    /* logo beyaz kartta (koyu yazili logolar koyu zeminde kaybolmasin) */
+    var cw = 74, ch = 22, cx = M, cy = (bh - ch) / 2;
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(cx, cy, cw, ch, 3, 3, "F");
+    if (logo){
+      var lh = 12, lw = lh * logo.ratio;
+      if (lw > cw - 10){ lw = cw - 10; lh = lw / logo.ratio; }
+      doc.addImage(logo.data, "PNG", cx + (cw - lw) / 2, cy + (ch - lh) / 2, lw, lh);
+    } else {
+      setF(doc, 14, "bold", DARK);
+      doc.text(F.ad, cx + 6, cy + ch / 2 + 2);
+    }
+
+    var right = PW - M;
+    setF(doc, 24, "bold", [255,255,255]);
+    doc.text("TEKLİF", right, 19, { align: "right" });
+    setF(doc, 9, "bold", tint(GREEN, 0.55));
+    doc.text(q.no, right, 27, { align: "right" });
+    setF(doc, 8.4, "normal", [205,214,224]);
+    doc.text(q.tarih + (q.gecerlilik ? "  ·  geçerlilik " + q.gecerlilik.replace(/\s*\(.*\)$/, "") : ""), right, 32.5, { align: "right" });
+    return bh + 12;
+  }
+  function boxesModern(doc, q, y){
+    var gap = 10, bw = (CW - gap) / 2;
+    function col(x, title, lines){
+      doc.setFillColor.apply(doc, GREEN);
+      doc.rect(x, y - 3.2, 1.2, 4.2, "F");
+      label(doc, title, x + 4, y);
+      var yy = y + 7;
+      lines.forEach(function(it){
+        setF(doc, it.size || 8.8, it.bold ? "bold" : "normal", it.bold ? DARK : INK2);
+        doc.splitTextToSize(it.t, bw - 4).slice(0, 2).forEach(function(l){ doc.text(l, x + 4, yy); yy += it.size && it.size > 10 ? 6 : 4.8; });
+      });
+      return yy;
+    }
+    var sol = [{ t: q.musteri || "—", bold: true, size: 13 }];
+    if (q.yetkili) sol.push({ t: q.yetkili });
+    if (q.iletisim) sol.push({ t: q.iletisim });
+    var sag = [{ t: q.modeAd + " fiyat listesi" + (q.vatOn ? " · KDV dahil" : " · KDV hariç") }];
+    if (q.gecerlilik) sag.push({ t: "Geçerlilik: " + q.gecerlilik });
+    if (q.hazirlayan) sag.push({ t: "Hazırlayan: " + q.hazirlayan });
+    var y1 = col(M, "Sayın", sol), y2 = col(M + bw + gap, "Teklif bilgileri", sag);
+    var yb = Math.max(y1, y2) + 2;
+    doc.setDrawColor.apply(doc, LINE);
+    doc.setLineWidth(0.2);
+    doc.line(M, yb, PW - M, yb);
+    return yb + 7;
+  }
+  function footersModern(doc, q){
+    var n = doc.internal.getNumberOfPages();
+    var kunye = [F.unvan || F.ad, F.adres, F.telefon ? "Tel: " + F.telefon : "", [F.eposta, F.web].filter(Boolean).join(" · "),
+                 [F.vergi, F.ticSicil ? "Tic. Sic. " + F.ticSicil : "", F.mersis ? "Mersis: " + F.mersis : ""].filter(Boolean).join(" · ")]
+                .filter(Boolean).join("   ·   ");
+    for (var i = 1; i <= n; i++){
+      doc.setPage(i);
+      doc.setFillColor.apply(doc, DARK);
+      doc.rect(0, PH - 13, PW, 13, "F");
+      doc.setFillColor.apply(doc, GREEN);
+      doc.rect(0, PH - 13, PW, 0.9, "F");
+      setF(doc, 6.8, "normal", [205,214,224]);
+      var lines = doc.splitTextToSize(kunye, CW - 22).slice(0, 2);
+      doc.text(lines, M, PH - (lines.length > 1 ? 7.6 : 5.8));
+      setF(doc, 7.4, "bold", [255,255,255]);
+      doc.text(q.no + "  ·  " + i + " / " + n, PW - M, PH - 5.8, { align: "right" });
+    }
   }
 
   /* ---------- musteri + teklif bilgisi kutulari ---------- */
@@ -328,12 +409,13 @@ window.SKY_PDF = (function(){
       startY: y,
       head: [head],
       body: body,
-      theme: "grid",
+      theme: TPL === "modern" ? "striped" : "grid",
+      alternateRowStyles: TPL === "modern" ? { fillColor: tint(GREEN, 0.07) } : {},
       margin: { left: M, right: M, bottom: 22 },
       styles: { font: FF, fontStyle: "normal", fontSize: 8.8, cellPadding: { top: 2.6, bottom: 2.6, left: 3, right: 3 },
-                lineColor: LINE, lineWidth: 0.15, textColor: INK2, valign: "middle" },
-      headStyles: { font: FF, fontStyle: "bold", fillColor: INK, textColor: [255,255,255], fontSize: 8,
-                    cellPadding: { top: 3, bottom: 3, left: 3, right: 3 }, lineColor: INK },
+                lineColor: LINE, lineWidth: TPL === "modern" ? 0 : 0.15, textColor: INK2, valign: "middle" },
+      headStyles: { font: FF, fontStyle: "bold", fillColor: TPL === "modern" ? GREEN : INK, textColor: [255,255,255], fontSize: 8,
+                    cellPadding: { top: 3, bottom: 3, left: 3, right: 3 }, lineColor: TPL === "modern" ? GREEN : INK },
       columnStyles: cols,
       didParseCell: function(d){
         /* parca satirlari: daha kucuk, gri, girintili */
@@ -382,8 +464,9 @@ window.SKY_PDF = (function(){
     doc.text(money(q.kdv), PW - M, yy + lh * 2, { align: "right" });
 
     var by = yy + lh * 2 + 3;
-    doc.setFillColor.apply(doc, GREEN);
+    doc.setFillColor.apply(doc, TPL === "modern" ? DARK : GREEN);
     doc.roundedRect(x, by, bw, 12, 2, 2, "F");
+    if (TPL === "modern"){ doc.setFillColor.apply(doc, GREEN); doc.rect(x, by, 2.2, 12, "F"); }
     setF(doc, 8.2, "bold", [255,255,255]);
     doc.text("GENEL TOPLAM", x + 5, by + 7.4);
     setF(doc, 12, "bold", [255,255,255]);
@@ -490,8 +573,9 @@ window.SKY_PDF = (function(){
         creator: (F.ad || "SKY") + " teklif"
       });
 
-      var y = header(doc, q, logo);
-      y = boxes(doc, q, y);
+      var modern = TPL === "modern";
+      var y = modern ? headerModern(doc, q, logo) : header(doc, q, logo);
+      y = modern ? boxesModern(doc, q, y) : boxes(doc, q, y);
       if (q.toptan){
         doc.setFillColor.apply(doc, WARNBG);
         doc.setDrawColor(224, 176, 158);
@@ -506,7 +590,7 @@ window.SKY_PDF = (function(){
       y = totals(doc, q, y);
       y = notes(doc, q, y);
       bank(doc, y);
-      footers(doc, q);
+      if (modern) footersModern(doc, q); else footers(doc, q);
       return doc;
     });
   }

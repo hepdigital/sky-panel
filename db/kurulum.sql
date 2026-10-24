@@ -136,6 +136,8 @@ CREATE TABLE `markalar` (
   `iban` varchar(40) DEFAULT NULL,
   `logo` varchar(255) DEFAULT NULL,
   `renk` varchar(7) NOT NULL DEFAULT '#008355',
+  `renk2` varchar(7) NOT NULL DEFAULT '#111a26',
+  `sablon` enum('klasik','modern') NOT NULL DEFAULT 'klasik',
   `teklif_on_eki` varchar(10) NOT NULL,
   `notlar` text DEFAULT NULL,
   `aktif` tinyint(1) NOT NULL DEFAULT 1,
