@@ -2,7 +2,7 @@
 // terminaldeki kayıtlar tek seferde aktarılabilir. Her teklif o anki halini (fiyatlar dahil) "veri" alanında eksiksiz saklar.
 //
 // Görünürlük: satışçı yalnızca kendi teklif, sipariş ve carilerini görür (sahip/kullanici_id); yönetici hepsini.
-import { boolean, date, decimal, index, int, longtext, mysqlEnum, mysqlTable, primaryKey, smallint, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { type AnyMySqlColumn, boolean, date, decimal, index, int, longtext, mysqlEnum, mysqlTable, primaryKey, smallint, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 export const kullanicilar = mysqlTable("kullanicilar", {
   id: int("id", { unsigned: true }).autoincrement().primaryKey(),
@@ -94,6 +94,8 @@ export const musteriler = mysqlTable(
     iskontoGrubuId: int("iskonto_grubu_id", { unsigned: true }).references(() => iskontoGruplari.id, { onDelete: "set null" }),
     /** Geldiği marka (ilk teklifinin markası) */
     markaId: int("marka_id", { unsigned: true }).references(() => markalar.id, { onDelete: "set null" }),
+    /** Siteden gelen müşteri: hangi siteden (panelde açılan müşterilerle eşleştirilmez) */
+    siteId: int("site_id", { unsigned: true }).references((): AnyMySqlColumn => siteBaglantilari.id, { onDelete: "set null" }),
     /** Cariyi açan satışçı (sahibi); satışçı yalnızca kendi carilerini görür */
     sahipId: int("sahip_id", { unsigned: true }).references(() => kullanicilar.id, { onDelete: "set null" }),
     olusturan: varchar("olusturan", { length: 120 }),

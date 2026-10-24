@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, FilePlus2, ListPlus, Mail, MapPin, MessageCircle, Pencil, Phone, Plus, Search, Tags } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, FilePlus2, Globe, ListPlus, Mail, MapPin, MessageCircle, Pencil, Phone, Plus, Search, Tags } from "lucide-react";
 import { OrderBadge, type OrderStatus } from "@/components/orders/order-views";
 import { ASAMA, type Asama } from "@/components/terminal/quote-flow";
 import { BrandTag } from "@/components/brand/brand-filter";
@@ -29,6 +29,8 @@ export type CustomerRow = {
   grup: string | null;
   marka: string | null;
   markaRenk: string | null;
+  /** Siteden geldiyse bağlantının adı */
+  site: string | null;
   grupOran: number | null;
   temsilci: string | null;
   teklif: number;
@@ -40,9 +42,34 @@ export type CustomerRow = {
 /** Müşteriler: satışçı kendi müşterilerini, yönetici hepsini görür */
 type BrandOpt = { id: number; ad: string };
 
-export function CustomerList({ rows, q, admin, groups, staff, brands, openNew }: { rows: CustomerRow[]; q: string; admin: boolean; groups: Group[]; staff: Staff[]; brands: BrandOpt[]; openNew: boolean }) {
+export function CustomerList({
+  rows,
+  q,
+  kaynak,
+  admin,
+  groups,
+  staff,
+  brands,
+  openNew,
+}: {
+  rows: CustomerRow[];
+  q: string;
+  kaynak: "panel" | "site" | null;
+  admin: boolean;
+  groups: Group[];
+  staff: Staff[];
+  brands: BrandOpt[];
+  openNew: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
+  const sp = useSearchParams();
+  const kaynakHref = (k: string | null) => {
+    const p = new URLSearchParams(sp.toString());
+    if (k) p.set("kaynak", k);
+    else p.delete("kaynak");
+    return p.size ? `${pathname}?${p}` : pathname;
+  };
   const [adding, setAdding] = useState(openNew);
   const [grouping, setGrouping] = useState(false);
   return (
@@ -68,17 +95,32 @@ export function CustomerList({ rows, q, admin, groups, staff, brands, openNew }:
       </div>
 
       <form
-        className="mt-5"
+        className="mt-5 flex flex-wrap items-center gap-3"
         onSubmit={(e) => {
           e.preventDefault();
           const v = new FormData(e.currentTarget).get("q")?.toString().trim() ?? "";
-          router.push(v ? `${pathname}?q=${encodeURIComponent(v)}` : pathname);
+          const p = new URLSearchParams(kaynak ? { kaynak } : {});
+          if (v) p.set("q", v);
+          router.push(p.size ? `${pathname}?${p}` : pathname);
         }}
       >
-        <label className="flex h-11 max-w-md items-center gap-2.5 rounded-xl border border-input bg-card px-4 text-sm focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/15">
+        <label className="flex h-11 w-full max-w-md items-center gap-2.5 rounded-xl border border-input bg-card px-4 text-sm focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/15">
           <Search className="size-4 text-muted-foreground" />
           <input name="q" defaultValue={q} placeholder="Firma, yetkili, telefon ya da e-posta" className="w-full bg-transparent outline-none placeholder:text-muted-foreground" />
         </label>
+        <div className="inline-flex rounded-full bg-muted p-1">
+          {(
+            [
+              [null, "Tümü"],
+              ["panel", "Panel"],
+              ["site", "Siteden"],
+            ] as const
+          ).map(([k, l]) => (
+            <Link key={l} href={kaynakHref(k)} className={cn("flex h-9 items-center rounded-full px-3.5 text-sm font-semibold", kaynak === k ? "bg-card shadow-card" : "text-muted-foreground")}>
+              {l}
+            </Link>
+          ))}
+        </div>
       </form>
 
       <Card className="mt-4 overflow-hidden">
@@ -99,6 +141,11 @@ export function CustomerList({ rows, q, admin, groups, staff, brands, openNew }:
                   </p>
                   <div className="col-span-2 flex flex-wrap items-center gap-1.5 md:col-span-1">
                     {brands.length > 1 && <BrandTag ad={c.marka} renk={c.markaRenk} />}
+                    {c.site && (
+                      <Badge tone="neutral" dot={false}>
+                        <Globe className="size-3" /> {c.site}
+                      </Badge>
+                    )}
                     {c.grup ? <Badge tone="success">{groupText({ ad: c.grup, oran: c.grupOran ?? 0 })}</Badge> : <span className="text-xs text-muted-foreground">Grup yok</span>}
                   </div>
                   <p className="col-span-2 text-xs text-muted-foreground md:col-span-1">
@@ -137,6 +184,7 @@ type Detail = CustomerDraft & {
   grup: GroupOption | null;
   marka: string | null;
   markaRenk: string | null;
+  site: string | null;
   quotes: { id: number; no: string; olusturma: string; asama: Asama; dahil: number; satisci: string | null }[];
   orders: { id: number; no: string; olusturma: string; durum: OrderStatus; dahil: number; satisci: string | null }[];
 };
@@ -163,6 +211,11 @@ export function CustomerDetail({ c, admin, groups, staff, brands }: { c: Detail;
           <h1 className="text-xl font-bold tracking-tight md:text-[26px]">{c.firma}</h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {c.marka && <BrandTag ad={`Geldiği marka: ${c.marka}`} renk={c.markaRenk} />}
+            {c.site && (
+              <Badge tone="neutral" dot={false}>
+                <Globe className="size-3" /> Site müşterisi · {c.site}
+              </Badge>
+            )}
             {c.grup ? <Badge tone="success">İskonto: {groupText(c.grup)} · {c.grup.fiyatListesi === "toptan" ? "Toptan" : "Perakende"}</Badge> : <Badge tone="neutral">İskonto grubu yok</Badge>}
             {c.temsilci && (
               <span className="flex items-center gap-1.5">

@@ -8,14 +8,15 @@ import { listCustomers, listGroups, staffList } from "@/server/customers";
 
 export const metadata: Metadata = { title: "Müşteriler" };
 
-async function Customers({ searchParams }: { searchParams: Promise<{ q?: string | string[]; yeni?: string | string[] }> }) {
+async function Customers({ searchParams }: { searchParams: Promise<{ q?: string | string[]; yeni?: string | string[]; kaynak?: string | string[] }> }) {
   await connection();
   const me = await requireSeller();
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q : "";
+  const kaynak = sp.kaynak === "site" || sp.kaynak === "panel" ? sp.kaynak : null;
   const admin = isAdmin(me);
-  const [rows, groups, staff, brands] = await Promise.all([listCustomers(me, q), listGroups(), admin ? staffList() : [], brandsFor(me)]);
-  return <CustomerList rows={rows} q={q} admin={admin} groups={groups} staff={staff} brands={brands.map((b) => ({ id: b.id, ad: b.ad }))} openNew={sp.yeni === "1"} />;
+  const [rows, groups, staff, brands] = await Promise.all([listCustomers(me, q, kaynak), listGroups(), admin ? staffList() : [], brandsFor(me)]);
+  return <CustomerList rows={rows} q={q} kaynak={kaynak} admin={admin} groups={groups} staff={staff} brands={brands.map((b) => ({ id: b.id, ad: b.ad }))} openNew={sp.yeni === "1"} />;
 }
 
 export default function CustomersPage({ searchParams }: PageProps<"/panel/musteriler">) {

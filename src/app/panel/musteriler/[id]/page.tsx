@@ -27,7 +27,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
       c={{
         id: c.id, firma: c.firma, yetkili: c.yetkili ?? "", telefon: c.telefon ?? "", eposta: c.eposta ?? "",
         vergiDairesi: c.vergiDairesi ?? "", vergiNo: c.vergiNo ?? "", il: c.il ?? "", adres: c.adres ?? "", notlar: c.notlar ?? "",
-        iskontoGrubuId: c.iskontoGrubuId, sahipId: c.sahipId, markaId: c.markaId, marka: c.marka, markaRenk: c.markaRenk,
+        iskontoGrubuId: c.iskontoGrubuId, sahipId: c.sahipId, markaId: c.markaId, marka: c.marka, markaRenk: c.markaRenk, site: c.site,
         olusturma: c.olusturma.toISOString(), temsilci: c.temsilci,
         grup: c.grup ? { id: c.grup.id, ad: c.grup.ad, fiyatListesi: c.grup.fiyatListesi, oran: c.grup.oran } : null,
         quotes: c.quotes.map((q) => ({ ...q, olusturma: q.olusturma.toISOString() })),

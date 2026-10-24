@@ -25,6 +25,8 @@ export type SiteOrder = {
   durum: string;
   odemeYontemi: string;
   odemeYontemiAd?: string;
+  /** Ödemenin ayrıntısı (ör. "MasterCard Bonus ···· 1234") */
+  odemeDetay?: string | null;
   odemeDurumu: string | null;
   musteri: { ad: string; eposta: string; telefon: string; il: string; ilce: string; adres: string; faturaTipi: string; firma: string | null; vergiDairesi: string | null; vergiNo: string | null };
   teslimat?: { ad: string; adres: string; il: string; ilce: string; telefon: string } | null;
@@ -81,6 +83,10 @@ async function gtFetch(site: Site, since: string | null) {
 
 /* ───────────── WooCommerce ───────────── */
 
+/** WooCommerce il kodu (TR01…TR81, plaka sırası) → il adı */
+const ILLER = "Adana,Adıyaman,Afyonkarahisar,Ağrı,Amasya,Ankara,Antalya,Artvin,Aydın,Balıkesir,Bilecik,Bingöl,Bitlis,Bolu,Burdur,Bursa,Çanakkale,Çankırı,Çorum,Denizli,Diyarbakır,Edirne,Elazığ,Erzincan,Erzurum,Eskişehir,Gaziantep,Giresun,Gümüşhane,Hakkari,Hatay,Isparta,Mersin,İstanbul,İzmir,Kars,Kastamonu,Kayseri,Kırklareli,Kırşehir,Kocaeli,Konya,Kütahya,Malatya,Manisa,Kahramanmaraş,Mardin,Muğla,Muş,Nevşehir,Niğde,Ordu,Rize,Sakarya,Samsun,Siirt,Sinop,Sivas,Tekirdağ,Tokat,Trabzon,Tunceli,Şanlıurfa,Uşak,Van,Yozgat,Zonguldak,Aksaray,Bayburt,Karaman,Kırıkkale,Batman,Şırnak,Bartın,Ardahan,Iğdır,Yalova,Karabük,Kilis,Osmaniye,Düzce".split(",");
+const ilOf = (state: string) => (/^TR\d{2}$/.test(state) ? (ILLER[Number(state.slice(2)) - 1] ?? state) : state);
+
 type WcAddress = { first_name: string; last_name: string; company: string; address_1: string; address_2: string; city: string; state: string; postcode: string; phone?: string; email?: string };
 type WcOrder = {
   id: number; number: string; status: string; date_created_gmt: string; date_modified_gmt: string; date_paid_gmt: string | null;
@@ -125,13 +131,16 @@ function wcToOrder(site: Site, o: WcOrder, notes: { note: string; customer_note:
     durum: o.status,
     odemeYontemi: o.payment_method,
     odemeYontemiAd: o.payment_method_title,
+    odemeDetay: metaOf(o, "iyzico_last_four_digits")
+      ? [metaOf(o, "iyzico_card_association"), metaOf(o, "iyzico_card_family"), `···· ${metaOf(o, "iyzico_last_four_digits")}`].filter(Boolean).join(" ")
+      : null,
     odemeDurumu: o.date_paid_gmt ? "odendi" : "bekliyor",
     musteri: {
-      ad: fullName(b) || b.company, eposta: b.email ?? "", telefon: b.phone ?? "", il: b.state || b.city, ilce: b.city,
+      ad: fullName(b) || b.company, eposta: b.email ?? "", telefon: b.phone ?? "", il: ilOf(b.state) || b.city, ilce: b.city,
       adres: [b.address_1, b.address_2, b.postcode].filter(Boolean).join(" "), faturaTipi: b.company ? "kurumsal" : "bireysel",
       firma: b.company || null, vergiDairesi: metaOf(o, "_billing_tax_office", "billing_tax_office", "_vergi_dairesi"), vergiNo: metaOf(o, "_billing_tax_number", "billing_tax_number", "_vergi_no", "_billing_tc"),
     },
-    teslimat: s && (s.address_1 || s.city) ? { ad: fullName(s) || fullName(b), adres: [s.address_1, s.address_2, s.postcode].filter(Boolean).join(" "), il: s.state || s.city, ilce: s.city, telefon: s.phone ?? "" } : null,
+    teslimat: s && (s.address_1 || s.city) ? { ad: fullName(s) || fullName(b), adres: [s.address_1, s.address_2, s.postcode].filter(Boolean).join(" "), il: ilOf(s.state) || s.city, ilce: s.city, telefon: s.phone ?? "" } : null,
     musteriNotu: o.customer_note || null,
     araToplam: n(o.total) - kdv,
     indirim: n(o.discount_total),
@@ -162,25 +171,48 @@ async function wcVocabulary(site: Site): Promise<Vocabulary> {
     wcRequest(site, "/reports/orders/totals").catch(() => []) as Promise<{ slug: string; name: string }[]>,
     wcRequest(site, "/payment_gateways").catch(() => []) as Promise<{ id: string; title: string; enabled: boolean }[]>,
   ]);
-  const TR: Record<string, string> = { pending: "Ödeme bekleniyor", processing: "Hazırlanıyor", "on-hold": "Beklemede", completed: "Tamamlandı", cancelled: "İptal edildi", refunded: "İade edildi", failed: "Başarısız" };
+  // Sitenin kendi durum adları (taslak sepet durumu panelde gösterilmez)
+  const TR: Record<string, string> = { pending: "Ödeme bekliyor", processing: "Hazırlanıyor", "on-hold": "Beklemede", completed: "Tamamlandı", cancelled: "İptal edildi", refunded: "İade edildi", failed: "Başarısız" };
   return {
-    durumlar: (statuses.length ? statuses : Object.keys(TR).map((slug) => ({ slug, name: slug }))).map((x) => ({ key: x.slug, label: TR[x.slug] ?? x.name })),
+    durumlar: (statuses.length ? statuses : Object.keys(TR).map((slug) => ({ slug, name: TR[slug] })))
+      .filter((x) => x.slug !== "checkout-draft")
+      .map((x) => ({ key: x.slug, label: x.name || TR[x.slug] || x.slug })),
     odemeDurumlari: [],
     odemeYontemleri: gateways.filter((g) => g.enabled).map((g) => ({ key: g.id, label: g.title })),
     kargolar: [],
   };
 }
 
-async function wcFetch(site: Site, since: string | null) {
-  const q = new URLSearchParams({ per_page: "30", orderby: "modified", order: "asc", dates_are_gmt: "true" });
+const WC_PAGE = 100;
+
+/**
+ * WooCommerce'ten değişen siparişler. İmleç "an|sayfa": aynı "an"dan sonrası sayfa sayfa okunur, tur bitince "an"
+ * en son değişiklik anına ilerler (aynı saniyede değişen siparişler sayfa sınırında kaybolmaz). Notlar (geçmiş)
+ * toplu çekimde alınmaz; sipariş sayfası açılınca siteden okunur (refreshNotes).
+ */
+async function wcFetch(site: Site, cursor: string | null) {
+  const [since, pageRaw, maxSeen] = (cursor ?? "").split("|");
+  const page = Math.max(1, Number(pageRaw) || 1);
+  const q = new URLSearchParams({ per_page: String(WC_PAGE), page: String(page), orderby: "modified", order: "asc", dates_are_gmt: "true" });
   if (since) q.set("modified_after", since.replace(/Z$/, ""));
   const list = (await wcRequest(site, `/orders?${q}`)) as WcOrder[];
-  const orders: SiteOrder[] = [];
-  for (const o of list) {
-    const notes = ((await wcRequest(site, `/orders/${o.id}/notes`).catch(() => [])) as { note: string; customer_note: boolean; author?: string; date_created_gmt: string }[]) ?? [];
-    orders.push(wcToOrder(site, o, notes));
-  }
-  return { orders, vocab: await wcVocabulary(site), cursor: orders.at(-1)?.guncelleme ?? since };
+  const orders = list.map((o) => wcToOrder(site, o, []));
+  const last = [maxSeen, ...orders.map((o) => o.guncelleme)].filter(Boolean).sort().at(-1) ?? since ?? "";
+  const done = list.length < WC_PAGE;
+  return { orders, vocab: await wcVocabulary(site), cursor: done ? last || null : `${since ?? ""}|${page + 1}|${last}`, done };
+}
+
+/** Sipariş sayfası açılınca: WooCommerce sipariş notlarını (geçmiş) siteden okuyup kayda yazar */
+export async function refreshNotes(orderId: number) {
+  const [o] = await db().select({ siteId: siparisler.siteId, siteVeri: siparisler.siteVeri }).from(siparisler).where(eq(siparisler.id, orderId));
+  if (!o?.siteId || !o.siteVeri) return;
+  const [site] = await db().select().from(sites).where(eq(sites.id, o.siteId));
+  if (site?.tur !== "woocommerce") return;
+  const so = JSON.parse(o.siteVeri) as SiteOrder;
+  if (!so.disId) return;
+  const notes = (await wcRequest(site, `/orders/${so.disId}/notes`)) as { note: string; customer_note: boolean; author?: string; date_created_gmt: string }[];
+  so.gecmis = wcToOrder(site, { meta_data: [], billing: {}, shipping: {}, line_items: [] } as unknown as WcOrder, notes).gecmis;
+  await db().update(siparisler).set({ siteVeri: JSON.stringify(so) }).where(eq(siparisler.id, orderId));
 }
 
 /** WooCommerce'e işlem: durum PUT, diğerleri sipariş notu (WooCommerce'te ayrı ödeme/kargo alanı yok) */
@@ -219,20 +251,27 @@ function toVeri(site: Site, o: SiteOrder): PdfData {
   } as unknown as PdfData;
 }
 
-/** Müşteri: e-posta ya da telefonla eşleşen kayıt; yoksa ortak havuza açılır (sahibi yok, geldiği marka sitenin markası) */
+/**
+ * Müşteri: aynı siteden gelmiş müşteriler içinde e-posta ya da telefonla eşleşen kayıt; yoksa yenisi açılır
+ * (sahibi yok, geldiği marka sitenin markası, site_id ile işaretli). Panelde elle açılmış müşterilerle eşleştirilmez.
+ */
 async function customerFor(site: Site, o: SiteOrder) {
   const m = o.musteri;
   const conds = [m.eposta ? eq(musteriler.eposta, m.eposta) : undefined, m.telefon ? eq(musteriler.telefon, m.telefon) : undefined].filter(Boolean);
   if (conds.length) {
-    const [found] = await db().select({ id: musteriler.id }).from(musteriler).where(or(...conds)).limit(1);
-    if (found) return found.id;
+    const [found] = await db().select({ id: musteriler.id, olusturma: musteriler.olusturma }).from(musteriler).where(and(eq(musteriler.siteId, site.id), or(...conds))).limit(1);
+    if (found) {
+      // Kayıt tarihi: müşterinin sitedeki ilk siparişi
+      if (new Date(o.olusturma) < found.olusturma) await db().update(musteriler).set({ olusturma: new Date(o.olusturma) }).where(eq(musteriler.id, found.id));
+      return found.id;
+    }
   }
   const [r] = await db()
     .insert(musteriler)
     .values({
       firma: (m.firma || m.ad || "Site müşterisi").slice(0, 200), yetkili: m.firma ? m.ad.slice(0, 120) : null, telefon: m.telefon || null, eposta: m.eposta || null,
       vergiDairesi: m.vergiDairesi, vergiNo: m.vergiNo, il: m.il || null, adres: [m.adres, m.ilce, m.il].filter(Boolean).join(" · ") || null,
-      markaId: site.markaId, olusturan: `Site: ${site.ad}`,
+      markaId: site.markaId, siteId: site.id, olusturan: `Site: ${site.ad}`, olusturma: new Date(o.olusturma),
     })
     .$returningId();
   return r.id;
@@ -247,8 +286,9 @@ async function upsert(site: Site, o: SiteOrder, vocab?: Vocabulary | null) {
     musteriAdi: (o.musteri.firma || o.musteri.ad).slice(0, 200), tutarKdvHaric: o.toplam - o.kdv, tutarKdvDahil: o.toplam,
     veri: JSON.stringify(toVeri(site, o)), siteVeri: JSON.stringify(o), disTarih: new Date(o.olusturma),
   };
-  const [ex] = await db().select({ id: siparisler.id }).from(siparisler).where(and(eq(siparisler.siteId, site.id), eq(siparisler.disNo, o.no)));
+  const [ex] = await db().select({ id: siparisler.id, siteVeri: siparisler.siteVeri }).from(siparisler).where(and(eq(siparisler.siteId, site.id), eq(siparisler.disNo, o.no)));
   if (ex) {
+    if (!o.gecmis.length && ex.siteVeri) values.siteVeri = JSON.stringify({ ...o, gecmis: (JSON.parse(ex.siteVeri) as SiteOrder).gecmis ?? [] });
     await db().update(siparisler).set(values).where(eq(siparisler.id, ex.id));
     return ex.id;
   }
@@ -275,15 +315,18 @@ export async function syncSite(siteId: number) {
   await db().update(sites).set({ sonDeneme: new Date() }).where(eq(sites.id, site.id));
   let cursor = site.imlec;
   let count = 0;
+  const started = Date.now();
   try {
-    for (let page = 0; page < 20; page++) {
-      const { orders, vocab, cursor: next } = site.tur === "gazebotente" ? await gtFetch(site, cursor) : await wcFetch(site, cursor);
-      if (page === 0) await db().update(sites).set({ sozluk: JSON.stringify(vocab) }).where(eq(sites.id, site.id));
-      for (const o of orders) await upsert(site, o, vocab);
-      count += orders.length;
-      cursor = next;
+    // En çok ~25 sn çalışır; kalan sayfalar bir sonraki eşitlemede imleçten sürer
+    for (let page = 0; page < 50 && Date.now() - started < 25_000; page++) {
+      const r = site.tur === "gazebotente" ? await gtFetch(site, cursor) : await wcFetch(site, cursor);
+      if (page === 0) await db().update(sites).set({ sozluk: JSON.stringify(r.vocab) }).where(eq(sites.id, site.id));
+      for (const o of r.orders) await upsert(site, o, r.vocab);
+      count += r.orders.length;
+      cursor = r.cursor;
       await db().update(sites).set({ imlec: cursor }).where(eq(sites.id, site.id));
-      if (orders.length < (site.tur === "gazebotente" ? 50 : 30)) break;
+      const done = "done" in r ? r.done : r.orders.length < 50;
+      if (done) break;
     }
     await db().update(sites).set({ sonBasari: new Date(), sonHata: null }).where(eq(sites.id, site.id));
     return { ok: true as const, count };

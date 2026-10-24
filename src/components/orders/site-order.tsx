@@ -115,6 +115,7 @@ export function SiteOrderDetail({ id, no, marka, site, disDurum, odemeYontemi, o
               <CreditCard className="size-3.5" /> Ödeme
             </p>
             <p className="mt-1 text-sm font-semibold">{odemeYontemi || labelOf(v.odemeYontemleri, o.odemeYontemi)}</p>
+            {o.odemeDetay && <p className="text-xs text-muted-foreground">{o.odemeDetay}</p>}
             {v.odemeDurumlari.length > 0 ? (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {v.odemeDurumlari.map((p) => (

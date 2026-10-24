@@ -1,11 +1,17 @@
 import "server-only";
-import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, like, or, sql } from "drizzle-orm";
 import { isAdmin, type Me } from "./auth";
-import { canUseBrand } from "./brands";
+import { brandsFor, canUseBrand } from "./brands";
 import { db, schema } from "./db";
 
 const { musteriler, iskontoGruplari, teklifler, siparisler, kullanicilar } = schema;
 const own = (me: Me) => (isAdmin(me) ? undefined : eq(musteriler.sahipId, me.id));
+/** Görebildikleri: kendi müşterileri + çalıştığı markaların sitelerinden gelen müşteriler (düzenleme yalnızca kendi müşterisinde) */
+async function visible(me: Me) {
+  if (isAdmin(me)) return undefined;
+  const ids = (await brandsFor(me)).map((b) => b.id);
+  return ids.length ? or(eq(musteriler.sahipId, me.id), and(isNotNull(musteriler.siteId), inArray(musteriler.markaId, ids))) : eq(musteriler.sahipId, me.id);
+}
 const likeOf = (q: string) => `%${q.replace(/[\\%_]/g, (c) => "\\" + c)}%`;
 const clip = (v: string | null | undefined, max: number) => (v?.trim() ? v.trim().slice(0, max) : null);
 
@@ -49,9 +55,9 @@ export async function deleteGroup(id: number) {
 const teklifSayisi = sql<number>`(SELECT COUNT(*) FROM ${teklifler} WHERE ${teklifler.musteriId} = ${musteriler.id})`.mapWith(Number);
 const siparisSayisi = sql<number>`(SELECT COUNT(*) FROM ${siparisler} WHERE ${siparisler.musteriId} = ${musteriler.id} AND ${siparisler.durum} <> 'iptal')`.mapWith(Number);
 const siparisTutari = sql<number>`(SELECT COALESCE(SUM(${siparisler.tutarKdvDahil}), 0) FROM ${siparisler} WHERE ${siparisler.musteriId} = ${musteriler.id} AND ${siparisler.durum} <> 'iptal')`.mapWith(Number);
-const sonIslem = sql<string | null>`GREATEST(COALESCE((SELECT MAX(${teklifler.olusturma}) FROM ${teklifler} WHERE ${teklifler.musteriId} = ${musteriler.id}), ${musteriler.olusturma}), ${musteriler.olusturma})`;
+const sonIslem = sql<string | null>`GREATEST(COALESCE((SELECT MAX(${teklifler.olusturma}) FROM ${teklifler} WHERE ${teklifler.musteriId} = ${musteriler.id}), ${musteriler.olusturma}), COALESCE((SELECT MAX(COALESCE(${siparisler.disTarih}, ${siparisler.olusturma})) FROM ${siparisler} WHERE ${siparisler.musteriId} = ${musteriler.id}), ${musteriler.olusturma}), ${musteriler.olusturma})`;
 
-export async function listCustomers(me: Me, q: string) {
+export async function listCustomers(me: Me, q: string, kaynak: "panel" | "site" | null = null) {
   const search = q.trim()
     ? or(like(musteriler.firma, likeOf(q.trim())), like(musteriler.yetkili, likeOf(q.trim())), like(musteriler.telefon, likeOf(q.trim())), like(musteriler.eposta, likeOf(q.trim())))
     : undefined;
@@ -59,14 +65,15 @@ export async function listCustomers(me: Me, q: string) {
     .select({
       id: musteriler.id, firma: musteriler.firma, yetkili: musteriler.yetkili, telefon: musteriler.telefon, il: musteriler.il,
       grup: iskontoGruplari.ad, grupOran: iskontoGruplari.oran, temsilci: kullanicilar.adSoyad,
-      marka: schema.markalar.ad, markaRenk: schema.markalar.renk,
+      marka: schema.markalar.ad, markaRenk: schema.markalar.renk, site: schema.siteBaglantilari.ad,
       teklif: teklifSayisi, siparis: siparisSayisi, ciro: siparisTutari, sonIslem,
     })
     .from(musteriler)
     .leftJoin(iskontoGruplari, eq(iskontoGruplari.id, musteriler.iskontoGrubuId))
     .leftJoin(kullanicilar, eq(kullanicilar.id, musteriler.sahipId))
     .leftJoin(schema.markalar, eq(schema.markalar.id, musteriler.markaId))
-    .where(and(own(me), search))
+    .leftJoin(schema.siteBaglantilari, eq(schema.siteBaglantilari.id, musteriler.siteId))
+    .where(and(await visible(me), search, kaynak === "site" ? isNotNull(musteriler.siteId) : kaynak === "panel" ? isNull(musteriler.siteId) : undefined))
     .orderBy(desc(sonIslem))
     .limit(300);
   // GREATEST sürücüden tarih ya da (UTC) metin olarak gelebilir
@@ -76,12 +83,13 @@ export async function listCustomers(me: Me, q: string) {
 
 export async function getCustomer(me: Me, id: number) {
   const [m] = await db()
-    .select({ m: musteriler, grup: iskontoGruplari, temsilci: kullanicilar.adSoyad, marka: schema.markalar.ad, markaRenk: schema.markalar.renk })
+    .select({ m: musteriler, grup: iskontoGruplari, temsilci: kullanicilar.adSoyad, marka: schema.markalar.ad, markaRenk: schema.markalar.renk, site: schema.siteBaglantilari.ad })
     .from(musteriler)
     .leftJoin(iskontoGruplari, eq(iskontoGruplari.id, musteriler.iskontoGrubuId))
     .leftJoin(kullanicilar, eq(kullanicilar.id, musteriler.sahipId))
     .leftJoin(schema.markalar, eq(schema.markalar.id, musteriler.markaId))
-    .where(and(eq(musteriler.id, id), own(me)));
+    .leftJoin(schema.siteBaglantilari, eq(schema.siteBaglantilari.id, musteriler.siteId))
+    .where(and(eq(musteriler.id, id), await visible(me)));
   if (!m) return null;
   const [quotes, orders] = await Promise.all([
     db()
@@ -102,7 +110,7 @@ export async function getCustomer(me: Me, id: number) {
       .orderBy(desc(siparisler.id))
       .limit(100),
   ]);
-  return { ...m.m, grup: m.grup, temsilci: m.temsilci, marka: m.marka, markaRenk: m.markaRenk, quotes, orders };
+  return { ...m.m, grup: m.grup, temsilci: m.temsilci, marka: m.marka, markaRenk: m.markaRenk, site: m.site, quotes, orders };
 }
 
 export type CustomerInput = {

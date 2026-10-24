@@ -6,6 +6,7 @@ import { OrderDetail } from "@/components/orders/order-views";
 import { SiteOrderDetail } from "@/components/orders/site-order";
 import { requireSeller } from "@/server/auth";
 import { getOrder } from "@/server/orders";
+import { refreshNotes } from "@/server/sites";
 
 export const metadata: Metadata = { title: "Sipariş" };
 
@@ -14,8 +15,15 @@ export const instant = false;
 
 async function Detail({ params }: { params: Promise<{ id: string }> }) {
   await connection();
-  const o = await getOrder(await requireSeller(), Number((await params).id));
+  const me = await requireSeller();
+  const id = Number((await params).id);
+  let o = await getOrder(me, id);
   if (!o) notFound();
+  if (o.kaynak === "site") {
+    // WooCommerce sipariş notları (geçmiş) sayfa açılınca siteden okunur; site yavaşsa en çok 4 sn beklenir
+    const ok = await Promise.race([refreshNotes(o.id).then(() => true), new Promise<false>((r) => setTimeout(() => r(false), 4000))]).catch(() => false);
+    if (ok) o = (await getOrder(me, id)) ?? o;
+  }
   if (o.kaynak === "site" && o.site && o.siteVeri)
     return (
       <SiteOrderDetail
