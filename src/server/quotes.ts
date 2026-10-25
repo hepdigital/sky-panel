@@ -2,10 +2,12 @@ import "server-only";
 import { and, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
 import { pdfFileName, type PdfData } from "@/lib/terminal/calc";
 import { costOf } from "@/lib/terminal/cost";
+import { withPriceTable } from "@/lib/terminal/price-table";
 import { parseState } from "@/lib/terminal/state";
 import { isAdmin, randomToken, type Me } from "./auth";
 import { brandCard, canUseBrand } from "./brands";
 import { getCatalog, getCosts } from "./catalog";
+import { gazeboCostTable, gazeboTables } from "./gazebo-prices";
 import { db, schema } from "./db";
 
 const { musteriler, teklifler, kullanicilar } = schema;
@@ -72,8 +74,9 @@ export class QuoteError extends Error {}
 async function quoteCost(me: Me, durum: unknown, markaId: number) {
   const q = parseState(durum);
   if (!q) return { maliyet: null, eksik: true };
-  const [catalog, costs] = await Promise.all([getCatalog(markaId), getCosts()]);
-  const c = costOf(q, catalog, costs);
+  const [catalog, costs, tables, gzCost] = await Promise.all([getCatalog(markaId), getCosts(), gazeboTables([markaId]), gazeboCostTable()]);
+  // Markanın gazebo fiyatlarıyla hesaplanır
+  const c = withPriceTable(tables[markaId], () => costOf(q, catalog, costs, gzCost));
   if (c.alti.length && !isAdmin(me))
     throw new QuoteError(`Fiyat izin verilen alt sınırın altında: ${c.alti.join(", ")}. İndirimi azaltın, perakende listeye geçin ya da yöneticinize danışın.`);
   return { maliyet: c.maliyet, eksik: c.eksik };

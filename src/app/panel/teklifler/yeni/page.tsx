@@ -5,6 +5,7 @@ import { Terminal } from "@/components/terminal/terminal";
 import { isAdmin, requireSeller } from "@/server/auth";
 import { getCatalogs, getCosts } from "@/server/catalog";
 import { listColors } from "@/server/colors";
+import { gazeboCostTable, gazeboTables } from "@/server/gazebo-prices";
 import { brandCard, brandsFor } from "@/server/brands";
 import { activeChannels } from "@/server/channels";
 import { customerForQuote } from "@/server/customers";
@@ -25,11 +26,14 @@ async function Loaded({ searchParams }: { searchParams: Promise<{ musteri?: stri
     isAdmin(me) ? getCosts() : null,
   ]);
   if (!brands.length) return <p className="mx-auto mt-10 max-w-md text-center text-sm text-muted-foreground">Size tanımlı aktif marka yok. Yöneticinizden marka atamasını isteyin.</p>;
-  const catalogs = await getCatalogs(brands.map((b) => b.id));
+  const ids = brands.map((b) => b.id);
+  const [catalogs, tables, gazeboCost] = await Promise.all([getCatalogs(ids), gazeboTables(ids), isAdmin(me) ? gazeboCostTable() : null]);
   return (
     <Terminal
       catalogs={catalogs}
       costs={costs}
+      tables={tables}
+      gazeboCost={gazeboCost}
       outOfStock={colors.filter((c) => !c.aktif).map((c) => c.hex)}
       initialCustomer={customer}
       channels={channels}

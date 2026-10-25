@@ -8,9 +8,7 @@ import { QtyStepper } from "@/components/ui/qty-stepper";
 import {
   COLORS,
   FABRICS,
-  FRAMES,
   FRAME_IDS,
-  ROOF,
   SIZES,
   SZ,
   colorText,
@@ -24,6 +22,7 @@ import {
 } from "@/lib/terminal/calc";
 import { cn } from "@/lib/utils";
 import { WallEditor } from "@/modules/gazebo/wall-editor";
+import { priceTable } from "@/lib/terminal/price-table";
 import { useOutOfStock } from "./color-stock";
 import { Gazebo3D, type CaptureViews } from "./gazebo-3d";
 
@@ -48,6 +47,7 @@ export function GazeboCard({ draft, setDraft, qty, setQty, mode, money, editing,
   const p = plan(draft.size);
   const rows = gzRows(draft, mode);
   const total = gzTotal(draft, mode);
+  const { FRAMES, ROOF } = priceTable();
   const frames = FRAME_IDS.filter((id) => FRAMES[id].p[draft.size]);
 
   const set = (patch: Partial<Gazebo>) => setDraft({ ...draft, ...patch });

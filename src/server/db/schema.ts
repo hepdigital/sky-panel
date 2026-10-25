@@ -392,3 +392,13 @@ export const kullaniciMarkalar = mysqlTable(
   },
   (t) => [primaryKey({ columns: [t.kullaniciId, t.markaId] }), index("km_marka").on(t.markaId)],
 );
+
+/**
+ * Modüler gazebo fiyat düzeltmeleri (fiyatlar.json'daki varsayılanların üstüne): kapsam "ortak", "marka-<id>" ya da "maliyet".
+ * veri: hücre anahtarı → [toptan, perakende] (maliyette → sayı). Bkz. lib/terminal/price-table.ts
+ */
+export const gazeboFiyatlari = mysqlTable("gazebo_fiyatlari", {
+  kapsam: varchar("kapsam", { length: 20 }).primaryKey(),
+  veri: longtext("veri").notNull(),
+  guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+});

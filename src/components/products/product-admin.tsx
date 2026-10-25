@@ -2,11 +2,12 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowDown, ArrowUp, EyeOff, ImagePlus, Palette, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, EyeOff, ImagePlus, Palette, Pencil, Plus, Search, Tent, Trash2 } from "lucide-react";
 import { kategoriKaydet, kategoriTasi, renkStok, urunFiyat, urunGorselYukle, urunKaydet, urunTasi } from "@/app/panel/urunler/actions";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet } from "@/components/ui/sheet";
 import { toWebp } from "@/lib/image";
@@ -93,6 +94,11 @@ export function ProductAdmin({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {admin && (
+            <Link href="/panel/urunler/gazebo" className={buttonVariants({ variant: "outline" })}>
+              <Tent /> Modüler gazebo fiyatları
+            </Link>
+          )}
           {admin && (
             <Button variant="outline" onClick={() => setColorsOpen(true)}>
               <Palette /> Kumaş renkleri

@@ -9,10 +9,10 @@
 // "200x300" grubundan fiyatlanır. Seçim fiyat listesindeki bir ürüne birebir denk gelirse liste fiyatı kullanılır;
 // denk gelmezse o grubun modül fiyatlarıyla hesaplanır (modüller listeye en yakın olacak şekilde listeden çıkarılır).
 
-import data from "@/lib/terminal/fiyatlar.json";
+import { priceTable } from "@/lib/terminal/price-table";
 
-type Pair = [number, number] | null;
-const LIST = data.WALL as unknown as Record<string, Record<string, Pair[]>>;
+/** Etkin fiyat tablosunun duvar listesi (markaya göre değişebilir) */
+const list = () => priceTable().WALL;
 
 export type WallKind = "yok" | "tam" | "yarim" | "tam-pvc" | "tam-sineklik" | "tek-fermuar" | "pencere" | "kapi" | "pencere-kapi";
 export type WindowOpts = { pvc: boolean; sineklik: boolean; perde: boolean };
@@ -51,7 +51,7 @@ export const wallKey = (w: Wall) =>
 /* ---------------- fiyat listesindeki ürünlerle eşleşme ---------------- */
 
 /** Fiyat listesindeki (terminaldeki) duvar ürünleri ve modüler karşılıkları */
-const LIST_PRODUCTS: { id: string; name: string; wall: Omit<Wall, "f"> }[] = [
+export const LIST_PRODUCTS: { id: string; name: string; wall: Omit<Wall, "f"> }[] = [
   { id: "duz-tam", name: "Düz Tam Duvar", wall: { kind: "tam" } },
   { id: "duz-yarim", name: "Düz Yarım Duvar", wall: { kind: "yarim" } },
   { id: "duz-sineklikli", name: "Düz Sineklikli Duvar", wall: { kind: "tam-sineklik" } },
@@ -129,10 +129,10 @@ const moduleCache = new Map<string, Partial<Record<ModuleName, number>>>();
  * Listede verisi olmayan modül tanımsız kalır (o kombinasyon "fiyat alınız" olur).
  */
 export function modulePrices(group: string, f: number, mode: 0 | 1) {
-  const key = `${group}|${f}|${mode}`;
+  const key = `${priceTable().id}|${group}|${f}|${mode}`;
   const hit = moduleCache.get(key);
   if (hit) return hit;
-  const g = LIST[group];
+  const g = list()[group];
   const base = g?.["duz-tam"]?.[f]?.[mode];
   const out: Partial<Record<ModuleName, number>> = {};
   if (g && base != null) {
@@ -152,12 +152,12 @@ export function wallPrice(group: string, w: Wall, mode: 0 | 1): number | null {
   if (w.kind === "yok") return null;
   const lp = listProduct(w);
   if (lp) {
-    const v = LIST[group]?.[lp.id]?.[w.f]?.[mode];
+    const v = list()[group]?.[lp.id]?.[w.f]?.[mode];
     if (v != null) return v;
   }
   if (w.kind === "tam-pvc") return null; // fiyatı henüz girilmedi
   if (!hasWindow(w.kind) && !hasDoor(w.kind)) return null;
-  const base = LIST[group]?.["duz-tam"]?.[w.f]?.[mode];
+  const base = list()[group]?.["duz-tam"]?.[w.f]?.[mode];
   if (base == null) return null;
   const m = modulePrices(group, w.f, mode);
   const parts: (number | undefined)[] = [];

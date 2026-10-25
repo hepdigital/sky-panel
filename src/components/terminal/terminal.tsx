@@ -20,6 +20,7 @@ import {
   type QuoteState,
 } from "@/lib/terminal/calc";
 import { costOf, type Costs } from "@/lib/terminal/cost";
+import { DEFAULT_TABLE, setPriceTable, type PriceTable } from "@/lib/terminal/price-table";
 import { emptyQuote, newId, parseState } from "@/lib/terminal/state";
 import { cn } from "@/lib/utils";
 import { READY_GAZEBOS } from "@/modules/gazebo/ready";
@@ -66,6 +67,8 @@ function withCustomer(q: QuoteState, c: QuoteCustomer | null): QuoteState {
 export function Terminal({
   catalogs,
   costs,
+  tables,
+  gazeboCost,
   outOfStock,
   initialCustomer,
   channels,
@@ -73,6 +76,9 @@ export function Terminal({
 }: {
   catalogs: Record<number, Catalog>;
   costs: Costs | null;
+  /** Marka başına modüler gazebo fiyat tablosu; gazeboCost: gazebo maliyet tablosu (yalnızca yönetici) */
+  tables: Record<number, PriceTable>;
+  gazeboCost: PriceTable | null;
   outOfStock: string[];
   initialCustomer: QuoteCustomer | null;
   channels: { id: number; ad: string }[];
@@ -135,8 +141,10 @@ export function Terminal({
   const money = (n: number) => TL(q.vat ? n * 1.2 : n);
   // Seçili marka: kayıttaki marka artık yetkili değilse ilk marka
   const brand = brands.find((b) => b.id === q.markaId) ?? brands[0];
+  // Seçili markanın gazebo fiyatları etkinleşir; bu satırdan sonraki tüm hesaplar (kartlar, özet, PDF) onu kullanır
+  setPriceTable(tables[brand.id] ?? DEFAULT_TABLE);
   const catalog = catalogs[brand.id] ?? [];
-  const cost = costs ? costOf(q, catalog, costs) : null;
+  const cost = costs ? costOf(q, catalog, costs, gazeboCost) : null;
   const stock = useMemo(() => new Set(outOfStock), [outOfStock]);
   const twin = !editing && q.cart.some((c) => cfgKey(c) === cfgKey(draft));
   const H = hesap(q, catalog);

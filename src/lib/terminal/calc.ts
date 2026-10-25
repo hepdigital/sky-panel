@@ -1,6 +1,7 @@
 // Fiyat terminali hesap çekirdeği: SKY fiyat terminalinin (js/app.js) mantığının birebir aktarımı.
 // Tüm tutarlar ham (KDV hariç) tutulur; KDV yalnızca gösterimde ve PDF'te uygulanır.
-// Modüler gazebo fiyatları: fiyatlar.json — her fiyat [toptan, perakende], null = "fiyat sorunuz".
+// Modüler gazebo fiyatları: etkin fiyat tablosu (price-table.ts; varsayılanı fiyatlar.json, düzeltmeler veritabanında)
+// — her fiyat [toptan, perakende], null = "fiyat sorunuz".
 // Katalog ürünleri (gazebo dışı) veritabanındadır (Ürünler ekranı); hesaplar onları parametre olarak alır.
 
 import {
@@ -14,7 +15,7 @@ import {
   type Wall,
   type WallKind,
 } from "@/modules/gazebo/walls";
-import data from "./fiyatlar.json";
+import { priceTable } from "./price-table";
 
 export type Pair = [number, number] | null;
 /**
@@ -41,9 +42,6 @@ export function itemLines(q: QuoteState, it: CatalogItem) {
 export type CatalogGroup = { id: string; nav: string; title: string; lead: string; warn?: string; items: CatalogItem[] };
 export type Catalog = CatalogGroup[];
 
-export const WALL = data.WALL as unknown as Record<string, Record<string, Pair[]>>;
-export const ROOF = data.ROOF as unknown as Record<string, Pair[]>;
-export const FRAMES = data.FRAMES as unknown as Record<string, { desc: string; p: Record<string, Pair> }>;
 
 export const FABRICS = [
   { n: "690D Impertex", d: "Su geçirmez" },
@@ -174,8 +172,11 @@ export function slots(g: Gazebo): Slot[] {
 const usedSlots = (g: Gazebo) => slots(g).filter((s) => s.wall.kind !== "yok");
 export const slotPrice = (s: Slot, mode: Mode) => wallPrice(s.grup, s.wall, mode);
 
-export const framePrice = (g: Gazebo, mode: Mode) => (g.frame && FRAMES[g.frame]?.p[g.size] ? val(FRAMES[g.frame].p[g.size], mode) : null);
-export const roofPrice = (g: Gazebo, mode: Mode) => (g.roofFab === null ? null : val(ROOF[g.size][g.roofFab], mode));
+export const framePrice = (g: Gazebo, mode: Mode) => {
+  const p = g.frame ? priceTable().FRAMES[g.frame]?.p[g.size] : null;
+  return p ? val(p, mode) : null;
+};
+export const roofPrice = (g: Gazebo, mode: Mode) => (g.roofFab === null ? null : val(priceTable().ROOF[g.size]?.[g.roofFab] ?? null, mode));
 export const unpricedWalls = (g: Gazebo, mode: Mode) => usedSlots(g).filter((s) => slotPrice(s, mode) === null).length;
 
 /** "SQ3 iskelet · 690D Impertex tavan · 4 duvar" */
@@ -200,7 +201,7 @@ export function gzRows(g: Gazebo, mode: Mode): GzRow[] {
   const rows: GzRow[] = [];
   const fp = framePrice(g, mode);
   if (fp !== null) {
-    const f = FRAMES[g.frame!];
+    const f = priceTable().FRAMES[g.frame!];
     rows.push({ t: `${g.frame} iskelet`, s: `${SZ[g.size]} m · ${f.desc}`, v: fp, c: `${g.frame} iskelet (${f.desc})`, img: `f:${g.frame}` });
   }
   const rp = roofPrice(g, mode);

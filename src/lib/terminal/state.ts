@@ -1,4 +1,5 @@
-import { FRAMES, newIsk, sideFrom, type CartGazebo, type QuoteState } from "./calc";
+import { newIsk, sideFrom, type CartGazebo, type QuoteState } from "./calc";
+import { DEFAULT_TABLE } from "./price-table";
 
 // Teklif durumu (sepet): boş durum ve kayıttan gelen durumun doğrulanması. Terminal (tarayıcı) ve teklif kaydı (sunucu) ortak kullanır.
 
@@ -21,7 +22,7 @@ export function parseState(raw: unknown): QuoteState | null {
         id: newId(),
         qty: Math.max(1, Math.min(99, c.qty || 1)),
         isk: c.isk ?? newIsk(),
-        frame: c.frame && FRAMES[c.frame] ? c.frame : null,
+        frame: c.frame && DEFAULT_TABLE.FRAMES[c.frame] ? c.frame : null,
         // Eski kayıtlardaki kenarlar (terminalin 12 duvar ürünü) modüler duvara çevrilir
         sides: c.sides.map(sideFrom),
       })),
