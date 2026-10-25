@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { AlertTriangle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QtyStepper } from "@/components/ui/qty-stepper";
+import { recolor, recolored } from "@/lib/terminal/recolor";
 import { useOutOfStock } from "./color-stock";
 import { COLORS, OPT_SUFFIX, colorName, imgSrc, prodKey, splitKey, val, type CatalogGroup, type CatalogItem, type Mode } from "@/lib/terminal/calc";
 import { cn } from "@/lib/utils";
@@ -76,6 +77,19 @@ export function CatalogCard({
 function VariantItem({ it, prod, setProd, mode, money }: { it: CatalogItem; prod: Record<string, number>; setProd: (id: string, n: number) => void; mode: Mode; money: (n: number) => string }) {
   const out = useOutOfStock();
   const [hex, setHex] = useState<string | null>(it.renk ? (COLORS.find((c) => !out.has(c.hex)) ?? COLORS[0]).hex : null);
+  // Renkli ürünün görseli seçilen renge boyanır (ör. sarı şemsiye → kırmızı)
+  const photo = it.img ? imgSrc(it.img) : null;
+  const [painted, setPainted] = useState<{ key: string; url: string } | null>(null);
+  const paintKey = photo && hex ? `${photo}|${hex}` : null;
+  useEffect(() => {
+    if (!photo || !hex) return;
+    let live = true;
+    void recolor(photo, hex).then((url) => live && setPainted({ key: `${photo}|${hex}`, url }));
+    return () => {
+      live = false;
+    };
+  }, [photo, hex]);
+  const shown = (paintKey && painted?.key === paintKey ? painted.url : null) ?? (photo && hex ? recolored(photo, hex) : null) ?? photo;
   const [on, setOn] = useState(false);
   const base = val(it.p, mode);
   const extra = it.opt ? val(it.opt.p, mode) : null;
@@ -92,7 +106,7 @@ function VariantItem({ it, prod, setProd, mode, money }: { it: CatalogItem; prod
   return (
     <div className={cn("flex flex-col gap-2 rounded-xl border p-3", lines.length ? "border-primary bg-primary-soft/40" : "border-border")}>
       <span className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-white ring-1 ring-border">
-        {it.img && <Image src={imgSrc(it.img)} alt="" fill sizes="240px" className="object-contain p-2" unoptimized={it.img.startsWith("/dosya/")} />}
+        {shown && <Image src={shown} alt="" fill sizes="240px" className="object-contain p-2" unoptimized={!shown.startsWith("/terminal/")} />}
       </span>
       <div className="min-w-0">
         <p className="text-sm font-semibold leading-tight">{it.n}</p>

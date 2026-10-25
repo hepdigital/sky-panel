@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { QtyStepper } from "@/components/ui/qty-stepper";
 import { SZ, TL, cartUnpriced, hesap, iskEtiket, iskYok, imgSrc, modeName, splitKey, wallDetail, type Catalog, type ExtraLine, type Isk, type QuoteState } from "@/lib/terminal/calc";
 import type { costOf } from "@/lib/terminal/cost";
+import { recolored } from "@/lib/terminal/recolor";
 import { cn } from "@/lib/utils";
 import { ExtraSheet } from "./extra-sheet";
 
@@ -32,6 +33,12 @@ export function Summary({ q, setQ, catalog, cost, money, editingId, onEdit, onCo
   const all = catalog.flatMap((g) => g.items);
   const items = Object.keys(q.prod).filter((k) => (q.prod[k] || 0) > 0);
   const extra = q.extra ?? [];
+  // Renkli ürün satırında görsel o rengin boyanmış hâlidir (kartta renk seçilince hazırlanır)
+  const rowImage = (key: string) => {
+    const { id, hex } = splitKey(key);
+    const src = imgSrc(all.find((i) => i.id === id)?.img ?? "r:3x3");
+    return (hex && recolored(src, hex)) || src;
+  };
   const empty = !q.cart.length && !items.length && !extra.length;
   /** Açık ek kalem penceresi: null kapalı, "yeni" ya da düzenlenen kalem */
   const [extraOpen, setExtraOpen] = useState<ExtraLine | "yeni" | null>(null);
@@ -75,7 +82,7 @@ export function Summary({ q, setQ, catalog, cost, money, editingId, onEdit, onCo
                     </span>
                   ) : (
                     <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-white ring-1 ring-border">
-                      <Image src={gz?.views?.[0] ?? imgSrc(gz ? `r:${gz.size}` : (all.find((i) => i.id === splitKey(r.key).id)?.img ?? `r:3x3`))} alt="" fill sizes="44px" className="object-contain p-0.5" unoptimized />
+                      <Image src={gz?.views?.[0] ?? rowImage(r.key)} alt="" fill sizes="44px" className="object-contain p-0.5" unoptimized />
                     </span>
                   )}
                   <div className="min-w-0 flex-1">

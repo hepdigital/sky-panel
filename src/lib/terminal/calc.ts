@@ -16,6 +16,7 @@ import {
   type WallKind,
 } from "@/modules/gazebo/walls";
 import { priceTable } from "./price-table";
+import { recolored } from "./recolor";
 
 export type Pair = [number, number] | null;
 /**
@@ -341,7 +342,10 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: Br
           return {
             ad: it.n,
             alt: hex ? [it.s, `Renk: ${colorName(hex)}`].filter(Boolean).join(" · ") : it.s,
-            adet: qty, birim: adj(pr), isk: iskEtiket(i), tutar: adj(netBirim(pr, i) * qty), img: it.img, parcalar: [],
+            adet: qty, birim: adj(pr), isk: iskEtiket(i), tutar: adj(netBirim(pr, i) * qty),
+            // Renkli ürün: PDF'te o rengin boyanmış görseli (hazırsa)
+            img: hex && it.img ? (recolored(imgSrc(it.img), hex) ?? it.img) : it.img,
+            parcalar: [],
           };
         });
       }),
