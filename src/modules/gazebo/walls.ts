@@ -7,7 +7,7 @@
 //
 // Fiyat duvar ölçüsüne (grubuna) göredir, gazebo ölçüsüne göre değil: 2x3, 3x3 ve 3x4.5'in 3 m'lik duvarları aynı
 // "200x300" grubundan fiyatlanır. Seçim fiyat listesindeki bir ürüne birebir denk gelirse liste fiyatı kullanılır;
-// denk gelmezse o grubun modül fiyatlarıyla hesaplanır (modüller listeye en yakın olacak şekilde listeden çıkarılır).
+// denk gelmezse o grubun düz tam duvarı + modül fiyatlarıyla hesaplanır (modüller her ölçüde aynı; bkz. modulePrices).
 
 import { priceTable } from "@/lib/terminal/price-table";
 
@@ -91,57 +91,35 @@ export function wallFromLegacy(t: string | null, f: number): Wall {
 /** Modüller (taban duvar = düz tam duvar): pencereye PVC, pencere perdesi, pencereye sineklik, kapı (perdeli), kapıya sineklik */
 const MODULES = ["pencerePvc", "pencerePerde", "pencereSineklik", "kapi", "kapiSineklik"] as const;
 type ModuleName = (typeof MODULES)[number];
-/** Listedeki birleşik ürünlerin modül bileşimi */
-const COMPOSITION: Record<string, ModuleName[]> = {
-  pvc: ["pencerePvc"],
-  "pvc-perde": ["pencerePvc", "pencerePerde"],
-  "pvc-sineklik-perde": ["pencerePvc", "pencerePerde", "pencereSineklik"],
-  "cift-fermuar": ["kapi"],
-  "sineklikli-kapi": ["kapi", "kapiSineklik"],
-  "pvc-kapi": ["pencerePvc", "pencerePerde", "kapi"],
-  "pvc-sinperde-sinkapi": ["pencerePvc", "pencerePerde", "pencereSineklik", "kapi", "kapiSineklik"],
+/**
+ * Modül = listedeki tek özellikli ürünün düz tam duvardan farkı (ör. kapı = çift fermuarlı kapı − düz tam duvar).
+ * Pencere (137×137) ve kapı (90 cm) her duvar ölçüsünde aynı olduğundan modül fiyatları ölçüden bağımsızdır:
+ * her grupta 3 m duvarın (200x300) farkları kullanılır (2026-10-28 kararı). Kumaşa ve fiyat tipine göre değişir.
+ * Listede birebir karşılığı olan ürünler yine liste (broşür) fiyatından gelir; modüller yalnızca listede olmayan seçimler içindir.
+ */
+const MODULE_GROUP = "200x300";
+const MODULE_SOURCE: Record<ModuleName, [product: string, minus: string]> = {
+  pencerePvc: ["pvc", "duz-tam"],
+  pencerePerde: ["pvc-perde", "pvc"],
+  pencereSineklik: ["pvc-sineklik-perde", "pvc-perde"],
+  kapi: ["cift-fermuar", "duz-tam"],
+  kapiSineklik: ["sineklikli-kapi", "cift-fermuar"],
 };
 
-/** En küçük kareler: (AᵀA)x = Aᵀb; tekil ise null */
-function leastSquares(A: number[][], b: number[]) {
-  const n = A[0].length;
-  const M = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => A.reduce((s, r) => s + r[i] * r[j], 0)));
-  const v = Array.from({ length: n }, (_, i) => A.reduce((s, r, k) => s + r[i] * b[k], 0));
-  for (let i = 0; i < n; i++) {
-    let p = i;
-    for (let r = i + 1; r < n; r++) if (Math.abs(M[r][i]) > Math.abs(M[p][i])) p = r;
-    [M[i], M[p]] = [M[p], M[i]];
-    [v[i], v[p]] = [v[p], v[i]];
-    if (Math.abs(M[i][i]) < 1e-9) return null;
-    for (let r = 0; r < n; r++) {
-      if (r === i) continue;
-      const f = M[r][i] / M[i][i];
-      for (let c = i; c < n; c++) M[r][c] -= f * M[i][c];
-      v[r] -= f * v[i];
-    }
-  }
-  return v.map((x, i) => x / M[i][i]);
-}
-
 const moduleCache = new Map<string, Partial<Record<ModuleName, number>>>();
-/**
- * Bir duvar grubu, kumaş ve fiyat tipi için modül fiyatları: listedeki birleşik ürünlere en yakın değerler (50 TL'ye yuvarlı).
- * Listede verisi olmayan modül tanımsız kalır (o kombinasyon "fiyat alınız" olur).
- */
-export function modulePrices(group: string, f: number, mode: 0 | 1) {
-  const key = `${priceTable().id}|${group}|${f}|${mode}`;
+/** Kumaş ve fiyat tipi için modül fiyatları; listede verisi olmayan modül tanımsız kalır (o seçim "fiyat alınız" olur) */
+export function modulePrices(f: number, mode: 0 | 1) {
+  const key = `${priceTable().id}|${f}|${mode}`;
   const hit = moduleCache.get(key);
   if (hit) return hit;
-  const g = list()[group];
-  const base = g?.["duz-tam"]?.[f]?.[mode];
+  const g = list()[MODULE_GROUP];
+  const at = (id: string) => g?.[id]?.[f]?.[mode] ?? null;
   const out: Partial<Record<ModuleName, number>> = {};
-  if (g && base != null) {
-    const rows = Object.entries(COMPOSITION)
-      .map(([id, mods]) => ({ mods, price: g[id]?.[f]?.[mode] }))
-      .filter((r): r is { mods: ModuleName[]; price: number } => r.price != null);
-    const used = MODULES.filter((m) => rows.some((r) => r.mods.includes(m)));
-    const x = used.length ? leastSquares(rows.map((r) => used.map((m) => +r.mods.includes(m))), rows.map((r) => r.price - base)) : null;
-    if (x) used.forEach((m, i) => (out[m] = Math.round(x[i] / 50) * 50));
+  for (const m of MODULES) {
+    const [a, b] = MODULE_SOURCE[m];
+    const pa = at(a);
+    const pb = at(b);
+    if (pa !== null && pb !== null) out[m] = pa - pb;
   }
   moduleCache.set(key, out);
   return out;
@@ -159,7 +137,7 @@ export function wallPrice(group: string, w: Wall, mode: 0 | 1): number | null {
   if (!hasWindow(w.kind) && !hasDoor(w.kind)) return null;
   const base = list()[group]?.["duz-tam"]?.[w.f]?.[mode];
   if (base == null) return null;
-  const m = modulePrices(group, w.f, mode);
+  const m = modulePrices(w.f, mode);
   const parts: (number | undefined)[] = [];
   const n = normalizeWall(w);
   if (n.p) {
