@@ -206,6 +206,41 @@ export const siteBaglantilari = mysqlTable(
   (t) => [index("site_marka").on(t.markaId)],
 );
 
+/** Site form talebi (toptan alım, bayilik, iletişim) takip aşaması */
+export const TALEP_DURUMLARI = ["yeni", "arandi", "teklif", "kazanildi", "kaybedildi"] as const;
+
+/**
+ * Sitelerden gelen form talepleri (GazeboTente: /api/panel/talepler). Siteden çekilir, takibi panelde yapılır
+ * (durum, not, ilgilenen). Tablo yoksa ilk eşitlemede oluşturulur (server/site-requests.ts).
+ */
+export const siteTalepleri = mysqlTable(
+  "site_talepleri",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    siteId: int("site_id", { unsigned: true })
+      .notNull()
+      .references(() => siteBaglantilari.id),
+    markaId: int("marka_id", { unsigned: true }).notNull(),
+    /** Sitedeki talep kimliği (eşitleme imleci) */
+    disId: int("dis_id", { unsigned: true }).notNull(),
+    tur: varchar("tur", { length: 24 }).notNull(),
+    turAd: varchar("tur_ad", { length: 60 }).notNull(),
+    ad: varchar("ad", { length: 120 }).notNull(),
+    firma: varchar("firma", { length: 191 }),
+    eposta: varchar("eposta", { length: 191 }).notNull(),
+    telefon: varchar("telefon", { length: 32 }).notNull(),
+    il: varchar("il", { length: 64 }),
+    mesaj: text("mesaj").notNull(),
+    disTarih: timestamp("dis_tarih").notNull(),
+    durum: mysqlEnum("durum", TALEP_DURUMLARI).notNull().default("yeni"),
+    not: text("not"),
+    ilgilenenId: int("ilgilenen_id", { unsigned: true }),
+    olusturma: timestamp("olusturma").notNull().defaultNow(),
+    guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+  },
+  (t) => [uniqueIndex("talep_site_dis").on(t.siteId, t.disId), index("talep_durum").on(t.durum)],
+);
+
 /** Sipariş durumu: alındı → üretimde → hazır → kargoda/sevkiyatta → teslim edildi (ya da iptal) */
 export const SIPARIS_DURUMLARI = ["alindi", "uretimde", "hazir", "kargoda", "teslim", "iptal"] as const;
 

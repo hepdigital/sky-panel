@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, eq, or, sql } from "drizzle-orm";
 import type { PdfData } from "@/lib/terminal/calc";
 import { db, schema } from "./db";
+import { syncRequests } from "./site-requests";
 
 const { siteBaglantilari: sites, siparisler, musteriler } = schema;
 type Site = typeof sites.$inferSelect;
@@ -328,6 +329,8 @@ export async function syncSite(siteId: number) {
       const done = "done" in r ? r.done : r.orders.length < 50;
       if (done) break;
     }
+    // Form talepleri (toptan alım, bayilik, iletişim): çekilemezse sipariş eşitlemesi başarısız sayılmaz
+    if (site.tur === "gazebotente") await syncRequests(site, (path) => gtRequest(site, path)).catch((e) => console.error("syncRequests", e));
     await db().update(sites).set({ sonBasari: new Date(), sonHata: null }).where(eq(sites.id, site.id));
     return { ok: true as const, count };
   } catch (e) {

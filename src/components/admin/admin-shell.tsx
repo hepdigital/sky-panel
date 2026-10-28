@@ -41,7 +41,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   const { role, me } = useRole();
   const seller = role === "admin" || role === "sales";
   const actions = createActions.filter((a) => seller || !a.seller);
-  const groups = navFor(role, me.openTasks);
+  const groups = navFor(role, me.openTasks, me.newRequests);
   const [menuOpen, setMenuOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 

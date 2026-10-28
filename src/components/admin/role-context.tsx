@@ -4,8 +4,8 @@ import { createContext, useContext } from "react";
 import { roles, type Role } from "@/lib/admin-mock";
 
 /** Oturumdaki personel (sunucudan gelir) */
-/** openTasks: bana atanan açık görev sayısı (menü sayacı) */
-export type PanelUser = { id: number; adSoyad: string; kullaniciAdi: string; rol: "yonetici" | "satis" | "personel"; openTasks: number };
+/** openTasks: bana atanan açık görev sayısı, newRequests: yeni site talebi sayısı (menü sayaçları) */
+export type PanelUser = { id: number; adSoyad: string; kullaniciAdi: string; rol: "yonetici" | "satis" | "personel"; openTasks: number; newRequests: number };
 
 type RoleValue = { role: Role; me: PanelUser; user: { key: Role; label: string; user: string; initials: string } };
 
