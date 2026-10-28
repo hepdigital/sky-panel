@@ -147,13 +147,17 @@ export const emptySides = (): Side[] => [0, 1, 2, 3].map(() => ({ walls: [emptyW
 export const val = (pair: Pair | undefined, mode: Mode) => (pair ? pair[mode] : null);
 export const modeName = (mode: Mode) => (mode ? "Perakende" : "Toptan");
 
-/** İskelet ölçüsü → kenarlar. 2 ve 3 m serisi 200 cm, 4 m serisi 230 cm yükseklik; 6 ve 8 m kenar bölünebilir. */
+/**
+ * İskelet ölçüsü → kenarlar. 2 ve 3 m serisi 200 cm, 4 m serisi 230 cm yükseklik.
+ * Tek ara ayaklı uzun kenar (3x6'nın 6 m'si, 4x8'in 8 m'si) iki duvara bölünebilir; 4x6'nın 6 m kenarında iki ara ayak
+ * (2 m'lik üç bölme) vardır, ikiye bölünmez (fiyat listesinde 230x300 duvar da yoktur).
+ */
 export function plan(size: string) {
   const [a, b] = size.split("x").map(Number);
   const h = a <= 3 ? 200 : 230;
   const side = (label: string, m: number) => {
     const cm = Math.round(m * 100);
-    return { label, h, cm, grup: `${h}x${cm}`, splittable: cm === 600 || cm === 800 };
+    return { label, h, cm, grup: `${h}x${cm}`, splittable: (cm === 600 && h === 200) || cm === 800 };
   };
   return [side("Ön Duvar", b), side("Arka Duvar", b), side("Sol Duvar", a), side("Sağ Duvar", a)];
 }

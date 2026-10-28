@@ -19,6 +19,14 @@ const wallVariant: Record<Exclude<WallStyle, "yok">, string> = {
   yarim: "halbwand",
 };
 
+/**
+ * Hazır pencereli/kapılı duvar modelleri 3 m duvar için çizilmiştir (3x3 sahnesi); kenar uzunluğuna göre ölçeklenir.
+ * 3–4 m dışındaki duvarlarda (2 m, 4,5 m, 6 m…) ölçekleme pencereyi/kapıyı sıkıştırır ya da gerer: bu duvarlar
+ * gerçek ölçüyle (137 cm pencere, 90 cm kapı, ortada) kodla çizilir (wall-paint.ts).
+ */
+const MODEL_SPAN = { min: 2.6, max: 4.2 };
+const paintedEquivalent: Partial<Record<WallStyle, WallDesign>> = { pencereli: "p100-kx", kapili: "px-k0" };
+
 /** Seçilen kumaş rengini alan malzemeler */
 const fabricMaterials = new Set([
   "mastertent.basics.pirontex_pantone11_0601",
@@ -192,13 +200,6 @@ function Tent({ sizeKey, width, depth, config, fabricHex, wallHex, frameColor, r
   }, [registerArSource]);
 
   const base = use(loadScene(`${BASE}/scene-${sizeKey}.json`));
-  // Yalnızca seçili duvar tiplerinin sahneleri (ve parçaları) indirilir
-  const usedStyles = new Set(Object.values(config.walls).filter((s) => s !== "yok"));
-  const usedVariants = [...usedStyles].map((style) => wallVariant[style as Exclude<WallStyle, "yok">]);
-  if (wallDesigns && Object.keys(wallDesigns).length) usedVariants.push("standard");
-  const variants: Record<string, SceneFile> = {};
-  // Ölçüye özel duvar sahnesi yoksa 3x3 duvarları kullanılır (kenar uzunluğuna göre ölçeklenir)
-  for (const v of usedVariants) variants[v] = use(loadScene(`${BASE}/scene-${sizeKey}-${v}.json`, `${BASE}/scene-3x3-${v}.json`));
 
   // İskelet rengi gerçek ürüne göre (30 mm çelik beyaz, 40 mm çelik siyah boyalı, alüminyum gümüş)
   const materials = useMaterials(frameColor ?? "#c4c8cc", config.frame.startsWith("aluminyum"), fabricHex);
@@ -224,13 +225,35 @@ function Tent({ sizeKey, width, depth, config, fabricHex, wallHex, frameColor, r
     return [...parts, ...extra];
   }, [base, sizeKey]);
   const fp = useMemo(() => footprint(baseParts, width, depth), [baseParts, width, depth]);
+
+  // Yuva başına çizim: verilen tasarım ya da (hazır modelin uymadığı duvar boyunda) pencereli/kapılı duvarın çizilmiş eşi
+  const designs: Partial<Record<string, WallDesign>> = { ...wallDesigns };
+  for (const side of sides) {
+    const bays = wallBays(fp, side);
+    bays.forEach((bay, i) => {
+      const slot = wallSlotId(side, i, bays.length);
+      const span = side === "on" || side === "arka" ? bay.fp.spanX : bay.fp.spanZ;
+      const equivalent = paintedEquivalent[config.walls[slot] ?? "yok"];
+      if (!designs[slot] && equivalent && (span < MODEL_SPAN.min || span > MODEL_SPAN.max)) designs[slot] = equivalent;
+    });
+  }
+  // Yalnızca kullanılan duvar sahneleri (ve parçaları) indirilir
+  const usedVariants = new Set(
+    Object.entries(config.walls)
+      .filter(([slot, style]) => style !== "yok" && !designs[slot])
+      .map(([, style]) => wallVariant[style as Exclude<WallStyle, "yok">]),
+  );
+  if (Object.keys(designs).length) usedVariants.add("standard");
+  const variants: Record<string, SceneFile> = {};
+  // Ölçüye özel duvar sahnesi yoksa 3x3 duvarları kullanılır (kenar uzunluğuna göre ölçeklenir)
+  for (const v of usedVariants) variants[v] = use(loadScene(`${BASE}/scene-${sizeKey}-${v}.json`, `${BASE}/scene-3x3-${v}.json`));
   // Kenara yerleştirilmiş duvar parçaları önbellekten gelir; matrisler sabit kalır, gereksiz yeniden kurulum olmaz
   // Uzun kenarda ara ayak varsa her bölmeye ayrı duvar takılır (ör. 4x8'de uzun kenarda 2, 4x6'da 3 duvar)
   const wallParts = sides.flatMap((side) => {
     const bays = wallBays(fp, side);
     return bays.flatMap((bay, i) => {
       const slot = wallSlotId(side, i, bays.length);
-      const design = wallDesigns?.[slot];
+      const design = designs[slot];
       const style = config.walls[slot] ?? "yok";
       if (style === "yok" && !design) return [];
       const variant = design ? "standard" : wallVariant[style as Exclude<WallStyle, "yok">];
@@ -251,10 +274,12 @@ function Tent({ sizeKey, width, depth, config, fabricHex, wallHex, frameColor, r
   const center = useMemo(() => new Vector3(fp.minX + fp.spanX / 2, 1, fp.minZ + fp.spanZ / 2), [fp]);
   // Çizilmiş duvarların katmanı: tasarım ve renk başına bir dizi (mesh'ler gereksiz yeniden kurulmaz)
   const wallPrinted = (slot?: string) => (printedWalls ? !!(slot && printedWalls[slot]) : config.printed);
+  const designsKey = JSON.stringify(designs);
   // Çizilmiş duvarların katmanı: tasarım, baskı ve renk başına bir dizi (mesh'ler gereksiz yeniden kurulmaz)
   const paintSpecs = useMemo(() => {
+    // designs her çizimde yeniden kurulur: içerik (designsKey) değişmedikçe katmanlar yeniden üretilmez
     const keys = new Set(
-      Object.entries(wallDesigns ?? {}).map(([slot, d]) => `${d}|${+(printedWalls ? !!printedWalls[slot] : config.printed)}`),
+      Object.entries(JSON.parse(designsKey) as Record<string, WallDesign>).map(([slot, d]) => `${d}|${+(printedWalls ? !!printedWalls[slot] : config.printed)}`),
     );
     return Object.fromEntries(
       [...keys].map((k) => {
@@ -262,7 +287,7 @@ function Tent({ sizeKey, width, depth, config, fabricHex, wallHex, frameColor, r
         return [k, [{ bothSides: true, paint: wallPaint(d, wallFabric, p === "1") }]];
       }),
     ) as Record<string, DecalOptions[]>;
-  }, [wallDesigns, printedWalls, config.printed, wallFabric]);
+  }, [designsKey, printedWalls, config.printed, wallFabric]);
   const decalsFor = (part: Part & { key?: string; slot?: string }, isWall: boolean): DecalOptions[] | undefined => {
     const design = isWall && isWallFabric(part) ? part.key?.split("|")[4] : undefined;
     if (design) return paintSpecs[`${design}|${+wallPrinted(part.slot)}`];

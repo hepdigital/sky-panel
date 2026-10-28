@@ -347,7 +347,9 @@ export function buildDecals(
     // Tavan ile saçak aynı mesh'te: eğime göre ayrılır (skygorselcozumler konfigüratörüyle aynı eşik)
     if (faces === "slope" && Math.abs(n.y) <= 0.2) continue;
     if (faces === "band" && Math.abs(n.y) > 0.2) continue;
-    const horizontal = Math.abs(outward.x) > Math.abs(outward.z) ? (outward.x > 0 ? "+x" : "-x") : outward.z > 0 ? "+z" : "-z";
+    // Kenar, yüzeyin kendi yönünden bulunur: merkezden konuma göre bakılsaydı dikdörtgen çadırda uzun kenarın uçları
+    // (ör. 4,5 m duvarın kenarları) yan yüz sayılır, çizim/etiket parçalara bölünürdü
+    const horizontal = Math.abs(n.x) > Math.abs(n.z) ? (n.x > 0 ? "+x" : "-x") : n.z > 0 ? "+z" : "-z";
     const group = groups.get(horizontal) ?? { tris: [], normal: new Vector3(), area: 0 };
     group.tris.push(t);
     group.normal.addScaledVector(n, area);
