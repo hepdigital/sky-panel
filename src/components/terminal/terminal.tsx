@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { READY_GAZEBOS } from "@/modules/gazebo/ready";
 import { CatalogCard } from "./catalog-card";
 import { ColorStockProvider } from "./color-stock";
+import { CopyQuoteButton } from "./copy-quote";
 import { CustomerBar } from "./customer-picker";
 import type { CaptureViews } from "./gazebo-3d";
 import { GazeboCard } from "./gazebo-card";
@@ -388,6 +389,7 @@ export function Terminal({
               q={q}
               setQ={setQ}
               catalog={catalog}
+              brand={brand}
               cost={cost}
               money={money}
               editingId={editing}
@@ -408,6 +410,7 @@ export function Terminal({
               </p>
               <p className="tabular text-lg font-bold">{TL(H.net * 1.2)}</p>
             </div>
+            <CopyQuoteButton q={q} catalog={catalog} brand={brand} disabled={!H.rows.length} compact />
             <Button
               size="lg"
               className="px-5"

@@ -6,16 +6,19 @@ import { AlertTriangle, Copy, FileDown, Pencil, Percent, Plus, ReceiptText, Tras
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QtyStepper } from "@/components/ui/qty-stepper";
-import { SZ, TL, cartUnpriced, hesap, iskEtiket, iskYok, imgSrc, modeName, splitKey, wallDetail, type Catalog, type ExtraLine, type Isk, type QuoteState } from "@/lib/terminal/calc";
+import { SZ, TL, cartUnpriced, hesap, iskEtiket, iskYok, imgSrc, modeName, splitKey, wallDetail, type BrandCard, type Catalog, type ExtraLine, type Isk, type QuoteState } from "@/lib/terminal/calc";
 import type { costOf } from "@/lib/terminal/cost";
 import { recolored } from "@/lib/terminal/recolor";
 import { cn } from "@/lib/utils";
+import { CopyQuoteButton } from "./copy-quote";
 import { ExtraSheet } from "./extra-sheet";
 
 type Props = {
   q: QuoteState;
   setQ: (q: QuoteState) => void;
   catalog: Catalog;
+  /** Teklifi veren marka (döküm metninin başlığı) */
+  brand: BrandCard;
   /** Yalnızca yöneticide: maliyet ve kâr (satışçıya hiç gönderilmez) */
   cost: ReturnType<typeof costOf> | null;
   money: (n: number) => string;
@@ -27,7 +30,7 @@ type Props = {
 };
 
 /** Teklif özeti: sepetteki gazeboler, ürünler ve ek kalemler; satır ve genel iskonto, toplamlar */
-export function Summary({ q, setQ, catalog, cost, money, editingId, onEdit, onCopy, onSave, onClear }: Props) {
+export function Summary({ q, setQ, catalog, brand, cost, money, editingId, onEdit, onCopy, onSave, onClear }: Props) {
   const H = hesap(q, catalog);
   const unpriced = cartUnpriced(q);
   const all = catalog.flatMap((g) => g.items);
@@ -207,6 +210,9 @@ export function Summary({ q, setQ, catalog, cost, money, editingId, onEdit, onCo
       <Button size="lg" className="mt-4 hidden w-full lg:inline-flex" disabled={!H.rows.length} onClick={onSave}>
         <FileDown /> Kaydet ve PDF oluştur
       </Button>
+      <div className="mt-2 hidden lg:block">
+        <CopyQuoteButton q={q} catalog={catalog} brand={brand} disabled={!H.rows.length} />
+      </div>
     </Card>
   );
 }
