@@ -47,7 +47,7 @@ jobs:
           node -e '
             const v = (p) => require("./node_modules/" + p + "/package.json").version;
             const deps = {};
-            for (const p of ["next", "react", "react-dom", "mysql2", "drizzle-orm", "nodemailer"]) deps[p] = v(p);
+            for (const p of ["next", "react", "react-dom", "mysql2", "drizzle-orm", "nodemailer", "sharp"]) deps[p] = v(p);
             const pkg = {
               name: "sky-panel",
               private: true,
