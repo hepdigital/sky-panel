@@ -15,7 +15,7 @@ export type SiteRow = {
   markaId: number;
   marka: string | null;
   markaRenk: string | null;
-  tur: "gazebotente" | "woocommerce";
+  tur: "gazebotente" | "woocommerce" | "trendyol" | "hepsiburada";
   ad: string;
   adres: string;
   aktif: boolean;
@@ -30,7 +30,9 @@ type Brand = { id: number; ad: string };
 const input = "h-10 w-full rounded-xl border border-input bg-card px-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
 const label = "mb-1 block text-xs font-semibold text-muted-foreground";
 const when = (iso: string | null) => (iso ? formatDate(iso, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—");
-const TUR = { gazebotente: "GazeboTente sitesi", woocommerce: "WooCommerce" };
+const TUR = { gazebotente: "GazeboTente sitesi", woocommerce: "WooCommerce", trendyol: "Trendyol", hepsiburada: "Hepsiburada" };
+/** Türün varsayılan adresi (pazaryerlerinde API adresi) */
+const ADRES: Partial<Record<SiteRow["tur"], string>> = { trendyol: "https://apigw.trendyol.com" };
 
 /** Site bağlantıları: markaların e-ticaret siteleri; siparişler buradan panele gelir, durumlar siteye yazılır */
 export function SiteAdmin({ sites, brands }: { sites: SiteRow[]; brands: Brand[] }) {
@@ -39,8 +41,8 @@ export function SiteAdmin({ sites, brands }: { sites: SiteRow[]; brands: Brand[]
     <div className="mx-auto max-w-[1100px]">
       <div className="flex flex-wrap items-end justify-between gap-3 pt-1">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-[28px]">Site bağlantıları</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Sitelerden gelen siparişler panele düşer; panelde değişen durum, ödeme ve kargo siteye yazılır.</p>
+          <h1 className="text-2xl font-bold tracking-tight md:text-[28px]">Site ve pazaryeri bağlantıları</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Sitelerden ve pazaryerlerinden gelen siparişler panele düşer; panelde değişen durum, ödeme, kargo ve fatura karşı tarafa yazılır.</p>
         </div>
         <Button onClick={() => setEdit("yeni")}>
           <Plus /> Bağlantı ekle
@@ -157,9 +159,19 @@ function SiteSheet({ site, brands, onClose }: { site: SiteRow | "yeni" | null; b
           </label>
           <label className="block">
             <span className={label}>Site türü</span>
-            <select value={f.tur} onChange={(e) => setF({ ...f, tur: e.target.value as SiteRow["tur"] })} className={input}>
+            <select
+              value={f.tur}
+              onChange={(e) => {
+                const tur = e.target.value as SiteRow["tur"];
+                // Pazaryerinde adres API adresidir: tür değişince boşsa ya da başka türün varsayılanıysa doldurulur
+                const bos = f.adres === "https://" || Object.values(ADRES).includes(f.adres);
+                setF({ ...f, tur, adres: bos ? (ADRES[tur] ?? "https://") : f.adres, ad: f.ad || (ADRES[tur] ? TUR[tur] : "") });
+              }}
+              className={input}
+            >
               <option value="woocommerce">WooCommerce</option>
               <option value="gazebotente">GazeboTente sitesi</option>
+              <option value="trendyol">Trendyol</option>
             </select>
           </label>
         </div>
@@ -168,21 +180,26 @@ function SiteSheet({ site, brands, onClose }: { site: SiteRow | "yeni" | null; b
           <input value={f.ad} onChange={(e) => setF({ ...f, ad: e.target.value })} className={input} placeholder="ör. skygorselmarket.com" />
         </label>
         <label className="block">
-          <span className={label}>Site adresi</span>
+          <span className={label}>{f.tur === "trendyol" ? "API adresi" : "Site adresi"}</span>
           <input value={f.adres} onChange={(e) => setF({ ...f, adres: e.target.value })} className={input} placeholder="https://…" />
+          {f.tur === "trendyol" && <span className="mt-1 block text-[11px] text-muted-foreground">Canlı: https://apigw.trendyol.com · Test ortamı: https://stageapigw.trendyol.com</span>}
         </label>
-        <label className="block">
-          <span className={label}>{f.tur === "woocommerce" ? "REST API anahtarı (ck_…:cs_…)" : "Panel API anahtarı"}</span>
-          <input
-            type="password"
-            autoComplete="off"
-            value={f.anahtar}
-            onChange={(e) => setF({ ...f, anahtar: e.target.value })}
-            className={input}
-            placeholder={s?.anahtarVar ? "Kayıtlı · değiştirmek için yenisini yazın" : f.tur === "woocommerce" ? "ck_xxxx:cs_xxxx" : "anahtar"}
-          />
-          {f.tur === "woocommerce" && <span className="mt-1 block text-[11px] text-muted-foreground">WooCommerce → Ayarlar → Gelişmiş → REST API → “Okuma/Yazma” anahtarı. Tüketici anahtarı ve gizli anahtarı aralarına iki nokta koyarak yazın.</span>}
-        </label>
+        {f.tur === "trendyol" ? (
+          <TrendyolKey kayitli={!!s?.anahtarVar} onChange={(anahtar) => setF({ ...f, anahtar })} />
+        ) : (
+          <label className="block">
+            <span className={label}>{f.tur === "woocommerce" ? "REST API anahtarı (ck_…:cs_…)" : "Panel API anahtarı"}</span>
+            <input
+              type="password"
+              autoComplete="off"
+              value={f.anahtar}
+              onChange={(e) => setF({ ...f, anahtar: e.target.value })}
+              className={input}
+              placeholder={s?.anahtarVar ? "Kayıtlı · değiştirmek için yenisini yazın" : f.tur === "woocommerce" ? "ck_xxxx:cs_xxxx" : "anahtar"}
+            />
+            {f.tur === "woocommerce" && <span className="mt-1 block text-[11px] text-muted-foreground">WooCommerce → Ayarlar → Gelişmiş → REST API → “Okuma/Yazma” anahtarı. Tüketici anahtarı ve gizli anahtarı aralarına iki nokta koyarak yazın.</span>}
+          </label>
+        )}
         <label className="flex items-center gap-2.5 text-sm">
           <input type="checkbox" checked={f.aktif} onChange={(e) => setF({ ...f, aktif: e.target.checked })} className="size-4 accent-[var(--primary)]" />
           Aktif (kapalıyken siparişler çekilmez)
@@ -193,5 +210,26 @@ function SiteSheet({ site, brands, onClose }: { site: SiteRow | "yeni" | null; b
         </Button>
       </div>
     </Sheet>
+  );
+}
+
+/** Trendyol: satıcı ID, API key, API secret ayrı alanlarda; kayıtta "saticiId:key:secret" olarak birleşir. Üçü de boşsa eskisi korunur */
+function TrendyolKey({ kayitli, onChange }: { kayitli: boolean; onChange: (anahtar: string) => void }) {
+  const [k, setK] = useState({ id: "", key: "", secret: "" });
+  const set = (patch: Partial<typeof k>) => {
+    const next = { ...k, ...patch };
+    setK(next);
+    onChange(next.id || next.key || next.secret ? `${next.id.trim()}:${next.key.trim()}:${next.secret.trim()}` : "");
+  };
+  return (
+    <div className="space-y-2 rounded-xl border border-border p-3">
+      <p className="text-xs font-semibold text-muted-foreground">
+        Trendyol API bilgileri {kayitli && <span className="font-normal">· kayıtlı; değiştirmek için üçünü de yazın</span>}
+      </p>
+      <input value={k.id} onChange={(e) => set({ id: e.target.value.replace(/\D/g, "") })} inputMode="numeric" autoComplete="off" className={input} placeholder="Satıcı ID (Cari ID)" />
+      <input value={k.key} onChange={(e) => set({ key: e.target.value })} autoComplete="off" className={input} placeholder="API Key" />
+      <input type="password" value={k.secret} onChange={(e) => set({ secret: e.target.value })} autoComplete="off" className={input} placeholder="API Secret" />
+      <span className="block text-[11px] text-muted-foreground">Trendyol satıcı paneli → sağ üstte hesap → Hesap Bilgilerim → Entegrasyon Bilgileri.</span>
+    </div>
   );
 }

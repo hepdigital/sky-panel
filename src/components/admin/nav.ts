@@ -13,6 +13,7 @@ import {
   Package,
   Palette,
   ShieldCheck,
+  Store,
   Tags,
   Truck,
   Users,
@@ -41,6 +42,7 @@ export const adminNav: AdminNavGroup[] = [
       { href: "/panel/teklifler", label: "Teklifler", icon: FileText, roles: ["admin", "sales"] },
       { href: "/panel/siparisler", label: "Siparişler", icon: Package, roles: ["admin", "sales"] },
       { href: "/panel/urunler", label: "Ürünler", icon: Tags, roles: ["admin", "sales"] },
+      { href: "/panel/pazaryeri", label: "Pazaryeri", icon: Store, roles: ["admin"] },
     ],
   },
   {
@@ -64,7 +66,7 @@ export const adminNav: AdminNavGroup[] = [
     label: "Marka Yönetimi",
     items: [
       { href: "/panel/markalar", label: "Markalar ve şablonlar", icon: Building2, roles: ["admin"] },
-      { href: "/panel/siteler", label: "Site bağlantıları", icon: Globe, roles: ["admin"] },
+      { href: "/panel/siteler", label: "Bağlantılar", icon: Globe, roles: ["admin"] },
     ],
   },
   {
@@ -77,7 +79,7 @@ export const adminNav: AdminNavGroup[] = [
 ];
 
 /** 1. aşamada açık ekranlar: teklif, sipariş, cari, ürün ve kullanıcı yönetimi (diğerleri sonraki aşamalarda açılacak) */
-const PHASE1 = new Set(["/panel", "/panel/gorevler", "/panel/talepler", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/urunler", "/panel/markalar", "/panel/siteler", "/panel/kullanicilar"]);
+const PHASE1 = new Set(["/panel", "/panel/gorevler", "/panel/talepler", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/urunler", "/panel/pazaryeri", "/panel/markalar", "/panel/siteler", "/panel/kullanicilar"]);
 
 /** openTasks: Görevler'in yanında bana atanan açık görev sayısı · newRequests: Talepler'in yanında yeni talep sayısı */
 export function navFor(role: Role, openTasks = 0, newRequests = 0) {

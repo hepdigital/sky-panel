@@ -177,9 +177,13 @@ export const teklifler = mysqlTable(
   ],
 );
 
+/** Bağlantı türleri: kendi sitelerimiz ve pazaryerleri */
+export const SITE_TURLERI = ["gazebotente", "woocommerce", "trendyol", "hepsiburada"] as const;
+
 /**
  * Site bağlantısı: markanın e-ticaret sitesi (GazeboTente sitesi ya da WooCommerce). Panel siteden siparişleri çeker,
- * paneldeki durum/ödeme/kargo değişikliğini siteye yazar. anahtar: GazeboTente için API anahtarı, WooCommerce için "ck_…:cs_…".
+ * paneldeki durum/ödeme/kargo değişikliğini siteye yazar. anahtar: GazeboTente için API anahtarı, WooCommerce için "ck_…:cs_…",
+ * Trendyol için "saticiId:apiKey:apiSecret" (adres: https://apigw.trendyol.com).
  */
 export const siteBaglantilari = mysqlTable(
   "site_baglantilari",
@@ -188,7 +192,7 @@ export const siteBaglantilari = mysqlTable(
     markaId: int("marka_id", { unsigned: true })
       .notNull()
       .references(() => markalar.id),
-    tur: mysqlEnum("tur", ["gazebotente", "woocommerce"]).notNull(),
+    tur: mysqlEnum("tur", SITE_TURLERI).notNull(),
     ad: varchar("ad", { length: 120 }).notNull(),
     /** Sitenin adresi (https://…) */
     adres: varchar("adres", { length: 255 }).notNull(),
@@ -437,3 +441,115 @@ export const gazeboFiyatlari = mysqlTable("gazebo_fiyatlari", {
   veri: longtext("veri").notNull(),
   guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
 });
+
+/* ───────────── pazaryeri ürünleri ───────────── */
+
+/**
+ * Pazaryerinde satılan ürün (satılabilir tek seçenek: ölçü, renk, iskelet sabit). Barkod ve stok kodu tüm kanallarda ortaktır.
+ * fiyat KDV hariç perakendedir; boşsa bağlı katalog ürününün perakende fiyatı kullanılır. Tablolar ilk kullanımda oluşur (db/ensure.ts).
+ */
+export const pazaryeriUrunleri = mysqlTable(
+  "pazaryeri_urunleri",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    stokKodu: varchar("stok_kodu", { length: 60 }).notNull().unique(),
+    barkod: varchar("barkod", { length: 40 }).notNull().unique(),
+    ad: varchar("ad", { length: 150 }).notNull(),
+    aciklama: text("aciklama"),
+    /** Seçenek grubu (aynı ürünün renk/ölçü seçenekleri aynı kodu taşır; Trendyol productMainId) */
+    grupKodu: varchar("grup_kodu", { length: 60 }).notNull(),
+    markaAdi: varchar("marka_adi", { length: 80 }),
+    urunId: int("urun_id", { unsigned: true }).references(() => urunler.id, { onDelete: "set null" }),
+    renk: varchar("renk", { length: 40 }),
+    olcu: varchar("olcu", { length: 60 }),
+    /** Görsel adresleri (JSON dizi; /dosya/…, /terminal/img/… ya da https://…) */
+    gorseller: text("gorseller"),
+    desi: decimal("desi", { precision: 8, scale: 2, mode: "number" }),
+    kdv: smallint("kdv", { unsigned: true }).notNull().default(20),
+    fiyat: decimal("fiyat", { precision: 12, scale: 2, mode: "number" }),
+    stok: int("stok", { unsigned: true }).notNull().default(0),
+    hazirlikGun: smallint("hazirlik_gun", { unsigned: true }).notNull().default(3),
+    aktif: boolean("aktif").notNull().default(true),
+    olusturma: timestamp("olusturma").notNull().defaultNow(),
+    guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+  },
+  (t) => [index("pu_grup").on(t.grupKodu)],
+);
+
+export const LISTELEME_DURUMLARI = ["taslak", "gonderildi", "onay", "yayinda", "hata", "pasif"] as const;
+
+/** Ürünün bir pazaryeri bağlantısındaki listelemesi: kategori, özellikler, marka ve gönderim durumu */
+export const pazaryeriListelemeleri = mysqlTable(
+  "pazaryeri_listelemeleri",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    urunId: int("urun_id", { unsigned: true })
+      .notNull()
+      .references(() => pazaryeriUrunleri.id, { onDelete: "cascade" }),
+    siteId: int("site_id", { unsigned: true })
+      .notNull()
+      .references(() => siteBaglantilari.id, { onDelete: "cascade" }),
+    aktif: boolean("aktif").notNull().default(true),
+    kategoriId: int("kategori_id", { unsigned: true }),
+    kategoriYol: varchar("kategori_yol", { length: 500 }),
+    markaId: int("marka_id", { unsigned: true }),
+    markaAd: varchar("marka_ad", { length: 120 }),
+    /** Özellik değerleri (JSON): özellik kimliği → { v: değer kimliği } ya da { c: serbest metin } */
+    ozellikler: longtext("ozellikler"),
+    /** Kanala özel satış fiyatı (KDV dahil); boşsa kuralla hesaplanır */
+    fiyat: decimal("fiyat", { precision: 12, scale: 2, mode: "number" }),
+    durum: mysqlEnum("durum", LISTELEME_DURUMLARI).notNull().default("taslak"),
+    /** Kart pazaryerinde oluştu (sonraki gönderimler güncellemedir) */
+    olustu: boolean("olustu").notNull().default(false),
+    batchId: varchar("batch_id", { length: 80 }),
+    hata: text("hata"),
+    /** Son gönderilen fiyat ve stok ("fiyat|liste|stok"): değişince yeniden gönderilir */
+    sonFiyatStok: varchar("son_fiyat_stok", { length: 80 }),
+    sonGonderim: timestamp("son_gonderim"),
+    guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+  },
+  (t) => [uniqueIndex("pl_urun_site").on(t.urunId, t.siteId), index("pl_site_durum").on(t.siteId, t.durum)],
+);
+
+/** Pazaryeri kategori ağacı önbelleği (tur: trendyol…); özellikler ilk açılışta çekilip saklanır */
+export const pazaryeriKategorileri = mysqlTable(
+  "pazaryeri_kategorileri",
+  {
+    tur: varchar("tur", { length: 20 }).notNull(),
+    id: int("id", { unsigned: true }).notNull(),
+    ustId: int("ust_id", { unsigned: true }),
+    ad: varchar("ad", { length: 200 }).notNull(),
+    yol: varchar("yol", { length: 600 }).notNull(),
+    yaprak: boolean("yaprak").notNull().default(false),
+    ozellikler: longtext("ozellikler"),
+    ozellikTarih: timestamp("ozellik_tarih"),
+  },
+  (t) => [primaryKey({ columns: [t.tur, t.id] }), index("pk_yaprak").on(t.tur, t.yaprak)],
+);
+
+/** Pazaryeri bağlantısının ayarları (JSON): fiyat farkı, kargo firması… Bkz. server/marketplaces/listing.ts */
+export const pazaryeriAyarlari = mysqlTable("pazaryeri_ayarlari", {
+  siteId: int("site_id", { unsigned: true })
+    .primaryKey()
+    .references(() => siteBaglantilari.id, { onDelete: "cascade" }),
+  veri: longtext("veri").notNull(),
+  guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+});
+
+/** Pazaryerine yapılan gönderimlerin kaydı (ürün, fiyat/stok, kategori) */
+export const pazaryeriIslemleri = mysqlTable(
+  "pazaryeri_islemleri",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    siteId: int("site_id", { unsigned: true })
+      .notNull()
+      .references(() => siteBaglantilari.id, { onDelete: "cascade" }),
+    tur: varchar("tur", { length: 30 }).notNull(),
+    batchId: varchar("batch_id", { length: 80 }),
+    durum: varchar("durum", { length: 20 }).notNull(),
+    ozet: varchar("ozet", { length: 1000 }).notNull(),
+    kullanici: varchar("kullanici", { length: 120 }),
+    olusturma: timestamp("olusturma").notNull().defaultNow(),
+  },
+  (t) => [index("pi_site").on(t.siteId, t.olusturma)],
+);

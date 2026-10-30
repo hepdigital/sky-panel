@@ -2,6 +2,9 @@ import "server-only";
 import { and, asc, eq, or, sql } from "drizzle-orm";
 import type { PdfData } from "@/lib/terminal/calc";
 import { db, schema } from "./db";
+import { ensureMarketplaceSchema } from "./db/ensure";
+import { marketplaceTick } from "./marketplaces/listing";
+import { TY_PANEL_STATUS, tyAction, tyFetch, tyKeyValid, tyTest } from "./marketplaces/trendyol";
 import { syncRequests } from "./site-requests";
 
 const { siteBaglantilari: sites, siparisler, musteriler } = schema;
@@ -16,11 +19,15 @@ export type Vocabulary = {
   odemeDurumlari: { key: string; label: string }[];
   odemeYontemleri: { key: string; label: string }[];
   kargolar: { key: string; label: string; url: string }[];
+  /** Panelden yazılabilen durumlar (pazaryeri); yoksa hepsi yazılabilir */
+  yazilabilir?: string[];
 };
 
 /** Siteden gelen sipariş (GazeboTente ve WooCommerce aynı biçime çevrilir) */
 export type SiteOrder = {
   no: string;
+  /** Panelde siparişi eşsiz kılan dış anahtar (yoksa no): Trendyol'da paket numarası */
+  disNo?: string;
   /** WooCommerce'te sitenin iç kimliği (güncelleme isteği bununla yapılır) */
   disId?: string;
   durum: string;
@@ -38,7 +45,11 @@ export type SiteOrder = {
   kdv: number;
   toplam: number;
   kargoUcreti?: number;
-  kargo: { firma: string | null; takipNo: string | null; gonderim: string | null };
+  kargo: { firma: string | null; takipNo: string | null; gonderim: string | null; link?: string | null };
+  /** Pazaryerine yüklenen fatura */
+  fatura?: { link: string | null };
+  /** Pazaryeri paket satırları (durum güncellemesinde gönderilir) */
+  paketSatirlari?: { id: number; adet: number }[];
   kalemler: { ad: string; adet: number; birim: number; baskili?: boolean; secenekler: Record<string, string>; link?: string; gorsel: string | null }[];
   gecmis: { durum: string | null; mesaj: string | null; gorunur: boolean; kim: string; kimAd: string | null; tarih: string }[];
   dosyalar: { tur: string; ad: string; boyut: number; yukleyen: string; tarih: string }[];
@@ -51,13 +62,15 @@ export type SiteAction =
   | { islem: "durum"; durum: string; mesaj?: string; bildir?: boolean }
   | { islem: "odeme"; odemeDurumu: string; bildir?: boolean }
   | { islem: "kargo"; kargoFirma: string; takipNo: string; kargodaYap?: boolean; bildir?: boolean }
-  | { islem: "not"; mesaj: string; gorunur?: boolean };
+  | { islem: "not"; mesaj: string; gorunur?: boolean }
+  | { islem: "fatura"; link: string };
 
 /* ───────────── durum eşlemesi (panelin genel durumu) ───────────── */
 
 const GT_MAP: Record<string, PanelStatus> = { yeni: "alindi", onaylandi: "alindi", tasarim: "uretimde", tasarim_onay: "uretimde", uretim: "uretimde", kargoda: "kargoda", teslim: "teslim", iptal: "iptal" };
 const WC_MAP: Record<string, PanelStatus> = { pending: "alindi", "on-hold": "alindi", processing: "uretimde", completed: "teslim", cancelled: "iptal", refunded: "iptal", failed: "iptal" };
-const panelStatus = (site: Site, durum: string): PanelStatus => (site.tur === "gazebotente" ? GT_MAP : WC_MAP)[durum] ?? "alindi";
+const STATUS_MAPS: Record<Site["tur"], Record<string, PanelStatus>> = { gazebotente: GT_MAP, woocommerce: WC_MAP, trendyol: TY_PANEL_STATUS, hepsiburada: {} };
+const panelStatus = (site: Site, durum: string): PanelStatus => STATUS_MAPS[site.tur][durum] ?? "alindi";
 
 /* ───────────── GazeboTente ───────────── */
 
@@ -287,20 +300,21 @@ async function upsert(site: Site, o: SiteOrder, vocab?: Vocabulary | null) {
     musteriAdi: (o.musteri.firma || o.musteri.ad).slice(0, 200), tutarKdvHaric: o.toplam - o.kdv, tutarKdvDahil: o.toplam,
     veri: JSON.stringify(toVeri(site, o)), siteVeri: JSON.stringify(o), disTarih: new Date(o.olusturma),
   };
-  const [ex] = await db().select({ id: siparisler.id, siteVeri: siparisler.siteVeri }).from(siparisler).where(and(eq(siparisler.siteId, site.id), eq(siparisler.disNo, o.no)));
+  const disNo = o.disNo ?? o.no;
+  const [ex] = await db().select({ id: siparisler.id, siteVeri: siparisler.siteVeri }).from(siparisler).where(and(eq(siparisler.siteId, site.id), eq(siparisler.disNo, disNo)));
   if (ex) {
     if (!o.gecmis.length && ex.siteVeri) values.siteVeri = JSON.stringify({ ...o, gecmis: (JSON.parse(ex.siteVeri) as SiteOrder).gecmis ?? [] });
     await db().update(siparisler).set(values).where(eq(siparisler.id, ex.id));
     return ex.id;
   }
   const musteriId = await customerFor(site, o);
-  // Panel numarası sitenin numarasıdır; başka bir siparişte kullanılıyorsa sitenin kısa adıyla ayrılır
+  // Panel numarası sitenin numarasıdır; başka bir siparişte kullanılıyorsa dış anahtarla (yoksa site kimliğiyle) ayrılır
   const [clash] = await db().select({ id: siparisler.id }).from(siparisler).where(eq(siparisler.no, o.no));
   const d = new Date(o.olusturma);
   const [r] = await db()
     .insert(siparisler)
     .values({
-      ...values, no: clash ? `${o.no}-${site.id}` : o.no, yil: d.getFullYear(), sira: 0, kaynak: "site", siteId: site.id, disNo: o.no,
+      ...values, no: clash ? `${o.no}-${o.disNo ?? site.id}` : o.no, yil: d.getFullYear(), sira: 0, kaynak: "site", siteId: site.id, disNo,
       markaId: site.markaId, musteriId, kullaniciId: null,
     })
     .$returningId();
@@ -308,6 +322,13 @@ async function upsert(site: Site, o: SiteOrder, vocab?: Vocabulary | null) {
 }
 
 /* ───────────── çekme ───────────── */
+
+function fetchPage(site: Site, cursor: string | null) {
+  if (site.tur === "gazebotente") return gtFetch(site, cursor);
+  if (site.tur === "woocommerce") return wcFetch(site, cursor);
+  if (site.tur === "trendyol") return tyFetch(site, cursor);
+  return null;
+}
 
 /** Bir sitenin yeni/değişen siparişlerini çeker; imleç kaldığı yerden ilerler */
 export async function syncSite(siteId: number) {
@@ -320,7 +341,8 @@ export async function syncSite(siteId: number) {
   try {
     // En çok ~25 sn çalışır; kalan sayfalar bir sonraki eşitlemede imleçten sürer
     for (let page = 0; page < 50 && Date.now() - started < 25_000; page++) {
-      const r = site.tur === "gazebotente" ? await gtFetch(site, cursor) : await wcFetch(site, cursor);
+      const r = await fetchPage(site, cursor);
+      if (!r) break;
       if (page === 0) await db().update(sites).set({ sozluk: JSON.stringify(r.vocab) }).where(eq(sites.id, site.id));
       for (const o of r.orders) await upsert(site, o, r.vocab);
       count += r.orders.length;
@@ -331,6 +353,8 @@ export async function syncSite(siteId: number) {
     }
     // Form talepleri (toptan alım, bayilik, iletişim): çekilemezse sipariş eşitlemesi başarısız sayılmaz
     if (site.tur === "gazebotente") await syncRequests(site, (path) => gtRequest(site, path)).catch((e) => console.error("syncRequests", e));
+    // Pazaryeri ürünleri: gönderim sonuçları, onaylar, değişen fiyat/stok (hata sipariş eşitlemesini bozmaz)
+    if (site.tur === "trendyol") await marketplaceTick(site.id).catch((e) => console.error("marketplaceTick", e));
     await db().update(sites).set({ sonBasari: new Date(), sonHata: null }).where(eq(sites.id, site.id));
     return { ok: true as const, count };
   } catch (e) {
@@ -359,10 +383,15 @@ export async function pushAction(orderId: number, a: SiteAction, kim: string) {
   if (site.tur === "gazebotente") {
     const r = (await gtRequest(site, `/api/panel/siparisler/${encodeURIComponent(o.disNo)}/`, { method: "POST", body: JSON.stringify({ ...a, kim }) })) as { siparis: SiteOrder | null };
     fresh = r.siparis;
-  } else {
+  } else if (site.tur === "trendyol") {
+    fresh = await tyAction(site, JSON.parse(o.siteVeri ?? "{}") as SiteOrder, a);
+  } else if (site.tur === "woocommerce") {
+    if (a.islem === "fatura") throw new Error("WooCommerce'te fatura linki yazılmaz.");
     const disId = (JSON.parse(o.siteVeri ?? "{}") as SiteOrder).disId;
     if (!disId) throw new Error("WooCommerce sipariş kimliği eksik.");
     fresh = await wcAction(site, disId, a, kim);
+  } else {
+    throw new Error("Bu bağlantı türü henüz işlem desteklemiyor.");
   }
   if (fresh) await upsert(site, fresh, site.sozluk ? (JSON.parse(site.sozluk) as Vocabulary) : null);
 }
@@ -386,6 +415,8 @@ export async function vocabularyOf(siteId: number): Promise<Vocabulary | null> {
   return s?.sozluk ? (JSON.parse(s.sozluk) as Vocabulary) : null;
 }
 
+const SITE_TURLERI = schema.SITE_TURLERI;
+
 export type SiteInput = { id: number | null; markaId: number; tur: string; ad: string; adres: string; anahtar: string; aktif: boolean };
 
 /** Bağlantı ekle/düzenle (yönetici). Anahtar boş bırakılırsa eskisi korunur. Adres değişirse baştan çekilir. */
@@ -394,9 +425,12 @@ export async function saveSite(i: SiteInput): Promise<{ ok: true; id: number } |
   const adres = i.adres.trim().replace(/\/+$/, "");
   if (!ad) return { ok: false, hata: "Bağlantı adı gerekli." };
   if (!/^https?:\/\/[^\s/]+/.test(adres)) return { ok: false, hata: "Site adresini https:// ile yazın." };
-  const tur = i.tur === "woocommerce" ? ("woocommerce" as const) : ("gazebotente" as const);
-  const anahtar = i.anahtar.trim();
+  const tur = SITE_TURLERI.find((t) => t === i.tur) ?? "gazebotente";
+  if (tur === "hepsiburada") return { ok: false, hata: "Hepsiburada bağlantısı henüz hazır değil." };
+  const anahtar = i.anahtar.trim().replace(/\s*:\s*/g, ":");
   if (tur === "woocommerce" && anahtar && !/^ck_[\w]+:cs_[\w]+$/.test(anahtar)) return { ok: false, hata: "WooCommerce anahtarını ck_…:cs_… biçiminde yazın." };
+  if (tur === "trendyol" && anahtar && !tyKeyValid(anahtar)) return { ok: false, hata: "Trendyol bilgilerini satıcı ID, API key ve API secret olarak eksiksiz yazın." };
+  await ensureMarketplaceSchema();
   const values = { markaId: i.markaId, tur, ad, adres, aktif: !!i.aktif, ...(anahtar ? { anahtar } : {}) };
   if (i.id) {
     const [old] = await db().select({ adres: sites.adres }).from(sites).where(eq(sites.id, i.id));
@@ -415,6 +449,7 @@ export async function testSite(siteId: number) {
   if (!site) return { ok: false as const, hata: "Bağlantı bulunamadı." };
   try {
     if (site.tur === "gazebotente") await gtRequest(site, "/api/panel/siparisler/?limit=1");
+    else if (site.tur === "trendyol") await tyTest(site);
     else await wcRequest(site, "/orders?per_page=1");
     return { ok: true as const };
   } catch (e) {

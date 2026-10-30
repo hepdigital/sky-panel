@@ -17,7 +17,7 @@ type Props = {
   id: number;
   no: string;
   marka: string | null;
-  site: { ad: string; tur: "gazebotente" | "woocommerce"; adres: string; sozluk: Vocabulary | null };
+  site: { ad: string; tur: "gazebotente" | "woocommerce" | "trendyol" | "hepsiburada"; adres: string; sozluk: Vocabulary | null };
   disDurum: string | null;
   odemeYontemi: string | null;
   odemeDurumu: string | null;
@@ -34,6 +34,10 @@ export function SiteOrderDetail({ id, no, marka, site, disDurum, odemeYontemi, o
   const router = useRouter();
   const v = site.sozluk ?? { durumlar: [], odemeDurumlari: [], odemeYontemleri: [], kargolar: [] };
   const gt = site.tur === "gazebotente";
+  /** Pazaryeri: ödeme, kargo ve müşteri iletişimi pazaryerinde; panelden durum (izin verilenler) ve fatura yazılır */
+  const pazar = site.tur === "trendyol" || site.tur === "hepsiburada";
+  const yazilabilir = (key: string) => !v.yazilabilir || v.yazilabilir.includes(key);
+  const [faturaLink, setFaturaLink] = useState(o.fatura?.link ?? "");
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [bildir, setBildir] = useState(true);
@@ -86,28 +90,40 @@ export function SiteOrderDetail({ id, no, marka, site, disDurum, odemeYontemi, o
       <Card className="mt-5 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-[15px] font-semibold">Sipariş durumu</h2>
-          <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <input type="checkbox" checked={bildir} onChange={(e) => setBildir(e.target.checked)} className="size-4 accent-[var(--primary)]" />
-            Değişiklikte müşteriye {gt ? "e-posta" : "not"} gönder
-          </label>
+          {!pazar && (
+            <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <input type="checkbox" checked={bildir} onChange={(e) => setBildir(e.target.checked)} className="size-4 accent-[var(--primary)]" />
+              Değişiklikte müşteriye {gt ? "e-posta" : "not"} gönder
+            </label>
+          )}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {v.durumlar.map((d) => (
             <button
               key={d.key}
               type="button"
-              disabled={pending || d.key === disDurum}
+              disabled={pending || d.key === disDurum || !yazilabilir(d.key)}
               onClick={() => run({ islem: "durum", durum: d.key, mesaj: durumMesaj || undefined, bildir }, `Durum “${d.label}” olarak siteye yazıldı.`, () => setDurumMesaj(""))}
               className={cn(
                 "h-9 rounded-full border px-3.5 text-xs font-semibold transition-colors",
-                d.key === disDurum ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:border-primary hover:text-foreground",
+                d.key === disDurum
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : yazilabilir(d.key)
+                    ? "border-border text-muted-foreground hover:border-primary hover:text-foreground"
+                    : "hidden",
               )}
             >
               {d.label}
             </button>
           ))}
         </div>
-        <input value={durumMesaj} onChange={(e) => setDurumMesaj(e.target.value)} placeholder="Durumla birlikte müşteriye gidecek mesaj (isteğe bağlı)" className={cn(input, "mt-3")} />
+        <input
+          value={durumMesaj}
+          onChange={(e) => setDurumMesaj(e.target.value)}
+          placeholder={pazar ? "Fatura numarası (“Faturalandı” için gerekli)" : "Durumla birlikte müşteriye gidecek mesaj (isteğe bağlı)"}
+          className={cn(input, "mt-3")}
+        />
+        {pazar && <p className="mt-1.5 text-[11px] text-muted-foreground">Kargoya teslim, teslimat ve iptal durumları pazaryerinden gelir; panelden yalnızca hazırlık ve fatura adımları yazılır.</p>}
 
         <div className="mt-4 grid gap-4 border-t border-border pt-4 md:grid-cols-2">
           <div>
@@ -141,6 +157,23 @@ export function SiteOrderDetail({ id, no, marka, site, disDurum, odemeYontemi, o
             <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
               <Truck className="size-3.5" /> Kargo
             </p>
+            {pazar ? (
+              <div className="mt-1 text-sm">
+                <p className="font-semibold">{o.kargo.firma || "Kargo firması henüz atanmadı"}</p>
+                {o.kargo.takipNo && (
+                  <p className="text-xs text-muted-foreground">
+                    Takip no {o.kargo.takipNo}
+                    {o.kargo.link && (
+                      <a href={o.kargo.link} target="_blank" rel="noopener" className="ml-2 inline-flex items-center gap-1 font-semibold text-primary hover:underline">
+                        Takip <ExternalLink className="size-3" />
+                      </a>
+                    )}
+                  </p>
+                )}
+                <p className="mt-1 text-[11px] text-muted-foreground">Kargo etiketi ve takip numarası pazaryerinin anlaşmalı kargosundan gelir.</p>
+              </div>
+            ) : (
+            <>
             <div className="mt-1 grid grid-cols-[1fr_1fr] gap-2">
               {v.kargolar.length ? (
                 <select value={kargo.firma} onChange={(e) => setKargo({ ...kargo, firma: e.target.value })} className={input}>
@@ -166,8 +199,28 @@ export function SiteOrderDetail({ id, no, marka, site, disDurum, odemeYontemi, o
                 </Button>
               )}
             </div>
+            </>
+            )}
           </div>
         </div>
+        {pazar && (
+          <div className="mt-4 border-t border-border pt-4">
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+              <FileText className="size-3.5" /> E-fatura linki (pazaryerine yüklenir, müşteri görür)
+            </p>
+            <div className="mt-1 flex flex-wrap gap-2">
+              <input value={faturaLink} onChange={(e) => setFaturaLink(e.target.value)} placeholder="https://… (e-fatura / e-arşiv görüntüleme linki)" className={cn(input, "min-w-0 flex-1")} />
+              <Button size="sm" variant="outline" className="h-10" disabled={pending || !faturaLink.trim() || faturaLink === o.fatura?.link} onClick={() => run({ islem: "fatura", link: faturaLink.trim() }, "Fatura linki pazaryerine gönderildi.")}>
+                Gönder
+              </Button>
+            </div>
+            {o.fatura?.link && (
+              <a href={o.fatura.link} target="_blank" rel="noopener" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                Yüklü fatura <ExternalLink className="size-3" />
+              </a>
+            )}
+          </div>
+        )}
         {msg && <p className={cn("mt-3 rounded-xl px-3 py-2 text-xs font-medium", msg.ok ? "bg-success-soft text-success" : "bg-danger-soft text-danger")}>{msg.text}</p>}
       </Card>
 
@@ -274,7 +327,7 @@ export function SiteOrderDetail({ id, no, marka, site, disDurum, odemeYontemi, o
                 <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", e.durum ? "bg-primary" : "bg-border")} />
                 <div className="min-w-0">
                   <p>
-                    {e.durum && <span className="font-semibold">{labelOf(v.durumlar, e.durum)} · </span>}
+                    {e.durum && <span className="font-semibold">{labelOf(v.durumlar, e.durum)}{e.mesaj ? " · " : ""}</span>}
                     {e.mesaj}
                     {!e.gorunur && <Badge tone="neutral" className="ml-1.5">iç not</Badge>}
                   </p>
@@ -286,7 +339,7 @@ export function SiteOrderDetail({ id, no, marka, site, disDurum, odemeYontemi, o
             ))}
           {!o.gecmis.length && <li className="text-sm text-muted-foreground">Kayıt yok.</li>}
         </ul>
-        <div className="mt-4 border-t border-border pt-4">
+        <div className={cn("mt-4 border-t border-border pt-4", pazar && "hidden")}>
           <p className={label}>
             <MessageSquare className="mr-1 inline size-3.5" /> Siparişe not ekle (siteye yazılır)
           </p>

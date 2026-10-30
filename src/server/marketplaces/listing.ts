@@ -1,0 +1,488 @@
+import "server-only";
+import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
+import { db, schema } from "../db";
+import { ensureMarketplaceSchema } from "../db/ensure";
+import {
+  tyBatch, tyBrands, tyCategories, tyCategoryAttributes, tyPriceStock, tyProductState, tySendProducts,
+  type CategoryAttribute, type TyItem,
+} from "./trendyol";
+
+// Pazaryeri listeleme çekirdeği. Ürün kartı (pazaryeri_urunleri) tüm kanallarda ortaktır: barkod, stok kodu, görseller,
+// desi, KDV, fiyat, stok. Her kanal (bağlantı) için ayrı listeleme tutulur: kategori, özellikler, marka, kanala özel fiyat
+// ve gönderim durumu. Akış: taslak → gönderildi (toplu işlem) → onay (kart oluştu, pazaryeri inceliyor) → yayında; ya da hata.
+// Fiyat/stok yalnızca oluşmuş kartlar için ve değiştiğinde gönderilir. Şimdilik Trendyol; Hepsiburada aynı yapıya eklenecek.
+
+const { pazaryeriUrunleri: items, pazaryeriListelemeleri: listings, pazaryeriKategorileri: categories, pazaryeriIslemleri: logs, pazaryeriAyarlari: settingsT, siteBaglantilari: sites, urunler } = schema;
+type Site = typeof sites.$inferSelect;
+type Item = typeof items.$inferSelect;
+type Listing = typeof listings.$inferSelect;
+
+export const MARKETPLACE_TURLERI = ["trendyol"] as const;
+const isMarketplace = (s: Site) => (MARKETPLACE_TURLERI as readonly string[]).includes(s.tur);
+
+/* ───────────── kanal ayarları ───────────── */
+
+export type ChannelSettings = {
+  /** Kanal fiyat farkı (%): komisyon ve kargo payı; KDV dahil perakendeye eklenir */
+  fiyatFarki: number;
+  /** Trendyol kargo firması kimliği (anlaşmalı kargo); boşsa gönderilmez */
+  kargoFirmaId: number | null;
+  /** Varsayılan marka (yeni listelemelerde önerilir) */
+  markaId: number | null;
+  markaAd: string | null;
+};
+const DEFAULT_SETTINGS: ChannelSettings = { fiyatFarki: 0, kargoFirmaId: null, markaId: null, markaAd: null };
+
+export async function marketplaceChannels() {
+  await ensureMarketplaceSchema();
+  const rows = await db()
+    .select({ id: sites.id, ad: sites.ad, tur: sites.tur, aktif: sites.aktif, markaId: sites.markaId, ayar: settingsT.veri })
+    .from(sites)
+    .leftJoin(settingsT, eq(settingsT.siteId, sites.id))
+    .where(inArray(sites.tur, [...MARKETPLACE_TURLERI]))
+    .orderBy(asc(sites.id));
+  return rows.map((r) => ({ id: r.id, ad: r.ad, tur: r.tur, aktif: r.aktif, ayarlar: { ...DEFAULT_SETTINGS, ...(r.ayar ? (JSON.parse(r.ayar) as Partial<ChannelSettings>) : {}) } }));
+}
+export type MarketplaceChannel = Awaited<ReturnType<typeof marketplaceChannels>>[number];
+
+async function settingsOf(siteId: number): Promise<ChannelSettings> {
+  const [r] = await db().select({ veri: settingsT.veri }).from(settingsT).where(eq(settingsT.siteId, siteId));
+  return { ...DEFAULT_SETTINGS, ...(r ? (JSON.parse(r.veri) as Partial<ChannelSettings>) : {}) };
+}
+
+export async function saveSettings(siteId: number, s: ChannelSettings) {
+  await ensureMarketplaceSchema();
+  const v: ChannelSettings = {
+    fiyatFarki: Math.max(-50, Math.min(200, Number(s.fiyatFarki) || 0)),
+    kargoFirmaId: s.kargoFirmaId && Number(s.kargoFirmaId) > 0 ? Math.round(Number(s.kargoFirmaId)) : null,
+    markaId: s.markaId ? Number(s.markaId) : null,
+    markaAd: s.markaAd?.trim().slice(0, 120) || null,
+  };
+  const veri = JSON.stringify(v);
+  await db().insert(settingsT).values({ siteId, veri }).onDuplicateKeyUpdate({ set: { veri } });
+  // Fiyat farkı değişince yayındaki fiyatlar bir sonraki eşitlemede yeniden gönderilir (imza değişir)
+}
+
+async function siteOf(siteId: number) {
+  const [s] = await db().select().from(sites).where(eq(sites.id, siteId));
+  if (!s || !isMarketplace(s)) throw new Error("Pazaryeri bağlantısı bulunamadı.");
+  return s;
+}
+
+/* ───────────── barkod ───────────── */
+
+/** EAN-13 kontrol hanesi */
+function ean13(base12: string) {
+  const sum = [...base12].reduce((s, d, i) => s + Number(d) * (i % 2 ? 3 : 1), 0);
+  return base12 + ((10 - (sum % 10)) % 10);
+}
+
+/**
+ * Firma içi barkod: EAN-13, "29" ile başlar (GS1'in kapalı devre aralığı; ülke/firma önekiyle çakışmaz) + 10 haneli sıra.
+ * Pazaryerleri benzersiz olması koşuluyla kabul eder.
+ */
+export async function nextBarcode() {
+  await ensureMarketplaceSchema();
+  const [r] = await db()
+    .select({ m: sql<string | null>`MAX(${items.barkod})` })
+    .from(items)
+    .where(and(like(items.barkod, "29%"), sql`CHAR_LENGTH(${items.barkod}) = 13`));
+  let seq = r?.m ? Number(r.m.slice(2, 12)) + 1 : 1;
+  for (;;) {
+    const code = ean13(`29${String(seq).padStart(10, "0")}`);
+    const [ex] = await db().select({ id: items.id }).from(items).where(eq(items.barkod, code));
+    if (!ex) return code;
+    seq++;
+  }
+}
+
+export const barcodeValid = (b: string) => /^\d{13}$/.test(b) ? ean13(b.slice(0, 12)) === b : /^[A-Za-z0-9-]{4,40}$/.test(b);
+
+/* ───────────── fiyat ───────────── */
+
+/** KDV hariç taban fiyat: kartın fiyatı, yoksa bağlı katalog ürününün perakendesi */
+const basePrice = (item: Pick<Item, "fiyat">, catalog: number | null) => item.fiyat ?? catalog ?? null;
+
+/** Kanaldaki satış fiyatı (KDV dahil, tam TL): kanala özel fiyat ya da taban × KDV × (1 + fark) */
+export function channelPrice(item: Pick<Item, "fiyat" | "kdv">, catalog: number | null, listing: Pick<Listing, "fiyat"> | null, s: ChannelSettings) {
+  if (listing?.fiyat) return Math.round(listing.fiyat);
+  const base = basePrice(item, catalog);
+  if (base === null) return null;
+  return Math.round(base * (1 + item.kdv / 100) * (1 + s.fiyatFarki / 100));
+}
+
+/* ───────────── kartlar ───────────── */
+
+export type ListingInput = {
+  siteId: number;
+  aktif: boolean;
+  kategoriId: number | null;
+  kategoriYol: string | null;
+  markaId: number | null;
+  markaAd: string | null;
+  ozellikler: Record<string, { v?: number; c?: string }>;
+  fiyat: number | null;
+};
+
+export type ItemInput = {
+  id: number | null;
+  stokKodu: string;
+  barkod: string;
+  ad: string;
+  aciklama: string;
+  grupKodu: string;
+  markaAdi: string;
+  urunId: number | null;
+  renk: string;
+  olcu: string;
+  gorseller: string[];
+  desi: number | null;
+  kdv: number;
+  fiyat: number | null;
+  stok: number;
+  hazirlikGun: number;
+  aktif: boolean;
+  listelemeler: ListingInput[];
+};
+
+export async function listItems() {
+  await ensureMarketplaceSchema();
+  const [rows, ls] = await Promise.all([
+    db()
+      .select({ i: items, katalogAd: urunler.ad, katalogFiyat: urunler.perakende })
+      .from(items)
+      .leftJoin(urunler, eq(urunler.id, items.urunId))
+      .orderBy(asc(items.grupKodu), asc(items.id)),
+    db().select().from(listings),
+  ]);
+  return rows.map((r) => ({
+    ...r.i,
+    gorseller: r.i.gorseller ? (JSON.parse(r.i.gorseller) as string[]) : [],
+    katalogAd: r.katalogAd,
+    katalogFiyat: r.katalogFiyat,
+    listelemeler: ls.filter((l) => l.urunId === r.i.id).map((l) => ({ ...l, ozellikler: l.ozellikler ? (JSON.parse(l.ozellikler) as ListingInput["ozellikler"]) : {} })),
+  }));
+}
+export type MarketplaceItem = Awaited<ReturnType<typeof listItems>>[number];
+
+const clip = (v: string | null | undefined, max: number) => (v?.trim() ? v.trim().slice(0, max) : null);
+const num = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? null : Number(v));
+
+/** Kaydedilen içeriğin özeti: değiştiyse oluşmuş kart yeniden gönderilmek üzere taslağa döner */
+const contentSig = (i: Partial<Item>, l: Partial<Listing>) =>
+  JSON.stringify([i.ad, i.aciklama, i.grupKodu, i.gorseller, i.desi, i.kdv, i.stokKodu, i.renk, i.olcu, l.kategoriId, l.markaId, l.ozellikler]);
+
+export async function saveItem(input: ItemInput): Promise<{ ok: true; id: number } | { ok: false; hata: string }> {
+  await ensureMarketplaceSchema();
+  const ad = clip(input.ad, 150);
+  const stokKodu = clip(input.stokKodu, 60);
+  const barkod = clip(input.barkod, 40);
+  if (!ad) return { ok: false, hata: "Ürün adı gerekli." };
+  if (!stokKodu || !/^[A-Za-z0-9._-]+$/.test(stokKodu)) return { ok: false, hata: "Stok kodu gerekli (harf, rakam, nokta, tire)." };
+  if (!barkod || !barcodeValid(barkod)) return { ok: false, hata: "Barkod geçersiz (13 haneli EAN ya da harf/rakam)." };
+  const gorseller = input.gorseller.map((g) => g.trim()).filter((g) => /^(https:\/\/\S+|\/(dosya|terminal)\/\S+)$/.test(g)).slice(0, 8);
+  const values = {
+    stokKodu, barkod, ad, aciklama: clip(input.aciklama, 30000), grupKodu: clip(input.grupKodu, 60) ?? stokKodu, markaAdi: clip(input.markaAdi, 80),
+    urunId: input.urunId || null, renk: clip(input.renk, 40), olcu: clip(input.olcu, 60), gorseller: JSON.stringify(gorseller),
+    desi: num(input.desi), kdv: [0, 1, 10, 20].includes(Number(input.kdv)) ? Number(input.kdv) : 20, fiyat: num(input.fiyat),
+    stok: Math.max(0, Math.round(Number(input.stok) || 0)), hazirlikGun: Math.max(1, Math.min(30, Math.round(Number(input.hazirlikGun) || 3))), aktif: !!input.aktif,
+  };
+  const dup = await db()
+    .select({ id: items.id, stokKodu: items.stokKodu })
+    .from(items)
+    .where(sql`(${items.stokKodu} = ${stokKodu} OR ${items.barkod} = ${barkod}) AND ${items.id} <> ${input.id ?? 0}`);
+  if (dup.length) return { ok: false, hata: dup.some((d) => d.stokKodu === stokKodu) ? "Bu stok kodu başka bir üründe var." : "Bu barkod başka bir üründe var." };
+
+  let id = input.id;
+  const [old] = id ? await db().select().from(items).where(eq(items.id, id)) : [];
+  if (id && !old) return { ok: false, hata: "Ürün bulunamadı." };
+  // Oluşmuş kartın barkodu değiştirilemez (pazaryeri kartı barkodla bağlıdır)
+  const oldListings = id ? await db().select().from(listings).where(eq(listings.urunId, id)) : [];
+  if (old && old.barkod !== barkod && oldListings.some((l) => l.olustu)) return { ok: false, hata: "Pazaryerinde oluşmuş ürünün barkodu değiştirilemez." };
+  if (id) await db().update(items).set(values).where(eq(items.id, id));
+  else id = (await db().insert(items).values(values).$returningId())[0].id;
+
+  const channels = new Set((await marketplaceChannels()).map((c) => c.id));
+  for (const l of input.listelemeler) {
+    if (!channels.has(l.siteId)) continue;
+    const ozellikler: ListingInput["ozellikler"] = {};
+    for (const [k, v] of Object.entries(l.ozellikler ?? {})) {
+      if (!/^\d+$/.test(k)) continue;
+      if (v?.v) ozellikler[k] = { v: Number(v.v) };
+      else if (v?.c?.trim()) ozellikler[k] = { c: v.c.trim().slice(0, 200) };
+    }
+    const lv = {
+      aktif: !!l.aktif, kategoriId: l.kategoriId || null, kategoriYol: clip(l.kategoriYol, 500), markaId: l.markaId || null, markaAd: clip(l.markaAd, 120),
+      ozellikler: JSON.stringify(ozellikler), fiyat: num(l.fiyat),
+    };
+    const ex = oldListings.find((x) => x.siteId === l.siteId);
+    if (!ex) {
+      if (lv.aktif) await db().insert(listings).values({ ...lv, urunId: id, siteId: l.siteId, durum: "taslak" });
+      continue;
+    }
+    const changed = contentSig({ ...old, ...values }, { ...ex, ...lv }) !== contentSig(old ?? {}, ex);
+    let durum = ex.durum;
+    // Kapatılan listeleme: oluşmuşsa pasif (stok 0 gönderilir), oluşmamışsa taslakta kalır
+    if (!lv.aktif) durum = ex.olustu ? "pasif" : "taslak";
+    // İçerik değişti: yeniden gönderilmek üzere taslağa döner (sonucu beklenen gönderim bitene kadar dokunulmaz)
+    else if (changed && ex.durum !== "gonderildi") durum = "taslak";
+    // Yeniden açılan oluşmuş kart: onay durumu pazaryerinden sorulur, stok fiyat/stok eşitlemesiyle geri gelir
+    else if (ex.durum === "pasif") durum = "onay";
+    await db().update(listings).set({ ...lv, durum }).where(eq(listings.id, ex.id));
+  }
+  return { ok: true, id };
+}
+
+/** Kart silinir yalnızca hiçbir pazaryerinde oluşmamışsa; oluşmuşsa kapatılır (stok 0) */
+export async function deleteItem(id: number) {
+  await ensureMarketplaceSchema();
+  const ls = await db().select({ olustu: listings.olustu }).from(listings).where(eq(listings.urunId, id));
+  if (ls.some((l) => l.olustu)) {
+    await db().update(items).set({ aktif: false }).where(eq(items.id, id));
+    return { silindi: false };
+  }
+  await db().delete(items).where(eq(items.id, id));
+  return { silindi: true };
+}
+
+/* ───────────── kategoriler, özellikler, markalar ───────────── */
+
+export async function refreshCategories(siteId: number) {
+  await ensureMarketplaceSchema();
+  const site = await siteOf(siteId);
+  const list = await tyCategories(site);
+  for (let i = 0; i < list.length; i += 500) {
+    const chunk = list.slice(i, i + 500).map((k) => ({ tur: site.tur, id: k.id, ustId: k.ustId, ad: k.ad.slice(0, 200), yol: k.yol.slice(0, 600), yaprak: k.yaprak }));
+    await db()
+      .insert(categories)
+      .values(chunk)
+      .onDuplicateKeyUpdate({ set: { ustId: sql`VALUES(ust_id)`, ad: sql`VALUES(ad)`, yol: sql`VALUES(yol)`, yaprak: sql`VALUES(yaprak)` } });
+  }
+  await log(siteId, "kategori", null, "tamam", `${list.length} kategori güncellendi.`);
+  return list.length;
+}
+
+/** Yaprak kategorilerde arama: her kelime yolda geçmeli */
+export async function searchCategories(siteId: number, q: string) {
+  await ensureMarketplaceSchema();
+  const site = await siteOf(siteId);
+  const words = q.trim().split(/\s+/).filter((w) => w.length > 1).slice(0, 5);
+  if (!words.length) return [];
+  return db()
+    .select({ id: categories.id, yol: categories.yol })
+    .from(categories)
+    .where(and(eq(categories.tur, site.tur), eq(categories.yaprak, true), ...words.map((w) => like(categories.yol, `%${w.replace(/[%_]/g, "")}%`))))
+    .orderBy(asc(categories.yol))
+    .limit(40);
+}
+
+export async function categoryCount(tur: string) {
+  await ensureMarketplaceSchema();
+  const [r] = await db().select({ n: sql<number>`COUNT(*)`.mapWith(Number) }).from(categories).where(eq(categories.tur, tur));
+  return r?.n ?? 0;
+}
+
+const ATTR_TTL = 7 * 24 * 3600_000;
+
+/** Kategori özellikleri (yedi gün önbellekte) */
+export async function categoryAttributes(siteId: number, kategoriId: number): Promise<CategoryAttribute[]> {
+  await ensureMarketplaceSchema();
+  const site = await siteOf(siteId);
+  const [c] = await db().select({ o: categories.ozellikler, t: categories.ozellikTarih }).from(categories).where(and(eq(categories.tur, site.tur), eq(categories.id, kategoriId)));
+  if (c?.o && c.t && Date.now() - c.t.getTime() < ATTR_TTL) return JSON.parse(c.o) as CategoryAttribute[];
+  const attrs = await tyCategoryAttributes(site, kategoriId);
+  if (c) await db().update(categories).set({ ozellikler: JSON.stringify(attrs), ozellikTarih: new Date() }).where(and(eq(categories.tur, site.tur), eq(categories.id, kategoriId)));
+  return attrs;
+}
+
+export async function searchBrands(siteId: number, q: string) {
+  const site = await siteOf(siteId);
+  return q.trim().length < 2 ? [] : tyBrands(site, q.trim());
+}
+
+/* ───────────── gönderim ───────────── */
+
+const publicUrl = () => (process.env.PUBLIC_URL ?? "").replace(/\/+$/, "");
+
+/** Pazaryerine giden görsel adresi: paneldeki webp görseller JPEG'e çevrilerek verilir (/jpg/…) */
+export const imageUrl = (g: string) => (/^https:\/\//.test(g) ? g : `${publicUrl()}/jpg${g.replace(/\.webp$/, ".jpg")}`);
+
+const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const descriptionHtml = (s: string) =>
+  s
+    .split(/\n{2,}/)
+    .map((p) => `<p>${escapeHtml(p.trim()).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+
+type Row = { i: Item; l: Listing; katalog: number | null };
+
+/** Gönderime hazır mı: eksikler listesi (boşsa hazır) */
+export async function listingProblems(siteId: number, r: Row, s: ChannelSettings) {
+  const p: string[] = [];
+  const gorseller = r.i.gorseller ? (JSON.parse(r.i.gorseller) as string[]) : [];
+  if (!r.l.kategoriId) p.push("kategori seçilmedi");
+  if (!r.l.markaId) p.push("marka seçilmedi");
+  if (!gorseller.length) p.push("görsel yok");
+  if (!r.i.desi) p.push("desi girilmedi");
+  if (!channelPrice(r.i, r.katalog, r.l, s)) p.push("fiyat yok");
+  if ((r.i.aciklama ?? "").trim().length < 30) p.push("açıklama çok kısa (en az 30 karakter)");
+  if (r.l.kategoriId) {
+    const attrs = await categoryAttributes(siteId, r.l.kategoriId).catch(() => null);
+    if (!attrs) p.push("kategori özellikleri okunamadı");
+    else {
+      const vals = r.l.ozellikler ? (JSON.parse(r.l.ozellikler) as ListingInput["ozellikler"]) : {};
+      const eksik = attrs.filter((a) => a.zorunlu && !vals[a.id]?.v && !vals[a.id]?.c).map((a) => a.ad);
+      if (eksik.length) p.push(`zorunlu özellik eksik: ${eksik.join(", ")}`);
+    }
+  }
+  return p;
+}
+
+function toTyItem(r: Row, s: ChannelSettings): TyItem {
+  const price = channelPrice(r.i, r.katalog, r.l, s)!;
+  const vals = r.l.ozellikler ? (JSON.parse(r.l.ozellikler) as ListingInput["ozellikler"]) : {};
+  return {
+    barcode: r.i.barkod,
+    title: r.i.ad.slice(0, 100),
+    productMainId: r.i.grupKodu,
+    brandId: r.l.markaId!,
+    categoryId: r.l.kategoriId!,
+    quantity: r.i.aktif && r.l.aktif ? r.i.stok : 0,
+    stockCode: r.i.stokKodu,
+    dimensionalWeight: r.i.desi ?? 1,
+    description: descriptionHtml(r.i.aciklama ?? r.i.ad),
+    currencyType: "TRY",
+    listPrice: price,
+    salePrice: price,
+    vatRate: r.i.kdv,
+    ...(s.kargoFirmaId ? { cargoCompanyId: s.kargoFirmaId } : {}),
+    deliveryDuration: r.i.hazirlikGun,
+    images: (JSON.parse(r.i.gorseller ?? "[]") as string[]).map((g) => ({ url: imageUrl(g) })),
+    attributes: Object.entries(vals).map(([k, v]) => (v.v ? { attributeId: Number(k), attributeValueId: v.v } : { attributeId: Number(k), customAttributeValue: v.c! })),
+  };
+}
+
+async function rowsOf(siteId: number, where?: ReturnType<typeof and>) {
+  return db()
+    .select({ i: items, l: listings, katalog: urunler.perakende })
+    .from(listings)
+    .innerJoin(items, eq(items.id, listings.urunId))
+    .leftJoin(urunler, eq(urunler.id, items.urunId))
+    .where(and(eq(listings.siteId, siteId), where));
+}
+
+/**
+ * Taslak ve hatalı listelemeleri gönderir (urunIds verilirse yalnızca onları). Eksiği olan listeleme gönderilmez,
+ * hatası yazılır. Yeni kartlar oluşturulur, oluşmuş kartlar güncellenir; her biri tek toplu işlemdir.
+ */
+export async function sendListings(siteId: number, kim: string, urunIds?: number[]) {
+  await ensureMarketplaceSchema();
+  const site = await siteOf(siteId);
+  const s = await settingsOf(siteId);
+  const rows = await rowsOf(siteId, and(eq(listings.aktif, true), eq(items.aktif, true), inArray(listings.durum, ["taslak", "hata"]), urunIds?.length ? inArray(listings.urunId, urunIds) : undefined));
+  const ready: Row[] = [];
+  let eksik = 0;
+  for (const r of rows) {
+    const p = await listingProblems(siteId, r, s);
+    if (p.length) {
+      eksik++;
+      await db().update(listings).set({ durum: "hata", hata: `Gönderilmedi: ${p.join("; ")}.` }).where(eq(listings.id, r.l.id));
+    } else ready.push(r);
+  }
+  let gonderilen = 0;
+  for (const update of [false, true]) {
+    const group = ready.filter((r) => r.l.olustu === update);
+    for (let i = 0; i < group.length; i += 100) {
+      const chunk = group.slice(i, i + 100);
+      try {
+        const batchId = await tySendProducts(site, chunk.map((r) => toTyItem(r, s)), update);
+        await db()
+          .update(listings)
+          .set({ durum: "gonderildi", batchId, hata: null, sonGonderim: new Date() })
+          .where(inArray(listings.id, chunk.map((r) => r.l.id)));
+        gonderilen += chunk.length;
+        await log(siteId, update ? "urun-guncelle" : "urun-olustur", batchId, "gonderildi", `${chunk.length} ürün: ${chunk.map((r) => r.i.stokKodu).join(", ")}`.slice(0, 1000), kim);
+      } catch (e) {
+        const hata = e instanceof Error ? e.message : "Gönderilemedi.";
+        await db().update(listings).set({ durum: "hata", hata }).where(inArray(listings.id, chunk.map((r) => r.l.id)));
+        await log(siteId, update ? "urun-guncelle" : "urun-olustur", null, "hata", hata.slice(0, 1000), kim);
+      }
+    }
+  }
+  return { gonderilen, eksik };
+}
+
+/** Gönderilen toplu işlemlerin sonucu ve onay bekleyen kartların durumu */
+export async function checkListings(siteId: number) {
+  await ensureMarketplaceSchema();
+  const site = await siteOf(siteId);
+  const sent = await rowsOf(siteId, eq(listings.durum, "gonderildi"));
+  for (const batchId of [...new Set(sent.map((r) => r.l.batchId).filter((b): b is string => !!b))]) {
+    const res = await tyBatch(site, batchId);
+    if (!res.bitti) continue;
+    for (const r of sent.filter((x) => x.l.batchId === batchId)) {
+      const k = res.kalemler.find((x) => x.barkod === r.i.barkod);
+      if (!k) {
+        // Toplu işlem bitti ama kalem yok: pazaryeri kaydı vermedi, yeniden gönderilmek üzere hataya düşer
+        await db().update(listings).set({ durum: "hata", hata: "Pazaryeri bu ürün için sonuç vermedi; yeniden gönderin." }).where(eq(listings.id, r.l.id));
+      } else if (k.basarili) {
+        await db().update(listings).set({ durum: "onay", olustu: true, hata: null, sonFiyatStok: null }).where(eq(listings.id, r.l.id));
+      } else {
+        await db().update(listings).set({ durum: "hata", hata: k.hatalar.join("; ").slice(0, 2000) || "Pazaryeri ürünü reddetti." }).where(eq(listings.id, r.l.id));
+      }
+    }
+    const ok = res.kalemler.filter((k) => k.basarili).length;
+    await log(siteId, "urun-sonuc", batchId, ok === res.kalemler.length ? "tamam" : "hata", `${ok}/${res.kalemler.length} ürün kabul edildi.`);
+  }
+  // Onay bekleyenler: her turda en çok 20 kart sorulur
+  const waiting = await rowsOf(siteId, eq(listings.durum, "onay"));
+  for (const r of waiting.slice(0, 20)) {
+    const st = await tyProductState(site, r.i.barkod).catch(() => null);
+    if (!st) continue;
+    if (st.reddedildi) await db().update(listings).set({ durum: "hata", hata: `Reddedildi${st.neden ? `: ${st.neden}` : ""}` }).where(eq(listings.id, r.l.id));
+    else if (st.onayli) await db().update(listings).set({ durum: "yayinda", hata: null }).where(eq(listings.id, r.l.id));
+  }
+}
+
+/** Oluşmuş kartların fiyat ve stoku: yalnızca değişenler gönderilir (kapalı ürün/listeleme stok 0) */
+export async function pushPriceStock(siteId: number, kim?: string) {
+  await ensureMarketplaceSchema();
+  const site = await siteOf(siteId);
+  const s = await settingsOf(siteId);
+  const rows = await rowsOf(siteId, eq(listings.olustu, true));
+  const changed: { r: Row; sig: string; item: { barcode: string; quantity: number; salePrice: number; listPrice: number } }[] = [];
+  for (const r of rows) {
+    const price = channelPrice(r.i, r.katalog, r.l, s);
+    if (!price) continue;
+    const quantity = r.i.aktif && r.l.aktif ? r.i.stok : 0;
+    const sig = `${price}|${price}|${quantity}`;
+    if (sig !== r.l.sonFiyatStok) changed.push({ r, sig, item: { barcode: r.i.barkod, quantity, salePrice: price, listPrice: price } });
+  }
+  for (let i = 0; i < changed.length; i += 500) {
+    const chunk = changed.slice(i, i + 500);
+    const batchId = await tyPriceStock(site, chunk.map((c) => c.item));
+    for (const c of chunk) await db().update(listings).set({ sonFiyatStok: c.sig }).where(eq(listings.id, c.r.l.id));
+    await log(siteId, "fiyat-stok", batchId, "gonderildi", `${chunk.length} ürün: ${chunk.map((c) => `${c.r.i.stokKodu} ${c.item.salePrice} ₺ × ${c.item.quantity}`).join(", ")}`.slice(0, 1000), kim);
+  }
+  return changed.length;
+}
+
+/** Sipariş eşitlemesiyle birlikte çalışır: gönderim sonuçları, onaylar ve değişen fiyat/stok */
+export async function marketplaceTick(siteId: number) {
+  await ensureMarketplaceSchema();
+  const [n] = await db().select({ n: sql<number>`COUNT(*)`.mapWith(Number) }).from(listings).where(eq(listings.siteId, siteId));
+  if (!n?.n) return;
+  await checkListings(siteId);
+  await pushPriceStock(siteId);
+}
+
+/* ───────────── kayıt ───────────── */
+
+async function log(siteId: number, tur: string, batchId: string | null, durum: string, ozet: string, kim?: string) {
+  await db().insert(logs).values({ siteId, tur, batchId, durum, ozet: ozet.slice(0, 1000), kullanici: kim ?? null });
+}
+
+export async function recentLogs(limit = 40) {
+  await ensureMarketplaceSchema();
+  return db().select({ l: logs, site: sites.ad }).from(logs).innerJoin(sites, eq(sites.id, logs.siteId)).orderBy(desc(logs.id)).limit(limit);
+}
