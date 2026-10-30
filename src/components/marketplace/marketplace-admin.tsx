@@ -102,9 +102,9 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
         <Card className="mt-5 p-8 text-center text-sm">
           <Store className="mx-auto size-8 text-muted-foreground" />
           <p className="mt-2 font-semibold">Henüz pazaryeri bağlantısı yok.</p>
-          <p className="mt-1 text-muted-foreground">Önce Site bağlantıları ekranından Trendyol bağlantısını ekleyin (satıcı ID, API key, API secret).</p>
+          <p className="mt-1 text-muted-foreground">Önce Bağlantılar ekranından Trendyol bağlantısını ekleyin (satıcı ID, API key, API secret).</p>
           <Link href="/panel/siteler" className="mt-3 inline-block font-semibold text-primary hover:underline">
-            Site bağlantıları →
+            Bağlantılar →
           </Link>
         </Card>
       ) : (
