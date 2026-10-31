@@ -137,6 +137,22 @@ export function channelPrice(item: Pick<Item, "fiyat" | "kdv">, catalog: number 
   return Math.round(base * (1 + item.kdv / 100) * (1 + (listing?.fiyatFarki ?? s.fiyatFarki) / 100));
 }
 
+/**
+ * Bağlanırken sitedeki fiyatı veren ürüne özel fark (%): taban × KDV × (1 + fark) yuvarlanınca tam sitedeki fiyat.
+ * Kanalın farkıyla zaten tutuyorsa null (kanalınki geçerli kalır).
+ */
+const farkFor = (base: number | null, kdv: number, site: number | null, kanal: number) => {
+  if (!base || !site) return null;
+  const g = base * (1 + kdv / 100);
+  if (Math.round(g * (1 + kanal / 100)) === Math.round(site)) return null;
+  const f0 = Math.round((site / g - 1) * 10000) / 100;
+  for (const d of [0, 0.01, -0.01, 0.02, -0.02, 0.03, -0.03, 0.04, -0.04, 0.05, -0.05]) {
+    const f = Math.round((f0 + d) * 100) / 100;
+    if (Math.round(g * (1 + f / 100)) === Math.round(site)) return Math.max(-50, Math.min(200, f));
+  }
+  return Math.max(-50, Math.min(200, f0));
+};
+
 const farkOf = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? null : Math.max(-50, Math.min(200, Number(v))));
 
 /* ───────────── kartlar ───────────── */
@@ -707,6 +723,9 @@ export async function wooImport(input: WooImportInput) {
   await ensureMarketplaceSchema();
   const p = await wcProduct(await wooSiteOf(input.siteId), input.disUrunId);
   const kdv = [0, 1, 10, 20].includes(Number(input.kdv)) ? Number(input.kdv) : 20;
+  const s = await settingsOf(input.siteId);
+  const ids = input.satirlar.map((r) => Number(r.urunId)).filter(Boolean);
+  const cats = new Map((ids.length ? await db().select({ id: urunler.id, perakende: urunler.perakende }).from(urunler).where(inArray(urunler.id, ids)) : []).map((c) => [c.id, c.perakende]));
   const hatalar: string[] = [];
   let eklenen = 0;
   for (const r of input.satirlar) {
@@ -716,14 +735,17 @@ export async function wooImport(input: WooImportInput) {
       continue;
     }
     const siteFiyat = v ? v.fiyat : p.fiyat;
+    const fiyat = r.urunId || siteFiyat === null ? null : Math.round((siteFiyat / (1 + kdv / 100)) * 100) / 100;
+    // Sitedeki fiyat korunur: panelden farkı ürünün kanal farkı olur, sonra fiyat panelden yönetilir
+    const fark = farkFor(fiyat ?? cats.get(Number(r.urunId)) ?? null, kdv, siteFiyat, s.fiyatFarki);
     const res = await saveItem({
       id: null, stokKodu: r.stokKodu, barkod: await nextBarcode(), ad: input.ad || p.ad, aciklama: input.aciklama, grupKodu: input.grupKodu, markaAdi: "",
       urunId: r.urunId || null, renk: r.renk, olcu: r.olcu, gorseller: [...new Set([v?.gorsel, ...p.gorseller].filter((g): g is string => !!g))].slice(0, 8),
       desi: null, agirlik: null, en: null, boy: null, yukseklik: null, kdv,
-      fiyat: r.urunId || siteFiyat === null ? null : Math.round((siteFiyat / (1 + kdv / 100)) * 100) / 100,
+      fiyat,
       secenekDahil: false, maliyet: null, stok: 10, hazirlikGun: 3, aktif: true,
       listelemeler: [{
-        siteId: input.siteId, aktif: true, kategoriId: null, kategoriYol: null, markaId: null, markaAd: null, ozellikler: {}, fiyat: null,
+        siteId: input.siteId, aktif: true, kategoriId: null, kategoriYol: null, markaId: null, markaAd: null, ozellikler: {}, fiyat: null, fiyatFarki: fark,
         disUrunId: p.id, disVaryantId: v?.id ?? null, disAd: v ? `${p.ad} · ${v.ad}` : p.ad, disFiyat: siteFiyat,
       }],
     });

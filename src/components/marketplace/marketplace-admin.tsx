@@ -87,6 +87,21 @@ const label = "mb-1 block text-xs font-semibold text-muted-foreground";
 const tl = (n: number | null | undefined) => (n === null || n === undefined ? "—" : `${n.toLocaleString("tr-TR", { maximumFractionDigits: 2 })} ₺`);
 const when = (iso: string | null) => (iso ? formatDate(iso, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—");
 const desiOf = (en: number | null, boy: number | null, y: number | null) => (en && boy && y ? Math.round((en * boy * y) / 300) / 10 : null);
+/**
+ * Bağlanırken sitedeki fiyatı veren ürüne özel fark (%): taban × KDV × (1 + fark) yuvarlanınca tam sitedeki fiyat.
+ * Kanalın farkıyla zaten tutuyorsa null (kanalınki geçerli kalır).
+ */
+const farkFor = (base: number | null, kdv: number, site: number | null, kanal: number) => {
+  if (!base || !site) return null;
+  const g = base * (1 + kdv / 100);
+  if (Math.round(g * (1 + kanal / 100)) === Math.round(site)) return null;
+  const f0 = Math.round((site / g - 1) * 10000) / 100;
+  for (const d of [0, 0.01, -0.01, 0.02, -0.02, 0.03, -0.03, 0.04, -0.04, 0.05, -0.05]) {
+    const f = Math.round((f0 + d) * 100) / 100;
+    if (Math.round(g * (1 + f / 100)) === Math.round(site)) return Math.max(-50, Math.min(200, f));
+  }
+  return Math.max(-50, Math.min(200, f0));
+};
 const numOrNull = (v: string) => (v.trim() === "" || !Number.isFinite(Number(v.replace(",", "."))) ? null : Number(v.replace(",", ".")));
 
 const DURUM: Record<string, { label: string; tone: BadgeTone }> = {
@@ -914,8 +929,11 @@ function WooSection({ c, l, onChange, base, kdv, hata }: { c: Channel; l: Listin
   const fark = numOrNull(l.fiyatFarki) ?? c.ayarlar.fiyatFarki;
   const hesap = base === null ? null : Math.round(base * (1 + kdv / 100) * (1 + fark / 100));
   const satis = numOrNull(l.fiyat) ?? hesap;
-  // Sitedeki fiyatı veren fark: teklif ürününün fiyatı değişince site fiyatı da onunla değişir
-  const siteFark = base && l.disFiyat ? Math.round((l.disFiyat / (base * (1 + kdv / 100)) - 1) * 10000) / 100 : null;
+  // Bağlanınca sitedeki fiyat korunur: aradaki fark bu ürünün farkı olarak yazılır, sonra fiyat panelden yönetilir
+  const link = (p: Pick<ListingForm, "disUrunId" | "disVaryantId" | "disAd" | "disFiyat">) => {
+    const f = farkFor(base, kdv, p.disFiyat, c.ayarlar.fiyatFarki);
+    onChange({ aktif: true, ...p, fiyat: "", fiyatFarki: f === null ? "" : String(f) });
+  };
 
   const search = () =>
     start(async () => {
@@ -932,7 +950,7 @@ function WooSection({ c, l, onChange, base, kdv, hata }: { c: Channel; l: Listin
           if (!r.ok) return setErr(r.hata);
           setVars({ urun: p, liste: r.liste });
         })
-      : (onChange({ aktif: true, disUrunId: p.id, disVaryantId: null, disAd: p.ad, disFiyat: p.fiyat }), setRes([]));
+      : (link({ disUrunId: p.id, disVaryantId: null, disAd: p.ad, disFiyat: p.fiyat }), setRes([]));
 
   return (
     <section className={cn("rounded-2xl border p-4", l.aktif ? "border-primary/40" : "border-border")}>
@@ -958,21 +976,13 @@ function WooSection({ c, l, onChange, base, kdv, hata }: { c: Channel; l: Listin
             </button>
           </div>
           <PriceFields c={c} l={l} onChange={onChange} hesap={hesap} fark={fark} sabitLabel="Sabit site fiyatı (KDV dahil)" />
-          {l.disFiyat !== null && satis !== l.disFiyat && (
-            <div className="flex flex-wrap gap-2">
-              {siteFark !== null && (
-                <Button size="sm" variant="outline" onClick={() => onChange({ fiyatFarki: String(siteFark), fiyat: "" })}>
-                  Farkı sitedekine göre ayarla (%{siteFark.toLocaleString("tr-TR")})
-                </Button>
-              )}
-              <Button size="sm" variant="outline" onClick={() => onChange({ fiyat: String(l.disFiyat) })}>
-                Sitedeki fiyatı sabitle
-              </Button>
-            </div>
-          )}
-          <p className="text-[11px] text-muted-foreground">
-            {satis !== null && l.disFiyat !== null && satis !== l.disFiyat ? `Panel ${tl(satis)}, sitede ${tl(l.disFiyat)}. ` : ""}
-            {c.ayarlar.fiyatYaz ? "Fark siteye yazılır." : "Site ayarında fiyat yazma kapalı; site değişmez."}
+          <p className={cn("text-[11px]", satis !== null && l.disFiyat !== null && satis !== l.disFiyat ? "font-medium text-warning" : "text-muted-foreground")}>
+            Site fiyatı panelden gelir.
+            {satis !== null && l.disFiyat !== null && satis !== l.disFiyat
+              ? ` Şu an sitede ${tl(l.disFiyat)}; ${c.ayarlar.fiyatYaz ? `kaydedince sitede ${tl(satis)} olur.` : `fiyat yazma açılınca sitede ${tl(satis)} olur.`}`
+              : c.ayarlar.fiyatYaz
+                ? " Panelde değişince siteye yazılır."
+                : " Site ayarında fiyat yazma henüz kapalı."}
           </p>
         </div>
       ) : (
@@ -995,7 +1005,7 @@ function WooSection({ c, l, onChange, base, kdv, hata }: { c: Channel; l: Listin
                 <button
                   key={v.id}
                   type="button"
-                  onClick={() => (onChange({ aktif: true, disUrunId: vars.urun.id, disVaryantId: v.id, disAd: `${vars.urun.ad} · ${v.ad}`, disFiyat: v.fiyat }), setVars(null), setRes([]))}
+                  onClick={() => (link({ disUrunId: vars.urun.id, disVaryantId: v.id, disAd: `${vars.urun.ad} · ${v.ad}`, disFiyat: v.fiyat }), setVars(null), setRes([]))}
                   className="flex w-full justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-muted"
                 >
                   <span>
@@ -1365,7 +1375,10 @@ function ImportSheet({ open, channels, catalog, onClose }: { open: boolean; chan
                       <span className="font-semibold">{r.ad || "Tek ürün"}</span>
                       <span className="text-muted-foreground">· sitede {tl(r.fiyat)}</span>
                       {r.urunId && pp !== null && (
-                        <span className={cn("text-xs", pp === r.fiyat ? "text-success" : "text-warning")}>· panel {tl(pp)}</span>
+                        <span className="text-xs text-muted-foreground">
+                          · panel {tl(pp)}
+                          {pp !== r.fiyat && r.fiyat !== null && ` · fark %${farkFor(catalog.find((k) => k.id === r.urunId)?.perakende ?? null, 20, r.fiyat, c?.ayarlar.fiyatFarki ?? 0)?.toLocaleString("tr-TR")} yazılır`}
+                        </span>
                       )}
                     </label>
                     {r.bagli ? (
@@ -1391,7 +1404,8 @@ function ImportSheet({ open, channels, catalog, onClose }: { open: boolean; chan
               })}
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Barkod her seçeneğe panelde üretilir; açıklama ve görseller siteden alınır. Kg, paket ölçüleri ve pazaryeri bilgileri sonra karttan girilir.
+              Barkod her seçeneğe panelde üretilir; açıklama ve görseller siteden alınır. Sitedeki fiyat korunur: panelden farkı varsa ürünün fark alanına yazılır, sonra
+              fiyat panelden yönetilir. Kg, paket ölçüleri ve pazaryeri bilgileri sonra karttan girilir.
             </p>
             <Button size="lg" className="w-full" disabled={pending || !secili.length || !ad.trim() || !grup.trim()} onClick={save}>
               {pending ? "Ekleniyor…" : `${secili.length} kart ekle ve bağla`}
