@@ -2,7 +2,7 @@ import "server-only";
 import type { schema } from "../db";
 
 // WooCommerce REST (wc/v3): sipariş eşitlemesi (sites.ts) ve ürün bağlantısı (listing.ts) aynı istekle çalışır.
-// Ürün tarafı: siteden ürün/varyant arama ve fiyat okuma; fiyat yazma yalnızca kanal ayarında açıksa (fiyatYaz).
+// Ürün tarafı: siteden ürün/varyant arama ve fiyat okuma (fiyatlar her zaman KDV dahil döner); fiyat yazma yalnızca kanal ayarında açıksa (fiyatYaz).
 // Başlık, görsel, açıklama ve stok siteye yazılmaz.
 
 type Site = typeof schema.siteBaglantilari.$inferSelect;
@@ -24,60 +24,87 @@ export async function wcRequest(site: Site, path: string, init?: RequestInit) {
 
 type WcProduct = {
   id: number; name: string; sku: string; type: string; status: string; permalink: string; price: string; regular_price: string;
-  images: { src: string }[]; variations: number[];
+  tax_status: string; tax_class: string; images: { src: string }[]; variations: number[];
 };
-type WcVariation = { id: number; sku: string; price: string; regular_price: string; attributes: { name: string; option: string }[]; image?: { src: string } | null };
+type WcVariation = {
+  id: number; sku: string; price: string; regular_price: string; tax_status: string; tax_class: string;
+  attributes: { name: string; option: string }[]; image?: { src: string } | null;
+};
 
 const decode = (s: string) =>
   s.replace(/&#(\d+);/g, (_, c: string) => String.fromCharCode(Number(c))).replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 const price = (v: string) => (v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
 const variationName = (v: WcVariation) => v.attributes.map((a) => a.option).join(" · ") || `#${v.id}`;
 
-/** Fiyatlar KDV dahil mi girilmiş (WooCommerce vergi ayarı); okunamazsa dahil sayılır */
-const taxCache = new Map<number, { dahil: boolean; t: number }>();
-export async function wcPricesIncludeTax(site: Site) {
+/** Sitenin vergi ayarı: fiyatlar KDV dahil mi girilmiş (okunamazsa dahil sayılır) ve vergi sınıfı → oran */
+type Tax = { dahil: boolean; oran: Map<string, number> };
+const taxCache = new Map<number, Tax & { t: number }>();
+async function siteTax(site: Site): Promise<Tax> {
   const c = taxCache.get(site.id);
-  if (c && Date.now() - c.t < 3600_000) return c.dahil;
+  if (c && Date.now() - c.t < 3600_000) return c;
   const r = (await wcRequest(site, "/settings/tax/woocommerce_prices_include_tax").catch(() => null)) as { value?: string } | null;
   const dahil = r?.value !== "no";
-  taxCache.set(site.id, { dahil, t: Date.now() });
-  return dahil;
+  const oran = new Map<string, number>();
+  if (!dahil) {
+    const rates = ((await wcRequest(site, "/taxes?per_page=100").catch(() => [])) as { rate: string; class: string; country: string }[]) ?? [];
+    for (const x of [...rates].sort((a, b) => Number(b.country === "TR") - Number(a.country === "TR"))) if (!oran.has(x.class)) oran.set(x.class, Number(x.rate) || 0);
+  }
+  taxCache.set(site.id, { dahil, oran, t: Date.now() });
+  return { dahil, oran };
+}
+
+export async function wcPricesIncludeTax(site: Site) {
+  return (await siteTax(site)).dahil;
+}
+
+/** Sitede kayıtlı fiyatı KDV dahil verir (müşterinin gördüğü); sınıfın oranı bilinmiyorsa %20 */
+function gross(tax: Tax, v: string, p: { tax_status: string; tax_class: string }, parentClass = "") {
+  const n = price(v);
+  if (n === null || tax.dahil || p.tax_status === "none") return n;
+  const cls = (p.tax_class === "parent" ? parentClass : p.tax_class) || "standard";
+  return Math.round(n * (1 + (tax.oran.get(cls) ?? 20) / 100) * 100) / 100;
 }
 
 export type WcSearchRow = { id: number; ad: string; sku: string; varyantli: boolean; fiyat: number | null; link: string; gorsel: string | null; durum: string };
 
 /** Ürün arama (ad ya da stok kodu): her durumdaki ürünler, en çok 20 */
 export async function wcSearch(site: Site, q: string): Promise<WcSearchRow[]> {
+  const tax = await siteTax(site);
   const list = (await wcRequest(site, `/products?per_page=20&status=any&search=${encodeURIComponent(q)}`)) as WcProduct[];
   // Arama stok kodunu kapsamaz: tam stok kodu eşleşmesi ayrıca sorulur
   const bySku = /^\S{2,}$/.test(q) ? ((await wcRequest(site, `/products?per_page=5&status=any&sku=${encodeURIComponent(q)}`).catch(() => [])) as WcProduct[]) : [];
   const seen = new Set<number>();
   return [...bySku, ...list]
     .filter((p) => !seen.has(p.id) && seen.add(p.id))
-    .map((p) => ({ id: p.id, ad: decode(p.name), sku: p.sku, varyantli: p.type === "variable", fiyat: price(p.price), link: p.permalink, gorsel: p.images[0]?.src ?? null, durum: p.status }));
+    .map((p) => ({ id: p.id, ad: decode(p.name), sku: p.sku, varyantli: p.type === "variable", fiyat: gross(tax, p.price, p), link: p.permalink, gorsel: p.images[0]?.src ?? null, durum: p.status }));
 }
 
 export async function wcVariations(site: Site, productId: number) {
+  const tax = await siteTax(site);
   const list = (await wcRequest(site, `/products/${productId}/variations?per_page=100`)) as WcVariation[];
-  return list.map((v) => ({ id: v.id, ad: variationName(v), sku: v.sku, fiyat: price(v.price) }));
+  const parent = !tax.dahil && list.some((v) => v.tax_class === "parent") ? ((await wcRequest(site, `/products/${productId}`)) as WcProduct).tax_class : "";
+  return list.map((v) => ({ id: v.id, ad: variationName(v), sku: v.sku, fiyat: gross(tax, v.price, v, parent) }));
 }
 
 /** Bağlı ürün/varyantların sitedeki adı ve fiyatı; anahtar "ürün:varyant" (varyantsızda 0) */
 export async function wcCurrent(site: Site, refs: { urunId: number; varyantId: number | null }[]) {
+  const tax = await siteTax(site);
   const out = new Map<string, { ad: string; fiyat: number | null }>();
   const ids = [...new Set(refs.map((r) => r.urunId))];
   const names = new Map<number, string>();
+  const classes = new Map<number, string>();
   for (let i = 0; i < ids.length; i += 100) {
     const list = (await wcRequest(site, `/products?per_page=100&status=any&include=${ids.slice(i, i + 100).join(",")}`)) as WcProduct[];
     for (const p of list) {
       names.set(p.id, decode(p.name));
-      out.set(`${p.id}:0`, { ad: decode(p.name), fiyat: price(p.price) });
+      classes.set(p.id, p.tax_class);
+      out.set(`${p.id}:0`, { ad: decode(p.name), fiyat: gross(tax, p.price, p) });
     }
   }
   for (const pid of [...new Set(refs.filter((r) => r.varyantId).map((r) => r.urunId))]) {
     const want = refs.filter((r) => r.urunId === pid && r.varyantId).map((r) => r.varyantId!);
     const list = (await wcRequest(site, `/products/${pid}/variations?per_page=100&include=${want.join(",")}`)) as WcVariation[];
-    for (const v of list) out.set(`${pid}:${v.id}`, { ad: `${names.get(pid) ?? ""} · ${variationName(v)}`, fiyat: price(v.price) });
+    for (const v of list) out.set(`${pid}:${v.id}`, { ad: `${names.get(pid) ?? ""} · ${variationName(v)}`, fiyat: gross(tax, v.price, v, classes.get(pid)) });
   }
   return out;
 }
