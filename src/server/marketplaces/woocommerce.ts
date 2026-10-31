@@ -67,15 +67,27 @@ function gross(tax: Tax, v: string, p: { tax_status: string; tax_class: string }
 
 export type WcSearchRow = { id: number; ad: string; sku: string; varyantli: boolean; fiyat: number | null; link: string; gorsel: string | null; durum: string };
 
-/** Ürün arama (ad ya da stok kodu): her durumdaki ürünler, en çok 20 */
+/** Ürün arama (ad, stok kodu ya da ürün numarası): her durumdaki ürünler; adında geçenler öne */
 export async function wcSearch(site: Site, q: string): Promise<WcSearchRow[]> {
   const tax = await siteTax(site);
-  const list = (await wcRequest(site, `/products?per_page=20&status=any&search=${encodeURIComponent(q)}`)) as WcProduct[];
+  const id = q.match(/^#?(\d{2,})$/)?.[1];
+  const byId = id ? ((await wcRequest(site, `/products?include=${id}&status=any`).catch(() => [])) as WcProduct[]) : [];
+  // Site araması açıklamada geçenleri de getirir (ör. "kum torbası" yüzlerce gazebo açıklamasında); adında geçen öne alınır
+  const lq = q.toLocaleLowerCase("tr");
+  const [named, all] = await Promise.all([
+    wcRequest(site, `/products?per_page=30&status=any&search_name_or_sku=${encodeURIComponent(q)}`).catch(() => []) as Promise<WcProduct[]>,
+    wcRequest(site, `/products?per_page=30&status=any&search=${encodeURIComponent(q)}`) as Promise<WcProduct[]>,
+  ]);
+  const list = [...named, ...all]
+    .map((p, i) => ({ p, i, n: decode(p.name).toLocaleLowerCase("tr").includes(lq) ? 0 : 1 }))
+    .sort((a, b) => a.n - b.n || a.i - b.i)
+    .map((x) => x.p);
   // Arama stok kodunu kapsamaz: tam stok kodu eşleşmesi ayrıca sorulur
   const bySku = /^\S{2,}$/.test(q) ? ((await wcRequest(site, `/products?per_page=5&status=any&sku=${encodeURIComponent(q)}`).catch(() => [])) as WcProduct[]) : [];
   const seen = new Set<number>();
-  return [...bySku, ...list]
+  return [...byId, ...bySku, ...list]
     .filter((p) => !seen.has(p.id) && seen.add(p.id))
+    .slice(0, 30)
     .map((p) => ({ id: p.id, ad: decode(p.name), sku: p.sku, varyantli: p.type === "variable", fiyat: gross(tax, p.price, p), link: p.permalink, gorsel: p.images[0]?.src ?? null, durum: p.status }));
 }
 

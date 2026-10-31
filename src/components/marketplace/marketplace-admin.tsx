@@ -1008,7 +1008,7 @@ function WooSection({ c, l, onChange, base, kdv, hata }: { c: Channel; l: Listin
       ) : (
         <div className="mt-3">
           <div className="flex gap-2">
-            <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), search())} className={input} placeholder="Sitedeki ürünü arayın (ad ya da stok kodu)" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), search())} className={input} placeholder="Sitedeki ürünü arayın (ad, stok kodu ya da ürün no)" />
             <Button variant="outline" className="h-10" disabled={pending || q.trim().length < 2} onClick={search}>
               <Search /> Ara
             </Button>
@@ -1333,7 +1333,7 @@ function ImportSheet({ open, channels, catalog, onClose }: { open: boolean; chan
               </select>
             )}
             <div className="flex gap-2">
-              <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), search())} className={input} placeholder="Sitedeki ürünü arayın (ad ya da stok kodu)" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), search())} className={input} placeholder="Sitedeki ürünü arayın (ad, stok kodu ya da ürün no)" />
               <Button variant="outline" className="h-10" disabled={pending || q.trim().length < 2} onClick={search}>
                 <Search /> Ara
               </Button>
