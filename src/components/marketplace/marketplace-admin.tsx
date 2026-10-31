@@ -97,6 +97,8 @@ const DURUM: Record<string, { label: string; tone: BadgeTone }> = {
   hata: { label: "Hata", tone: "danger" },
   pasif: { label: "Satışa kapalı", tone: "neutral" },
 };
+/** Sitedeki ürünün yayın durumu (yayında olmayanlar aramada işaretlenir) */
+const WC_DURUM: Record<string, string> = { draft: "taslak, sitede yayında değil", pending: "onay bekliyor", private: "gizli" };
 const LOG_TUR: Record<string, string> = {
   "urun-olustur": "Ürün oluşturma", "urun-guncelle": "Ürün güncelleme", "urun-sonuc": "Gönderim sonucu", "fiyat-stok": "Fiyat / stok", kategori: "Kategoriler",
   "site-oku": "Site fiyatları", "site-fiyat": "Siteye fiyat",
@@ -1020,7 +1022,7 @@ function WooSection({ c, l, onChange, base, kdv, hata }: { c: Channel; l: Listin
                         <span className="block truncate">{p.ad}</span>
                         <span className="text-xs text-muted-foreground">
                           {p.sku || "stok kodu yok"} · {p.varyantli ? "varyantlı" : tl(p.fiyat)}
-                          {p.durum !== "publish" ? ` · ${p.durum}` : ""}
+                          {p.durum !== "publish" && <span className="font-semibold text-warning"> · {WC_DURUM[p.durum] ?? p.durum}</span>}
                         </span>
                       </span>
                     </button>
@@ -1316,7 +1318,7 @@ function ImportSheet({ open, channels, catalog, onClose }: { open: boolean; chan
                       <span className="block truncate font-medium">{p.ad}</span>
                       <span className="text-xs text-muted-foreground">
                         {p.sku || "stok kodu yok"} · {p.varyantli ? "varyantlı" : tl(p.fiyat)}
-                        {p.durum !== "publish" ? ` · ${p.durum}` : ""}
+                        {p.durum !== "publish" && <span className="font-semibold text-warning"> · {WC_DURUM[p.durum] ?? p.durum}</span>}
                       </span>
                     </span>
                   </button>
