@@ -1,0 +1,15 @@
+{
+  "node": {
+    "6039afa087efae3eca0042d1c23cd7c3e735973191": {
+      "workers": {
+        "app/giris/page": {
+          "moduleId": 36936,
+          "async": false
+        }
+      },
+      "exportedName": "girisYap",
+      "filename": "src/app/giris/actions.ts"
+    }
+  },
+  "edge": {}
+}

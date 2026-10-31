@@ -1,0 +1,15 @@
+{
+  "node": {
+    "003e4996117d133aad13416660772b6f95af58ee91": {
+      "workers": {
+        "app/panel/pazaryeri/page": {
+          "moduleId": 57830,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    }
+  },
+  "edge": {}
+}

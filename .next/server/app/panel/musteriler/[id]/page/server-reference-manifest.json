@@ -1,0 +1,105 @@
+{
+  "node": {
+    "003e4996117d133aad13416660772b6f95af58ee91": {
+      "workers": {
+        "app/panel/musteriler/[id]/page": {
+          "moduleId": 43598,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "70722848004d39289d077650a1daa135ee39709d87": {
+      "workers": {
+        "app/panel/musteriler/[id]/page": {
+          "moduleId": 43598,
+          "async": false
+        }
+      },
+      "exportedName": "siparisDurumu",
+      "filename": "src/app/panel/siparisler/actions.ts"
+    },
+    "00f6d5c538ce0dc66bfedba811b4a1de0df02762c4": {
+      "workers": {
+        "app/panel/musteriler/[id]/page": {
+          "moduleId": 43598,
+          "async": false
+        }
+      },
+      "exportedName": "siteleriEsitle",
+      "filename": "src/app/panel/siparisler/actions.ts"
+    },
+    "4084feff724666171bb6425ff9db0ddc2ee381747c": {
+      "workers": {
+        "app/panel/musteriler/[id]/page": {
+          "moduleId": 43598,
+          "async": false
+        }
+      },
+      "exportedName": "siparisOlustur",
+      "filename": "src/app/panel/siparisler/actions.ts"
+    },
+    "60d87979d1d370ead99180d861444832a5ae4c5087": {
+      "workers": {
+        "app/panel/musteriler/[id]/page": {
+          "moduleId": 43598,
+          "async": false
+        }
+      },
+      "exportedName": "asamaDegistir",
+      "filename": "src/app/panel/teklifler/[id]/actions.ts"
+    },
+    "70b3b1295404053bb204c9872742b677a91fe46ee7": {
+      "workers": {
+        "app/panel/musteriler/[id]/page": {
+          "moduleId": 43598,
+          "async": false
+        }
+      },
+      "exportedName": "epostaGonder",
+      "filename": "src/app/panel/teklifler/[id]/actions.ts"
+    },
+    "400cc746c12bcd605ac39d103dace7005258cf1101": {
+      "workers": {
+        "app/panel/musteriler/[id]/page": {
+          "moduleId": 43598,
+          "async": false
+        }
+      },
+      "exportedName": "gonderildi",
+      "filename": "src/app/panel/teklifler/[id]/actions.ts"
+    },
+    "4029222c50b6c9e7ace519982d6d78a32554c5099a": {
+      "workers": {
+        "app/panel/musteriler/[id]/page": {
+          "moduleId": 43598,
+          "async": false
+        }
+      },
+      "exportedName": "musteriKaydet",
+      "filename": "src/app/panel/musteriler/actions.ts"
+    },
+    "40943be119ec34e22d5ac6df21eb68e396348ea982": {
+      "workers": {
+        "app/panel/musteriler/[id]/page": {
+          "moduleId": 43598,
+          "async": false
+        }
+      },
+      "exportedName": "grupKaydet",
+      "filename": "src/app/panel/musteriler/actions.ts"
+    },
+    "40ca1e7dd1e9a26cde2152235f4ab6d86d3222c628": {
+      "workers": {
+        "app/panel/musteriler/[id]/page": {
+          "moduleId": 43598,
+          "async": false
+        }
+      },
+      "exportedName": "grupSil",
+      "filename": "src/app/panel/musteriler/actions.ts"
+    }
+  },
+  "edge": {}
+}

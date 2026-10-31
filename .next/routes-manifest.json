@@ -1,0 +1,408 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "onMatchHeaders": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/dosya/[...yol]",
+      "regex": "^/dosya/(.+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPyol": "nxtPyol"
+      },
+      "namedRegex": "^/dosya/(?<nxtPyol>.+?)(?:/)?$"
+    },
+    {
+      "page": "/istasyon/[station]",
+      "regex": "^/istasyon/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPstation": "nxtPstation"
+      },
+      "namedRegex": "^/istasyon/(?<nxtPstation>[^/]+?)(?:/)?$",
+      "prefetchSegmentDataRoutes": [
+        {
+          "destination": "/istasyon/[station].segments/istasyon/$d$station$segment",
+          "source": "^/istasyon/(?<nxtPstation>[^/]+?)\\.segments/istasyon/\\$d\\$station(?<segment>/__PAGE__\\.segment\\.rsc|\\.segment\\.rsc)(?:/)?$",
+          "routeKeys": {
+            "nxtPstation": "nxtPstation"
+          }
+        }
+      ]
+    },
+    {
+      "page": "/jpg/[...yol]",
+      "regex": "^/jpg/(.+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPyol": "nxtPyol"
+      },
+      "namedRegex": "^/jpg/(?<nxtPyol>.+?)(?:/)?$"
+    },
+    {
+      "page": "/odeme/[token]",
+      "regex": "^/odeme/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtoken": "nxtPtoken"
+      },
+      "namedRegex": "^/odeme/(?<nxtPtoken>[^/]+?)(?:/)?$",
+      "prefetchSegmentDataRoutes": [
+        {
+          "destination": "/odeme/[token].segments/odeme/$d$token$segment",
+          "source": "^/odeme/(?<nxtPtoken>[^/]+?)\\.segments/odeme/\\$d\\$token(?<segment>/__PAGE__\\.segment\\.rsc|\\.segment\\.rsc)(?:/)?$",
+          "routeKeys": {
+            "nxtPtoken": "nxtPtoken"
+          }
+        }
+      ]
+    },
+    {
+      "page": "/panel/gorevler/[id]",
+      "regex": "^/panel/gorevler/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/panel/gorevler/(?<nxtPid>[^/]+?)(?:/)?$",
+      "prefetchSegmentDataRoutes": [
+        {
+          "destination": "/panel/gorevler/[id].segments/panel/gorevler/$d$id$segment",
+          "source": "^/panel/gorevler/(?<nxtPid>[^/]+?)\\.segments/panel/gorevler/\\$d\\$id(?<segment>/__PAGE__\\.segment\\.rsc|\\.segment\\.rsc)(?:/)?$",
+          "routeKeys": {
+            "nxtPid": "nxtPid"
+          }
+        }
+      ]
+    },
+    {
+      "page": "/panel/markalar/[id]",
+      "regex": "^/panel/markalar/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/panel/markalar/(?<nxtPid>[^/]+?)(?:/)?$",
+      "prefetchSegmentDataRoutes": [
+        {
+          "destination": "/panel/markalar/[id].segments/panel/markalar/$d$id$segment",
+          "source": "^/panel/markalar/(?<nxtPid>[^/]+?)\\.segments/panel/markalar/\\$d\\$id(?<segment>/__PAGE__\\.segment\\.rsc|\\.segment\\.rsc)(?:/)?$",
+          "routeKeys": {
+            "nxtPid": "nxtPid"
+          }
+        }
+      ]
+    },
+    {
+      "page": "/panel/musteriler/[id]",
+      "regex": "^/panel/musteriler/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/panel/musteriler/(?<nxtPid>[^/]+?)(?:/)?$",
+      "prefetchSegmentDataRoutes": [
+        {
+          "destination": "/panel/musteriler/[id].segments/panel/musteriler/$d$id$segment",
+          "source": "^/panel/musteriler/(?<nxtPid>[^/]+?)\\.segments/panel/musteriler/\\$d\\$id(?<segment>/__PAGE__\\.segment\\.rsc|\\.segment\\.rsc)(?:/)?$",
+          "routeKeys": {
+            "nxtPid": "nxtPid"
+          }
+        }
+      ]
+    },
+    {
+      "page": "/panel/siparisler/[id]",
+      "regex": "^/panel/siparisler/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/panel/siparisler/(?<nxtPid>[^/]+?)(?:/)?$",
+      "prefetchSegmentDataRoutes": [
+        {
+          "destination": "/panel/siparisler/[id].segments/panel/siparisler/$d$id$segment",
+          "source": "^/panel/siparisler/(?<nxtPid>[^/]+?)\\.segments/panel/siparisler/\\$d\\$id(?<segment>/__PAGE__\\.segment\\.rsc|\\.segment\\.rsc)(?:/)?$",
+          "routeKeys": {
+            "nxtPid": "nxtPid"
+          }
+        }
+      ]
+    },
+    {
+      "page": "/panel/teklifler/[id]",
+      "regex": "^/panel/teklifler/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/panel/teklifler/(?<nxtPid>[^/]+?)(?:/)?$",
+      "prefetchSegmentDataRoutes": [
+        {
+          "destination": "/panel/teklifler/[id].segments/panel/teklifler/$d$id$segment",
+          "source": "^/panel/teklifler/(?<nxtPid>[^/]+?)\\.segments/panel/teklifler/\\$d\\$id(?<segment>/__PAGE__\\.segment\\.rsc|\\.segment\\.rsc)(?:/)?$",
+          "routeKeys": {
+            "nxtPid": "nxtPid"
+          }
+        }
+      ]
+    },
+    {
+      "page": "/portal/siparisler/[id]",
+      "regex": "^/portal/siparisler/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/portal/siparisler/(?<nxtPid>[^/]+?)(?:/)?$",
+      "prefetchSegmentDataRoutes": [
+        {
+          "destination": "/portal/siparisler/[id].segments/portal/siparisler/$d$id$segment",
+          "source": "^/portal/siparisler/(?<nxtPid>[^/]+?)\\.segments/portal/siparisler/\\$d\\$id(?<segment>/__PAGE__\\.segment\\.rsc|\\.segment\\.rsc)(?:/)?$",
+          "routeKeys": {
+            "nxtPid": "nxtPid"
+          }
+        }
+      ]
+    },
+    {
+      "page": "/t/[token]",
+      "regex": "^/t/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtoken": "nxtPtoken"
+      },
+      "namedRegex": "^/t/(?<nxtPtoken>[^/]+?)(?:/)?$",
+      "prefetchSegmentDataRoutes": [
+        {
+          "destination": "/t/[token].segments/t/$d$token$segment",
+          "source": "^/t/(?<nxtPtoken>[^/]+?)\\.segments/t/\\$d\\$token(?<segment>/__PAGE__\\.segment\\.rsc|\\.segment\\.rsc)(?:/)?$",
+          "routeKeys": {
+            "nxtPtoken": "nxtPtoken"
+          }
+        }
+      ]
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/api/senkron",
+      "regex": "^/api/senkron(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/senkron(?:/)?$"
+    },
+    {
+      "page": "/giris",
+      "regex": "^/giris(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/giris(?:/)?$"
+    },
+    {
+      "page": "/icon.png",
+      "regex": "^/icon\\.png(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/icon\\.png(?:/)?$"
+    },
+    {
+      "page": "/istasyon",
+      "regex": "^/istasyon(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/istasyon(?:/)?$"
+    },
+    {
+      "page": "/panel",
+      "regex": "^/panel(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel(?:/)?$"
+    },
+    {
+      "page": "/panel/gorevler",
+      "regex": "^/panel/gorevler(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/gorevler(?:/)?$"
+    },
+    {
+      "page": "/panel/kullanicilar",
+      "regex": "^/panel/kullanicilar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/kullanicilar(?:/)?$"
+    },
+    {
+      "page": "/panel/markalar",
+      "regex": "^/panel/markalar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/markalar(?:/)?$"
+    },
+    {
+      "page": "/panel/musteriler",
+      "regex": "^/panel/musteriler(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/musteriler(?:/)?$"
+    },
+    {
+      "page": "/panel/pazaryeri",
+      "regex": "^/panel/pazaryeri(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/pazaryeri(?:/)?$"
+    },
+    {
+      "page": "/panel/satis-urunleri",
+      "regex": "^/panel/satis\\-urunleri(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/satis\\-urunleri(?:/)?$"
+    },
+    {
+      "page": "/panel/siparisler",
+      "regex": "^/panel/siparisler(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/siparisler(?:/)?$"
+    },
+    {
+      "page": "/panel/siparisler/yeni",
+      "regex": "^/panel/siparisler/yeni(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/siparisler/yeni(?:/)?$"
+    },
+    {
+      "page": "/panel/siteler",
+      "regex": "^/panel/siteler(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/siteler(?:/)?$"
+    },
+    {
+      "page": "/panel/talepler",
+      "regex": "^/panel/talepler(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/talepler(?:/)?$"
+    },
+    {
+      "page": "/panel/teklifler",
+      "regex": "^/panel/teklifler(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/teklifler(?:/)?$"
+    },
+    {
+      "page": "/panel/teklifler/yeni",
+      "regex": "^/panel/teklifler/yeni(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/teklifler/yeni(?:/)?$"
+    },
+    {
+      "page": "/panel/uretim",
+      "regex": "^/panel/uretim(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/uretim(?:/)?$"
+    },
+    {
+      "page": "/panel/urunler",
+      "regex": "^/panel/urunler(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/urunler(?:/)?$"
+    },
+    {
+      "page": "/panel/urunler/gazebo",
+      "regex": "^/panel/urunler/gazebo(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/panel/urunler/gazebo(?:/)?$"
+    },
+    {
+      "page": "/portal",
+      "regex": "^/portal(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/portal(?:/)?$"
+    },
+    {
+      "page": "/portal/cari",
+      "regex": "^/portal/cari(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/portal/cari(?:/)?$"
+    },
+    {
+      "page": "/portal/cari/bakiye-yukle",
+      "regex": "^/portal/cari/bakiye\\-yukle(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/portal/cari/bakiye\\-yukle(?:/)?$"
+    },
+    {
+      "page": "/portal/cari/borc-ode",
+      "regex": "^/portal/cari/borc\\-ode(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/portal/cari/borc\\-ode(?:/)?$"
+    },
+    {
+      "page": "/portal/cari/odeme-linki",
+      "regex": "^/portal/cari/odeme\\-linki(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/portal/cari/odeme\\-linki(?:/)?$"
+    },
+    {
+      "page": "/portal/siparis-ver",
+      "regex": "^/portal/siparis\\-ver(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/portal/siparis\\-ver(?:/)?$"
+    },
+    {
+      "page": "/portal/siparisler",
+      "regex": "^/portal/siparisler(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/portal/siparisler(?:/)?$"
+    },
+    {
+      "page": "/portal/urunler",
+      "regex": "^/portal/urunler(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/portal/urunler(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": true,
+    "dynamicRSCPrerender": true
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  },
+  "ppr": {
+    "chain": {
+      "headers": {
+        "next-resume": "1"
+      }
+    }
+  }
+}

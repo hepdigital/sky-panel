@@ -1,0 +1,49 @@
+#1:"$Sreact.fragment"
+2:"/_next/static/chunks/21n3fr3o7bh50.js"
+3:I[27423,["$2"],"ThemeProvider"]
+4:I[39756,["$2"],"default"]
+5:I[37457,["$2"],"default"]
+8:"/_next/static/chunks/3_dwpzy1rmr6f.js"
+9:"/_next/static/chunks/3seagz8qpxrjh.js"
+a:I[51200,["$2","$8","$9"],"PortalShell"]
+f:"/_next/static/chunks/2a_b-k32748uw.js"
+10:I[22016,["$2","$8","$9","$f"],""]
+11:I[5014,["$2","$8","$9","$f"],"default"]
+12:I[24399,["$2","$8","$9","$f"],"OrderFilters"]
+16:"ViewportBoundary"
+17:I[97367,["$2"],"$16"]
+19:"MetadataBoundary"
+1a:I[97367,["$2"],"$19"]
+1b:"$Sreact.suspense"
+1e:I[68027,["$2"],"default",1]
+:HL["/_next/static/chunks/0i5hgh397p3py.css","style"]
+:HL["/_next/static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/_next/static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+6:X
+b:X
+d:X
+15:X
+e:[["children",{"s":"__PAGE__","h":514,"d":{"r":["$","$1","c",{"children":[["$","div",null,{"className":"mx-auto max-w-[1400px]","children":[["$","div",null,{"className":"flex flex-wrap items-end justify-between gap-3 pt-1","children":[["$","div",null,{"children":[["$","h1",null,{"className":"text-2xl font-bold tracking-tight md:text-[28px]","children":"Siparişler"}],["$","p",null,{"className":"mt-1 text-sm text-muted-foreground","children":"Ödeme ve üretim durumlarını ayrı ayrı takip edin."}]]}],["$","$L10",null,{"href":"/portal/urunler","className":"inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 border border-border bg-card text-foreground hover:bg-muted h-10 px-4 text-sm","children":[["$","$L11",null,{"ref":"$undefined","icon":{"name":"plus","size":24,"node":[["path",{"d":"M5 12h14","key":"1ays0h"}],["path",{"d":"M12 5v14","key":"s699le"}]]},"className":"$undefined"}]," Yeni sipariş"]}]]}],["$","$L12",null,{"orders":[{"id":"SP-2026-0981","date":"2026-10-14","lines":[{"productId":"18914","qty":2},{"productId":"15758","qty":4}],"payment":"on_account","production":"design_review","items":"3x3 Gazebo Baskılı Tavan 40’lık Çelik İskelet 3 adet Baskılı Tam Duvarlı Model +1 ürün","itemCount":6,"total":43776},{"id":"SP-2026-0954","date":"2026-10-09","lines":[{"productId":"16781","qty":12}],"payment":"paid","production":"production","items":"100x400 Beach Flag Bayrak Set","itemCount":12,"total":22176},{"id":"SP-2026-0921","date":"2026-10-02","lines":[{"productId":"16251","qty":6}],"payment":"paid","production":"shipped","items":"Baskılı Katlanır Sandalye","itemCount":6,"total":9504},{"id":"SP-2026-0877","date":"2026-09-25","lines":[{"productId":"15888","qty":10}],"payment":"partial","production":"delivered","items":"Roll-Up","itemCount":10,"total":15000},{"id":"SP-2026-0842","date":"2026-09-18","lines":[{"productId":"16286","qty":1},{"productId":"15658","qty":4}],"payment":"paid","production":"delivered","items":"300x225 Örümcek Stand Baskılı +1 ürün","itemCount":5,"total":14006.4},{"id":"SP-2026-0810","date":"2026-09-11","lines":[{"productId":"15758","qty":20}],"payment":"paid","production":"delivered","items":"Damla Bayrak Set","itemCount":20,"total":36960}]}]]}],["$L13"],"$L14"]}],"p":true,"v":"$15"}}]]
+c:[["children",{"s":"siparisler","h":514,"d":{"r":["$","$1","c",{"children":[null,["$","$L4",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L5",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],"p":true,"v":"$d"},"c":"$Qe"}]]
+7:[["children",{"s":"portal","h":514,"d":{"r":["$","$1","c",{"children":[[["$","script","script-0",{"src":"/_next/static/chunks/3_dwpzy1rmr6f.js","async":true,"nonce":"$undefined"}],["$","script","script-1",{"src":"/_next/static/chunks/3seagz8qpxrjh.js","async":true,"nonce":"$undefined"}]],["$","$La",null,{"children":["$","$L4",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L5",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]}]]}],"p":true,"v":"$b"},"c":"$Qc"}]]
+1d:X
+1f:X
+20:X
+0:{"P":null,"c":["","portal","siparisler"],"q":"","i":false,"t":{"t":{"s":"","h":530,"d":{"r":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/0i5hgh397p3py.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/_next/static/chunks/21n3fr3o7bh50.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"tr","className":"RZ6oaW_variable h-full antialiased","suppressHydrationWarning":true,"children":["$","body",null,{"className":"min-h-full font-sans","children":["$","$L3",null,{"children":["$","$L4",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L5",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]}]}]]}],"p":true,"v":"$6"},"c":"$Q7"},"h":{"r":["$","$1","h",{"children":[null,["$","$L17",null,{"children":"$L18"}],["$","$L1a",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$1b",null,{"name":"Next.Metadata","children":"$L1c"}]}],null]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}],"p":true,"v":"$1d"}},"m":"$undefined","G":["$1e",[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/0i5hgh397p3py.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]]],"S":true,"r":"$1f","s":"$20","a":"$@21","l":"$undefined","p":"$undefined","d":"$undefined","b":"8TCX88_xJGGW2idY488ls","u":"$@22"}
+23:I[97367,["$2"],"OutletBoundary"]
+d:C
+13:["$","script","script-0",{"src":"/_next/static/chunks/2a_b-k32748uw.js","async":true,"nonce":"$undefined"}]
+14:["$","$L23",null,{"children":["$","$1b",null,{"name":"Next.MetadataOutlet","children":"$@24"}]}]
+20:300
+18:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}],["$","meta","2",{"name":"theme-color","content":"#f3f5f9","media":"(prefers-color-scheme: light)"}],["$","meta","3",{"name":"theme-color","content":"#0a1020","media":"(prefers-color-scheme: dark)"}]]
+25:I[27201,["$2"],"IconMark"]
+1c:[["$","title","0",{"children":"Siparişler · Sky B2B"}],["$","meta","1",{"name":"description","content":"Sky Görsel Çözümler bayi ve müşteri portalı"}],["$","link","2",{"rel":"icon","href":"/icon.png?icon.1gd0uvj3cp5v0.png","sizes":"192x192","type":"image/png"}],["$","$L25","3",{}]]
+24:null
+20:C
+1d:C
+1f:C
+15:C
+b:C
+6:C
+22:false
+21:null

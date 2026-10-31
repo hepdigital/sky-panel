@@ -1,0 +1,45 @@
+{
+  "node": {
+    "003e4996117d133aad13416660772b6f95af58ee91": {
+      "workers": {
+        "app/panel/markalar/[id]/page": {
+          "moduleId": 9841,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "40b4b85929b0e4be40fd723916d1cc15895a1f710e": {
+      "workers": {
+        "app/panel/markalar/[id]/page": {
+          "moduleId": 9841,
+          "async": false
+        }
+      },
+      "exportedName": "markaKaydet",
+      "filename": "src/app/panel/markalar/actions.ts"
+    },
+    "4062ce7ba6f63bb3cb5cb2ace00e145f28e06f0ee7": {
+      "workers": {
+        "app/panel/markalar/[id]/page": {
+          "moduleId": 9841,
+          "async": false
+        }
+      },
+      "exportedName": "markaLogoYukle",
+      "filename": "src/app/panel/markalar/actions.ts"
+    },
+    "60469f110591364cfc4d6339d1e759f851f564be34": {
+      "workers": {
+        "app/panel/markalar/[id]/page": {
+          "moduleId": 9841,
+          "async": false
+        }
+      },
+      "exportedName": "markaSatiscilari",
+      "filename": "src/app/panel/markalar/actions.ts"
+    }
+  },
+  "edge": {}
+}

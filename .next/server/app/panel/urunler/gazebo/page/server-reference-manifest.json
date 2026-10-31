@@ -1,0 +1,25 @@
+{
+  "node": {
+    "003e4996117d133aad13416660772b6f95af58ee91": {
+      "workers": {
+        "app/panel/urunler/gazebo/page": {
+          "moduleId": 24685,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "603997ce690cad5814d71c8eeaefe0323c3da3a502": {
+      "workers": {
+        "app/panel/urunler/gazebo/page": {
+          "moduleId": 24685,
+          "async": false
+        }
+      },
+      "exportedName": "gazeboFiyatKaydet",
+      "filename": "src/app/panel/urunler/gazebo/actions.ts"
+    }
+  },
+  "edge": {}
+}

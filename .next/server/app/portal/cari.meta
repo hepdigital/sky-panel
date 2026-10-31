@@ -1,0 +1,41 @@
+{
+  "status": 200,
+  "headers": {
+    "link": "</_next/static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2>; rel=preload; as=\"font\"; crossorigin=\"\"; type=\"font/woff2\", </_next/static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2>; rel=preload; as=\"font\"; crossorigin=\"\"; type=\"font/woff2\", </brand/logo-white.svg>; rel=preload; as=\"image\"",
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/portal/layout,_N_T_/portal/cari/layout,_N_T_/portal/cari/page,_N_T_/portal/cari"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/portal/cari/__PAGE__"
+  ],
+  "prefetchHints": {
+    "hints": 49216,
+    "slots": {
+      "children": {
+        "hints": 49248,
+        "slots": {
+          "children": {
+            "hints": 49248,
+            "slots": {
+              "children": {
+                "hints": 49312,
+                "slots": null
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/0777c1468a4895cbd923376434229cb21a385e0ca7351da8c5d7d9148057421d/$/portal/cari",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/portal/cari/page"
+    },
+    "isFallback": false
+  }
+}

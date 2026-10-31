@@ -1,0 +1,35 @@
+{
+  "node": {
+    "003e4996117d133aad13416660772b6f95af58ee91": {
+      "workers": {
+        "app/panel/siparisler/page": {
+          "moduleId": 4419,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "70722848004d39289d077650a1daa135ee39709d87": {
+      "workers": {
+        "app/panel/siparisler/page": {
+          "moduleId": 4419,
+          "async": false
+        }
+      },
+      "exportedName": "siparisDurumu",
+      "filename": "src/app/panel/siparisler/actions.ts"
+    },
+    "00f6d5c538ce0dc66bfedba811b4a1de0df02762c4": {
+      "workers": {
+        "app/panel/siparisler/page": {
+          "moduleId": 4419,
+          "async": false
+        }
+      },
+      "exportedName": "siteleriEsitle",
+      "filename": "src/app/panel/siparisler/actions.ts"
+    }
+  },
+  "edge": {}
+}

@@ -1,0 +1,3 @@
+module.exports=[20999,a=>{"use strict";var b=a.i(64108),c=a.i(57720),d=a.i(57530),e=a.i(70882);a.S([b,"003e4996117d133aad13416660772b6f95af58ee91,a",0,c,"4084feff724666171bb6425ff9db0ddc2ee381747c,S",0,d,"400cc746c12bcd605ac39d103dace7005258cf1101,o,60d87979d1d370ead99180d861444832a5ae4c5087,F,70b3b1295404053bb204c9872742b677a91fe46ee7,S",0,e,"4058861f0efea8cef29121ac1bb2d3eb2d7c663f60,e,4061ccf7d494e9a93eb5b461ae56d92cacd7e07a40,m"],20999)}];
+
+//# sourceMappingURL=_next-internal_server_app_panel_teklifler_%5Bid%5D_page_actions_0yw_54gxz51y6.js.map

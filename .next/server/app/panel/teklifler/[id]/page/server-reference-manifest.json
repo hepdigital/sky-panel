@@ -1,0 +1,75 @@
+{
+  "node": {
+    "003e4996117d133aad13416660772b6f95af58ee91": {
+      "workers": {
+        "app/panel/teklifler/[id]/page": {
+          "moduleId": 20999,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "4084feff724666171bb6425ff9db0ddc2ee381747c": {
+      "workers": {
+        "app/panel/teklifler/[id]/page": {
+          "moduleId": 20999,
+          "async": false
+        }
+      },
+      "exportedName": "siparisOlustur",
+      "filename": "src/app/panel/siparisler/actions.ts"
+    },
+    "60d87979d1d370ead99180d861444832a5ae4c5087": {
+      "workers": {
+        "app/panel/teklifler/[id]/page": {
+          "moduleId": 20999,
+          "async": false
+        }
+      },
+      "exportedName": "asamaDegistir",
+      "filename": "src/app/panel/teklifler/[id]/actions.ts"
+    },
+    "70b3b1295404053bb204c9872742b677a91fe46ee7": {
+      "workers": {
+        "app/panel/teklifler/[id]/page": {
+          "moduleId": 20999,
+          "async": false
+        }
+      },
+      "exportedName": "epostaGonder",
+      "filename": "src/app/panel/teklifler/[id]/actions.ts"
+    },
+    "400cc746c12bcd605ac39d103dace7005258cf1101": {
+      "workers": {
+        "app/panel/teklifler/[id]/page": {
+          "moduleId": 20999,
+          "async": false
+        }
+      },
+      "exportedName": "gonderildi",
+      "filename": "src/app/panel/teklifler/[id]/actions.ts"
+    },
+    "4058861f0efea8cef29121ac1bb2d3eb2d7c663f60": {
+      "workers": {
+        "app/panel/teklifler/[id]/page": {
+          "moduleId": 20999,
+          "async": false
+        }
+      },
+      "exportedName": "musteriAra",
+      "filename": "src/app/panel/teklifler/actions.ts"
+    },
+    "4061ccf7d494e9a93eb5b461ae56d92cacd7e07a40": {
+      "workers": {
+        "app/panel/teklifler/[id]/page": {
+          "moduleId": 20999,
+          "async": false
+        }
+      },
+      "exportedName": "teklifKaydet",
+      "filename": "src/app/panel/teklifler/actions.ts"
+    }
+  },
+  "edge": {}
+}

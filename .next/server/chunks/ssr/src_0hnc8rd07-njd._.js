@@ -1,0 +1,3 @@
+module.exports=[[90894,a=>{var b=a.i(7997),c=a.i(16812);a.s(["default",0,function({children:a}){return(0,b.jsx)(c.PortalShell,{children:a})}])},89610,a=>{let b=(0,a.i(11857).registerClientReference)(function(){throw Error("Attempted to call PortalShell() from the server but PortalShell is on the client. It's not possible to invoke a client function from the server, it can only be rendered as a Component or passed to props of a Client Component.")},"[project]/src/components/shell/portal-shell.tsx","PortalShell");a.s(["PortalShell",0,b])},16812,a=>{var b=a.i(89610);a.n(b)}],94356,function(a){a.n(a.i(90894))}];
+
+//# sourceMappingURL=src_0hnc8rd07-njd._.js.map

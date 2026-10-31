@@ -1,0 +1,35 @@
+{
+  "node": {
+    "003e4996117d133aad13416660772b6f95af58ee91": {
+      "workers": {
+        "app/panel/teklifler/yeni/page": {
+          "moduleId": 52811,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "4058861f0efea8cef29121ac1bb2d3eb2d7c663f60": {
+      "workers": {
+        "app/panel/teklifler/yeni/page": {
+          "moduleId": 52811,
+          "async": false
+        }
+      },
+      "exportedName": "musteriAra",
+      "filename": "src/app/panel/teklifler/actions.ts"
+    },
+    "4061ccf7d494e9a93eb5b461ae56d92cacd7e07a40": {
+      "workers": {
+        "app/panel/teklifler/yeni/page": {
+          "moduleId": 52811,
+          "async": false
+        }
+      },
+      "exportedName": "teklifKaydet",
+      "filename": "src/app/panel/teklifler/actions.ts"
+    }
+  },
+  "edge": {}
+}

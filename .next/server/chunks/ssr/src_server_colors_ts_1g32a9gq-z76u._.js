@@ -1,0 +1,3 @@
+module.exports=[92876,a=>{"use strict";var b=a.i(30385),c=a.i(93321),d=a.i(51419),e=a.i(27103),f=a.i(94041);let{kumasRenkleri:g}=e.f;async function h(){return(0,d.f)().select({hex:g.hex,ad:g.ad,aktif:g.aktif}).from(g).orderBy((0,b.M)(g.sira),(0,b.M)(g.ad))}async function i(a,b){return await (0,d.f)().update(g).set({aktif:b}).where((0,c.u)(g.hex,a)),(0,f.U)((await h()).map(a=>({ad:a.ad,hex:a.hex,aktif:a.aktif})))}a.s(["v",0,h,"M",0,i])}];
+
+//# sourceMappingURL=src_server_colors_ts_1g32a9gq-z76u._.js.map

@@ -1,0 +1,15 @@
+{
+  "node": {
+    "003e4996117d133aad13416660772b6f95af58ee91": {
+      "workers": {
+        "app/panel/siparisler/yeni/page": {
+          "moduleId": 7508,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    }
+  },
+  "edge": {}
+}

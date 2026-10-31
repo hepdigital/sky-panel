@@ -1,0 +1,45 @@
+{
+  "node": {
+    "003e4996117d133aad13416660772b6f95af58ee91": {
+      "workers": {
+        "app/panel/siteler/page": {
+          "moduleId": 45905,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "40bfebf26c4431f86216adbdf6d57676393dd09a51": {
+      "workers": {
+        "app/panel/siteler/page": {
+          "moduleId": 45905,
+          "async": false
+        }
+      },
+      "exportedName": "siteEsitle",
+      "filename": "src/app/panel/siteler/actions.ts"
+    },
+    "40810aac969689a39fa5d1653801d09ac05dde5177": {
+      "workers": {
+        "app/panel/siteler/page": {
+          "moduleId": 45905,
+          "async": false
+        }
+      },
+      "exportedName": "siteKaydet",
+      "filename": "src/app/panel/siteler/actions.ts"
+    },
+    "40c9eefb38ebdaa31cc0c63b9cfae05aa4e08de62a": {
+      "workers": {
+        "app/panel/siteler/page": {
+          "moduleId": 45905,
+          "async": false
+        }
+      },
+      "exportedName": "siteTest",
+      "filename": "src/app/panel/siteler/actions.ts"
+    }
+  },
+  "edge": {}
+}

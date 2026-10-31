@@ -1,0 +1,175 @@
+{
+  "node": {
+    "003e4996117d133aad13416660772b6f95af58ee91": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "60e99ea0539a4b6e0f2c3adc2dd233d397fbe3a44e": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyAyarKaydet",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "0052cc3cd160f6a21d4f36de45983a9d8f806cb7f5": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyBarkod",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "407a32805cf122471218fdb85fd3b5bb866a866add": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyDurumYenile",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "60c8bc742a3e0e66c278b58e64f24a0a730e109293": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyGonder",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "60f98fc86d439e6a97e75ffe3f19047c48989e763c": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyKategoriAra",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "40f500bfbdfe73071f353adf0939ee2428c0c56da3": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyKategoriYenile",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "60d9567bd30560cfbd62b8320b9aa0d87d5256f7c0": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyMarkaAra",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "605ea5ecac7d35f1a27c8121bc758606591fdb0ac7": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyOzellikler",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "40fb5157986a3c11a4214070863f634e2a572de4be": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyUrunKaydet",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "40240e6444c9ee0ef604e3db85d78466221e1f80f8": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyUrunSil",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "40cc212e4d2ee9c511e431f89541e553b4cfe990d8": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyWooAktar",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "6042f7cadefdbfbc0a26d9276e9b7b2f69c42441c7": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyWooAra",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "60393b0cf8d3f3935cfd69e609b9c53f9739a3f9a7": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyWooOnizle",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "603f91413ec25e759cffcfb33a31243508c4983661": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyWooVaryantlar",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "60acc2aa9bacaf2976ea28581b357d355e32f2a30a": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "pyWooYenile",
+      "filename": "src/app/panel/satis-urunleri/actions.ts"
+    },
+    "40802df79d6b07ae2eeaff25f9b56be1c59738108e": {
+      "workers": {
+        "app/panel/satis-urunleri/page": {
+          "moduleId": 16794,
+          "async": false
+        }
+      },
+      "exportedName": "urunGorselYukle",
+      "filename": "src/app/panel/urunler/actions.ts"
+    }
+  },
+  "edge": {}
+}
