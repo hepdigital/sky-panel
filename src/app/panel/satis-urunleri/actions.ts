@@ -3,13 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/server/auth";
 import {
-  categoryAttributes, checkListings, deleteItem, nextBarcode, pushPriceStock, refreshCategories, saveItem, saveSettings, searchBrands, searchCategories, sendListings,
+  categoryAttributes, checkListings, deleteItem, nextBarcode, pushPriceStock, pushWooPrices, refreshCategories, refreshWoo, saveItem, saveSettings, searchBrands, searchCategories,
+  sendListings, wooSearch, wooVariations,
   type ChannelSettings, type ItemInput,
 } from "@/server/marketplaces/listing";
 
 type Fail = { ok: false; hata: string };
 const fail = (e: unknown): Fail => ({ ok: false, hata: e instanceof Error ? (e.name === "TimeoutError" ? "Pazaryeri zamanında yanıt vermedi." : e.message) : "İşlem yapılamadı." });
-const done = () => revalidatePath("/panel/pazaryeri");
+const done = () => revalidatePath("/panel/satis-urunleri");
 
 export async function pyUrunKaydet(input: ItemInput) {
   await requireAdmin();
@@ -109,6 +110,39 @@ export async function pyAyarKaydet(siteId: number, s: ChannelSettings) {
     done();
     return { ok: true as const };
   } catch (e) {
+    return fail(e);
+  }
+}
+
+/** WooCommerce: siteden ürün arama ve varyantlar (yalnızca okuma) */
+export async function pyWooAra(siteId: number, q: string) {
+  await requireAdmin();
+  try {
+    return { ok: true as const, liste: await wooSearch(Number(siteId), String(q).slice(0, 80)) };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function pyWooVaryantlar(siteId: number, urunId: number) {
+  await requireAdmin();
+  try {
+    return { ok: true as const, liste: await wooVariations(Number(siteId), Number(urunId)) };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Bağlı ürünlerin sitedeki fiyatını okur; fiyat yazma açıksa farklı olanları yazar */
+export async function pyWooYenile(siteId: number, yaz: boolean) {
+  const me = await requireAdmin();
+  try {
+    const r = await refreshWoo(Number(siteId));
+    const yazilan = yaz ? await pushWooPrices(Number(siteId), me.adSoyad) : 0;
+    done();
+    return { ok: true as const, ...r, yazilan };
+  } catch (e) {
+    done();
     return fail(e);
   }
 }

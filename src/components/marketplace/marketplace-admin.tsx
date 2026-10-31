@@ -3,10 +3,11 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Barcode, ImagePlus, Pencil, Plus, RefreshCw, Search, Send, Settings2, Store, Trash2, X } from "lucide-react";
+import { ArrowLeft, Barcode, ExternalLink, Globe, ImagePlus, Link2, Pencil, Plus, RefreshCw, Search, Send, Settings2, Store, Trash2, X } from "lucide-react";
 import {
-  pyAyarKaydet, pyBarkod, pyDurumYenile, pyGonder, pyKategoriAra, pyKategoriYenile, pyMarkaAra, pyOzellikler, pyUrunKaydet, pyUrunSil,
-} from "@/app/panel/pazaryeri/actions";
+  pyAyarKaydet, pyBarkod, pyDurumYenile, pyGonder, pyKategoriAra, pyKategoriYenile, pyMarkaAra, pyOzellikler, pyUrunKaydet, pyUrunSil, pyWooAra, pyWooVaryantlar,
+  pyWooYenile,
+} from "@/app/panel/satis-urunleri/actions";
 import { urunGorselYukle } from "@/app/panel/urunler/actions";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,8 +16,8 @@ import { Sheet } from "@/components/ui/sheet";
 import { toWebp } from "@/lib/image";
 import { cn, formatDate } from "@/lib/utils";
 
-type Settings = { fiyatFarki: number; kargoFirmaId: number | null; markaId: number | null; markaAd: string | null };
-type Channel = { id: number; ad: string; tur: string; aktif: boolean; ayarlar: Settings; kategoriSayisi: number };
+type Settings = { fiyatFarki: number; fiyatYaz: boolean; kargoFirmaId: number | null; markaId: number | null; markaAd: string | null };
+type Channel = { id: number; ad: string; tur: string; aktif: boolean; pazaryeri: boolean; ayarlar: Settings; kategoriSayisi: number };
 type Values = Record<string, { v?: number; c?: string }>;
 type ListingRow = {
   siteId: number;
@@ -31,6 +32,10 @@ type ListingRow = {
   olustu: boolean;
   hata: string | null;
   sonGonderim: string | null;
+  disUrunId: number | null;
+  disVaryantId: number | null;
+  disAd: string | null;
+  disFiyat: number | null;
   satisFiyati: number | null;
 };
 type ItemRow = {
@@ -46,16 +51,27 @@ type ItemRow = {
   olcu: string;
   gorseller: string[];
   desi: number | null;
+  agirlik: number | null;
+  en: number | null;
+  boy: number | null;
+  yukseklik: number | null;
   kdv: number;
   fiyat: number | null;
+  secenekDahil: boolean;
+  maliyet: number | null;
   stok: number;
   hazirlikGun: number;
   aktif: boolean;
   katalogAd: string | null;
   katalogFiyat: number | null;
+  katalogMaliyet: number | null;
   listelemeler: ListingRow[];
 };
-type CatalogRow = { id: number; kod: string; ad: string; aciklama: string | null; perakende: number | null; gorsel: string | null };
+type CatalogRow = {
+  id: number; kod: string; ad: string; aciklama: string | null; perakende: number | null; maliyet: number | null; gorsel: string | null;
+  secenekAd: string | null; secenekPerakende: number | null; secenekMaliyet: number | null;
+};
+type WooRow = { id: number; ad: string; sku: string; varyantli: boolean; fiyat: number | null; link: string; gorsel: string | null; durum: string };
 type LogRow = { id: number; site: string; tur: string; durum: string; ozet: string; kullanici: string | null; tarih: string };
 type Attr = { id: number; ad: string; zorunlu: boolean; serbest: boolean; varyant: boolean; degerler: { id: number; ad: string }[] };
 
@@ -63,6 +79,7 @@ const input = "h-10 w-full rounded-xl border border-input bg-card px-3 text-sm o
 const label = "mb-1 block text-xs font-semibold text-muted-foreground";
 const tl = (n: number | null | undefined) => (n === null || n === undefined ? "—" : `${n.toLocaleString("tr-TR", { maximumFractionDigits: 2 })} ₺`);
 const when = (iso: string | null) => (iso ? formatDate(iso, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—");
+const desiOf = (en: number | null, boy: number | null, y: number | null) => (en && boy && y ? Math.round((en * boy * y) / 300) / 10 : null);
 const numOrNull = (v: string) => (v.trim() === "" || !Number.isFinite(Number(v.replace(",", "."))) ? null : Number(v.replace(",", ".")));
 
 const DURUM: Record<string, { label: string; tone: BadgeTone }> = {
@@ -75,9 +92,10 @@ const DURUM: Record<string, { label: string; tone: BadgeTone }> = {
 };
 const LOG_TUR: Record<string, string> = {
   "urun-olustur": "Ürün oluşturma", "urun-guncelle": "Ürün güncelleme", "urun-sonuc": "Gönderim sonucu", "fiyat-stok": "Fiyat / stok", kategori: "Kategoriler",
+  "site-oku": "Site fiyatları", "site-fiyat": "Siteye fiyat",
 };
 
-/** Pazaryeri ürünleri: ortak ürün kartı + kanal başına kategori, özellik, marka ve gönderim durumu */
+/** Satış ürünleri: ortak ürün kartı + kanal başına bağlantı (WooCommerce) ya da kategori, özellik, marka ve gönderim (pazaryeri) */
 export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels: Channel[]; items: ItemRow[]; catalog: CatalogRow[]; logs: LogRow[] }) {
   const [edit, setEdit] = useState<ItemRow | "yeni" | null>(null);
   const [ayar, setAyar] = useState<Channel | null>(null);
@@ -88,12 +106,12 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
     <div className="mx-auto max-w-[1200px]">
       <div className="flex flex-wrap items-end justify-between gap-3 pt-1">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-[28px]">Pazaryeri ürünleri</h1>
+          <h1 className="text-2xl font-bold tracking-tight md:text-[28px]">Ürünler</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Ürün kartı bir kez girilir (barkod, görsel, desi, fiyat, stok); her pazaryeri için kategori, özellik ve marka eşleştirilip gönderilir. Siparişler Siparişler ekranına düşer.
+            Satılan ürünler: stok kodu, barkod, ölçü, kg, maliyet ve stok bir kez girilir. İstenirse teklif ürününe bağlanıp fiyatını oradan alır; sitedeki ürüne bağlanır, seçilen pazaryerlerine gönderilir.
           </p>
         </div>
-        <Button onClick={() => setEdit("yeni")} disabled={!channels.length}>
+        <Button onClick={() => setEdit("yeni")}>
           <Plus /> Ürün ekle
         </Button>
       </div>
@@ -101,17 +119,17 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
       {!channels.length ? (
         <Card className="mt-5 p-8 text-center text-sm">
           <Store className="mx-auto size-8 text-muted-foreground" />
-          <p className="mt-2 font-semibold">Henüz pazaryeri bağlantısı yok.</p>
-          <p className="mt-1 text-muted-foreground">Önce Bağlantılar ekranından Trendyol bağlantısını ekleyin (satıcı ID, API key, API secret).</p>
+          <p className="mt-2 font-semibold">Henüz site ya da pazaryeri bağlantısı yok.</p>
+          <p className="mt-1 text-muted-foreground">Ürün kartları yine de açılabilir. Satış kanalları Bağlantılar ekranından eklenir (WooCommerce, Trendyol).</p>
           <Link href="/panel/siteler" className="mt-3 inline-block font-semibold text-primary hover:underline">
             Bağlantılar →
           </Link>
         </Card>
       ) : (
         <div className="mt-5 grid gap-3 md:grid-cols-2">
-          {channels.map((c) => (
-            <ChannelCard key={c.id} c={c} items={items} onSettings={() => setAyar(c)} />
-          ))}
+          {channels.map((c) =>
+            c.pazaryeri ? <ChannelCard key={c.id} c={c} items={items} onSettings={() => setAyar(c)} /> : <WooCard key={c.id} c={c} items={items} onSettings={() => setAyar(c)} />,
+          )}
         </div>
       )}
 
@@ -139,6 +157,8 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {i.stokKodu} · {i.barkod}
                   {[i.olcu, i.renk].filter(Boolean).length ? ` · ${[i.olcu, i.renk].filter(Boolean).join(" · ")}` : ""} · stok {i.stok}
+                  {i.desi ? ` · ${i.desi} desi` : ""}
+                  {i.agirlik ? ` · ${i.agirlik} kg` : ""}
                   {!i.aktif && " · kapalı"}
                 </p>
               </div>
@@ -146,6 +166,7 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
                 {channels.map((c) => {
                   const l = i.listelemeler.find((x) => x.siteId === c.id);
                   if (!l) return null;
+                  if (!c.pazaryeri) return <WooBadge key={c.id} c={c} l={l} />;
                   const d = DURUM[l.durum] ?? DURUM.taslak;
                   return (
                     <div key={c.id} className="max-w-[260px] sm:text-right">
@@ -164,7 +185,7 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
               </div>
             </button>
           ))}
-          {!list.length && <p className="p-10 text-center text-sm text-muted-foreground">{items.length ? "Aramaya uyan ürün yok." : "Henüz ürün yok. “Ürün ekle” ile başlayın; katalogdaki bir üründen doldurabilirsiniz."}</p>}
+          {!list.length && <p className="p-10 text-center text-sm text-muted-foreground">{items.length ? "Aramaya uyan ürün yok." : "Henüz ürün yok. “Ürün ekle” ile başlayın; bir teklif ürününden doldurabilirsiniz."}</p>}
         </div>
       </Card>
 
@@ -254,18 +275,97 @@ function ChannelCard({ c, items, onSettings }: { c: Channel; items: ItemRow[]; o
   );
 }
 
+/** Ürün satırında site bağlantısı: sitedeki fiyat paneldekinden farklıysa uyarı */
+function WooBadge({ c, l }: { c: Channel; l: ListingRow }) {
+  const fark = l.aktif && l.disFiyat !== null && l.satisFiyati !== null && l.disFiyat !== l.satisFiyati;
+  return (
+    <div className="max-w-[260px] sm:text-right">
+      <p className="text-[11px] font-semibold text-muted-foreground">
+        {c.ad} · {tl(l.aktif ? (l.disFiyat ?? l.satisFiyati) : null)}
+      </p>
+      {!l.aktif ? (
+        <Badge tone="neutral">Bağlı değil</Badge>
+      ) : l.hata ? (
+        <Badge tone="danger">Sitede bulunamadı</Badge>
+      ) : fark ? (
+        <Badge tone="warning">Panelde {tl(l.satisFiyati)}</Badge>
+      ) : (
+        <Badge tone="success">Bağlı</Badge>
+      )}
+    </div>
+  );
+}
+
+function WooCard({ c, items, onSettings }: { c: Channel; items: ItemRow[]; onSettings: () => void }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const ls = items.flatMap((i) => i.listelemeler.filter((l) => l.siteId === c.id && l.aktif));
+  const fark = ls.filter((l) => l.disFiyat !== null && l.satisFiyati !== null && l.disFiyat !== l.satisFiyati).length;
+  const hata = ls.filter((l) => l.hata).length;
+  const run = (yaz: boolean) =>
+    start(async () => {
+      const r = await pyWooYenile(c.id, yaz);
+      setMsg(
+        r.ok
+          ? { ok: true, text: `${r.okunan} ürünün sitedeki fiyatı okundu${r.eksik ? `, ${r.eksik} ürün sitede yok` : ""}${yaz ? `; ${r.yazilan} ürünün fiyatı siteye yazıldı` : ""}.` }
+          : { ok: false, text: r.hata },
+      );
+      router.refresh();
+    });
+  return (
+    <Card className="p-5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="flex items-center gap-2 text-[15px] font-semibold">
+            <Globe className="size-4 text-muted-foreground" /> {c.ad}
+            {!c.aktif && <Badge tone="neutral">Kapalı</Badge>}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Site · fiyat farkı %{c.ayarlar.fiyatFarki} · {c.ayarlar.fiyatYaz ? "fiyatlar siteye yazılır" : "yalnızca okunur, siteye yazılmaz"}
+          </p>
+        </div>
+        <Button size="sm" variant="ghost" onClick={onSettings}>
+          <Settings2 /> Ayarlar
+        </Button>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {ls.length ? <Badge tone="success">Bağlı: {ls.length}</Badge> : <span className="text-xs text-muted-foreground">Bu siteye bağlı ürün yok.</span>}
+        {fark > 0 && <Badge tone="warning">Fiyatı farklı: {fark}</Badge>}
+        {hata > 0 && <Badge tone="danger">Sitede bulunamadı: {hata}</Badge>}
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" disabled={pending || !ls.length} onClick={() => run(false)}>
+          <RefreshCw className={cn(pending && "animate-spin")} /> Site fiyatlarını oku
+        </Button>
+        {c.ayarlar.fiyatYaz && (
+          <Button size="sm" disabled={pending || !fark} onClick={() => confirm(`${fark} ürünün fiyatı sitede panel fiyatıyla değiştirilsin mi?`) && run(true)}>
+            <Send /> Farklı fiyatları siteye yaz{fark ? ` (${fark})` : ""}
+          </Button>
+        )}
+      </div>
+      {msg && <p className={cn("mt-3 rounded-xl px-3 py-2 text-xs font-medium", msg.ok ? "bg-success-soft text-success" : "bg-danger-soft text-danger")}>{msg.text}</p>}
+    </Card>
+  );
+}
+
 /* ───────────── kanal ayarları ───────────── */
 
 function SettingsSheet({ channel, onClose }: { channel: Channel | null; onClose: () => void }) {
   const router = useRouter();
-  const [f, setF] = useState({ fiyatFarki: String(channel?.ayarlar.fiyatFarki ?? 0), kargoFirmaId: channel?.ayarlar.kargoFirmaId ? String(channel.ayarlar.kargoFirmaId) : "" });
+  const [f, setF] = useState({
+    fiyatFarki: String(channel?.ayarlar.fiyatFarki ?? 0), fiyatYaz: channel?.ayarlar.fiyatYaz ?? false,
+    kargoFirmaId: channel?.ayarlar.kargoFirmaId ? String(channel.ayarlar.kargoFirmaId) : "",
+  });
   const [marka, setMarka] = useState<{ id: number; ad: string } | null>(channel?.ayarlar.markaId ? { id: channel.ayarlar.markaId, ad: channel.ayarlar.markaAd ?? "" } : null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   if (!channel) return null;
   async function save() {
     setBusy(true);
-    const r = await pyAyarKaydet(channel!.id, { fiyatFarki: Number(f.fiyatFarki.replace(",", ".")) || 0, kargoFirmaId: numOrNull(f.kargoFirmaId), markaId: marka?.id ?? null, markaAd: marka?.ad ?? null });
+    const r = await pyAyarKaydet(channel!.id, {
+      fiyatFarki: Number(f.fiyatFarki.replace(",", ".")) || 0, fiyatYaz: f.fiyatYaz, kargoFirmaId: numOrNull(f.kargoFirmaId), markaId: marka?.id ?? null, markaAd: marka?.ad ?? null,
+    });
     setBusy(false);
     if (!r.ok) return setErr(r.hata);
     router.refresh();
@@ -278,15 +378,31 @@ function SettingsSheet({ channel, onClose }: { channel: Channel | null; onClose:
           <span className={label}>Fiyat farkı (%)</span>
           <input value={f.fiyatFarki} onChange={(e) => setF({ ...f, fiyatFarki: e.target.value })} inputMode="decimal" className={input} />
           <span className="mt-1 block text-[11px] text-muted-foreground">
-            Satış fiyatı = KDV dahil perakende × (1 + fark). Komisyon ve kargo payı için. Ürüne kanal fiyatı girilirse o geçerlidir. Değişince yayındaki fiyatlar bir sonraki eşitlemede güncellenir.
+            {channel.pazaryeri
+              ? "Satış fiyatı = KDV dahil perakende × (1 + fark). Komisyon ve kargo payı için. Ürüne kanal fiyatı girilirse o geçerlidir. Değişince yayındaki fiyatlar bir sonraki eşitlemede güncellenir."
+              : "Site fiyatı = KDV dahil perakende × (1 + fark). Ürüne site fiyatı girilirse o geçerlidir (sitede farklı fiyat tutmak için)."}
           </span>
         </label>
-        <BrandPicker siteId={channel.id} value={marka} onChange={setMarka} hint="Yeni listelemelerde önerilir." />
-        <label className="block">
-          <span className={label}>Kargo firması kimliği (isteğe bağlı)</span>
-          <input value={f.kargoFirmaId} onChange={(e) => setF({ ...f, kargoFirmaId: e.target.value.replace(/\D/g, "") })} inputMode="numeric" className={input} placeholder="Boş: Trendyol'daki varsayılan" />
-          <span className="mt-1 block text-[11px] text-muted-foreground">Trendyol’un kargo firması listesindeki numara. Boş bırakılırsa satıcı panelindeki varsayılan kullanılır.</span>
-        </label>
+        {channel.pazaryeri ? (
+          <>
+            <BrandPicker siteId={channel.id} value={marka} onChange={setMarka} hint="Yeni listelemelerde önerilir." />
+            <label className="block">
+              <span className={label}>Kargo firması kimliği (isteğe bağlı)</span>
+              <input value={f.kargoFirmaId} onChange={(e) => setF({ ...f, kargoFirmaId: e.target.value.replace(/\D/g, "") })} inputMode="numeric" className={input} placeholder="Boş: Trendyol'daki varsayılan" />
+              <span className="mt-1 block text-[11px] text-muted-foreground">Trendyol’un kargo firması listesindeki numara. Boş bırakılırsa satıcı panelindeki varsayılan kullanılır.</span>
+            </label>
+          </>
+        ) : (
+          <label className="flex items-start gap-2.5 rounded-xl border border-border p-3 text-sm">
+            <input type="checkbox" checked={f.fiyatYaz} onChange={(e) => setF({ ...f, fiyatYaz: e.target.checked })} className="mt-0.5 size-4 accent-[var(--primary)]" />
+            <span>
+              <span className="font-semibold">Fiyatları siteye yaz</span>
+              <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                Açıkken bağlı ürünlerde paneldeki fiyat değişince sitedeki fiyat da değişir (indirimli fiyat kaldırılır). Kapalıyken site yalnızca okunur. Başlık, görsel, açıklama ve stok hiçbir zaman yazılmaz.
+              </span>
+            </span>
+          </label>
+        )}
         {err && <p className="rounded-xl bg-danger-soft px-3 py-2 text-xs font-medium text-danger">{err}</p>}
         <Button size="lg" className="w-full" disabled={busy} onClick={save}>
           {busy ? "Kaydediliyor…" : "Kaydet"}
@@ -348,13 +464,12 @@ function BrandPicker({ siteId, value, onChange, hint }: { siteId: number; value:
 
 /* ───────────── ürün kartı ───────────── */
 
-type Form = Omit<ItemRow, "id" | "katalogAd" | "katalogFiyat" | "listelemeler" | "desi" | "fiyat" | "stok" | "hazirlikGun"> & {
-  desi: string;
-  fiyat: string;
-  stok: string;
-  hazirlikGun: string;
+type NumField = "desi" | "agirlik" | "en" | "boy" | "yukseklik" | "fiyat" | "maliyet" | "stok" | "hazirlikGun";
+type Form = Omit<ItemRow, "id" | "katalogAd" | "katalogFiyat" | "katalogMaliyet" | "listelemeler" | NumField> & Record<NumField, string>;
+type ListingForm = {
+  siteId: number; aktif: boolean; kategoriId: number | null; kategoriYol: string | null; markaId: number | null; markaAd: string | null; ozellikler: Values; fiyat: string;
+  disUrunId: number | null; disVaryantId: number | null; disAd: string | null; disFiyat: number | null;
 };
-type ListingForm = { siteId: number; aktif: boolean; kategoriId: number | null; kategoriYol: string | null; markaId: number | null; markaAd: string | null; ozellikler: Values; fiyat: string };
 
 function ItemSheet({ item, channels, catalog, onClose }: { item: ItemRow | "yeni" | null; channels: Channel[]; catalog: CatalogRow[]; onClose: () => void }) {
   const router = useRouter();
@@ -362,14 +477,17 @@ function ItemSheet({ item, channels, catalog, onClose }: { item: ItemRow | "yeni
   const [f, setF] = useState<Form>({
     stokKodu: it?.stokKodu ?? "", barkod: it?.barkod ?? "", ad: it?.ad ?? "", aciklama: it?.aciklama ?? "", grupKodu: it?.grupKodu ?? "", markaAdi: it?.markaAdi ?? "",
     urunId: it?.urunId ?? null, renk: it?.renk ?? "", olcu: it?.olcu ?? "", gorseller: it?.gorseller ?? [], kdv: it?.kdv ?? 20, aktif: it?.aktif ?? true,
-    desi: it?.desi?.toString() ?? "", fiyat: it?.fiyat?.toString() ?? "", stok: (it?.stok ?? 10).toString(), hazirlikGun: (it?.hazirlikGun ?? 3).toString(),
+    secenekDahil: it?.secenekDahil ?? false,
+    desi: it?.desi?.toString() ?? "", agirlik: it?.agirlik?.toString() ?? "", en: it?.en?.toString() ?? "", boy: it?.boy?.toString() ?? "", yukseklik: it?.yukseklik?.toString() ?? "",
+    fiyat: it?.fiyat?.toString() ?? "", maliyet: it?.maliyet?.toString() ?? "", stok: (it?.stok ?? 10).toString(), hazirlikGun: (it?.hazirlikGun ?? 3).toString(),
   });
   const [ls, setLs] = useState<ListingForm[]>(() =>
     channels.map((c) => {
       const l = it?.listelemeler.find((x) => x.siteId === c.id);
       return {
-        siteId: c.id, aktif: l ? l.aktif : !it, kategoriId: l?.kategoriId ?? null, kategoriYol: l?.kategoriYol ?? null,
+        siteId: c.id, aktif: l ? l.aktif : false, kategoriId: l?.kategoriId ?? null, kategoriYol: l?.kategoriYol ?? null,
         markaId: l?.markaId ?? c.ayarlar.markaId, markaAd: l?.markaAd ?? c.ayarlar.markaAd, ozellikler: l?.ozellikler ?? {}, fiyat: l?.fiyat?.toString() ?? "",
+        disUrunId: l?.disUrunId ?? null, disVaryantId: l?.disVaryantId ?? null, disAd: l?.disAd ?? null, disFiyat: l?.disFiyat ?? null,
       };
     }),
   );
@@ -378,7 +496,10 @@ function ItemSheet({ item, channels, catalog, onClose }: { item: ItemRow | "yeni
   const [up, setUp] = useState(false);
   const [url, setUrl] = useState("");
   const katalog = catalog.find((c) => c.id === f.urunId) ?? null;
-  const base = numOrNull(f.fiyat) ?? katalog?.perakende ?? null;
+  const katalogFiyat = katalog?.perakende == null ? null : katalog.perakende + (f.secenekDahil ? (katalog.secenekPerakende ?? 0) : 0);
+  const katalogMaliyet = katalog?.maliyet == null ? null : katalog.maliyet + (f.secenekDahil ? (katalog.secenekMaliyet ?? 0) : 0);
+  const base = numOrNull(f.fiyat) ?? katalogFiyat;
+  const desi = desiOf(numOrNull(f.en), numOrNull(f.boy), numOrNull(f.yukseklik));
 
   useEffect(() => {
     if (item === "yeni" && !f.barkod) void pyBarkod().then((r) => r.ok && setF((x) => (x.barkod ? x : { ...x, barkod: r.barkod })));
@@ -386,7 +507,7 @@ function ItemSheet({ item, channels, catalog, onClose }: { item: ItemRow | "yeni
 
   function fromCatalog(id: number) {
     const c = catalog.find((x) => x.id === id);
-    if (!c) return setF({ ...f, urunId: null });
+    if (!c) return setF({ ...f, urunId: null, secenekDahil: false });
     setF({
       ...f,
       urunId: c.id,
@@ -414,7 +535,8 @@ function ItemSheet({ item, channels, catalog, onClose }: { item: ItemRow | "yeni
     setBusy(true);
     setErr(null);
     const r = await pyUrunKaydet({
-      id: it?.id ?? null, ...f, desi: numOrNull(f.desi), fiyat: numOrNull(f.fiyat), stok: Number(f.stok) || 0, hazirlikGun: Number(f.hazirlikGun) || 3,
+      id: it?.id ?? null, ...f, desi: numOrNull(f.desi), agirlik: numOrNull(f.agirlik), en: numOrNull(f.en), boy: numOrNull(f.boy), yukseklik: numOrNull(f.yukseklik),
+      fiyat: numOrNull(f.fiyat), maliyet: numOrNull(f.maliyet), stok: Number(f.stok) || 0, hazirlikGun: Number(f.hazirlikGun) || 3,
       listelemeler: ls.map((l) => ({ ...l, fiyat: numOrNull(l.fiyat) })),
     });
     setBusy(false);
@@ -424,7 +546,7 @@ function ItemSheet({ item, channels, catalog, onClose }: { item: ItemRow | "yeni
   }
 
   async function remove() {
-    if (!it || !confirm("Ürün kartı silinsin mi? Pazaryerinde oluşmuşsa silinmez, satışa kapatılır.")) return;
+    if (!it || !confirm("Ürün kartı silinsin mi? Pazaryerinde oluşmuşsa silinmez, satışa kapatılır. Sitedeki ürüne dokunulmaz.")) return;
     const r = await pyUrunSil(it.id);
     if (!r.ok) return setErr(r.hata);
     router.refresh();
@@ -440,11 +562,11 @@ function ItemSheet({ item, channels, catalog, onClose }: { item: ItemRow | "yeni
   };
 
   return (
-    <Sheet open={!!item} onClose={onClose} title={it ? it.ad : "Yeni pazaryeri ürünü"} className="md:max-w-3xl">
+    <Sheet open={!!item} onClose={onClose} title={it ? it.ad : "Yeni ürün"} className="md:max-w-3xl">
       <div className="space-y-5">
         <section className="space-y-3">
           <label className="block">
-            <span className={label}>Katalogdaki ürün (isteğe bağlı: fiyatı oradan alır, boş alanları doldurur)</span>
+            <span className={label}>Teklif ürünü (isteğe bağlı: fiyat ve maliyeti oradan alır, boş alanları doldurur)</span>
             <select value={f.urunId ?? ""} onChange={(e) => fromCatalog(Number(e.target.value))} className={input}>
               <option value="">Bağlı değil</option>
               {catalog.map((c) => (
@@ -455,6 +577,12 @@ function ItemSheet({ item, channels, catalog, onClose }: { item: ItemRow | "yeni
               ))}
             </select>
           </label>
+          {katalog?.secenekAd && (
+            <label className="-mt-1 flex items-center gap-2.5 text-sm">
+              <input type="checkbox" checked={f.secenekDahil} onChange={(e) => setF({ ...f, secenekDahil: e.target.checked })} className="size-4 accent-[var(--primary)]" />
+              “{katalog.secenekAd}” fiyata dahil (+{tl(katalog.secenekPerakende)})
+            </label>
+          )}
           <label className="block">
             <span className={label}>Ürün adı (pazaryerinde başlık, en fazla 100 karakter görünür)</span>
             <input value={f.ad} onChange={(e) => setF({ ...f, ad: e.target.value })} maxLength={150} className={input} placeholder="ör. Katlanır Gazebo Çadır 3x3 Beyaz Duvarsız 40 mm Alüminyum" />
@@ -536,10 +664,14 @@ function ItemSheet({ item, channels, catalog, onClose }: { item: ItemRow | "yeni
           </div>
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-5">
+        <section className="grid gap-3 sm:grid-cols-4">
           <label className="block sm:col-span-2">
             <span className={label}>Perakende fiyat (KDV hariç)</span>
-            <input value={f.fiyat} onChange={(e) => setF({ ...f, fiyat: e.target.value })} inputMode="decimal" className={input} placeholder={katalog?.perakende ? `Katalogdan: ${tl(katalog.perakende)}` : "₺"} />
+            <input value={f.fiyat} onChange={(e) => setF({ ...f, fiyat: e.target.value })} inputMode="decimal" className={input} placeholder={katalogFiyat !== null ? `Teklif ürününden: ${tl(katalogFiyat)}` : "₺"} />
+          </label>
+          <label className="block">
+            <span className={label}>Maliyet (KDV hariç)</span>
+            <input value={f.maliyet} onChange={(e) => setF({ ...f, maliyet: e.target.value })} inputMode="decimal" className={input} placeholder={katalogMaliyet !== null ? tl(katalogMaliyet) : "₺"} />
           </label>
           <label className="block">
             <span className={label}>KDV</span>
@@ -551,38 +683,78 @@ function ItemSheet({ item, channels, catalog, onClose }: { item: ItemRow | "yeni
               ))}
             </select>
           </label>
+        </section>
+
+        <section>
+          <p className={label}>Paket (kargo maliyeti ve pazaryeri desisi buradan)</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {(
+              [
+                ["en", "En (cm)"],
+                ["boy", "Boy (cm)"],
+                ["yukseklik", "Yükseklik (cm)"],
+                ["agirlik", "Ağırlık (kg)"],
+              ] as const
+            ).map(([k, t]) => (
+              <label key={k} className="block">
+                <span className={label}>{t}</span>
+                <input value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} inputMode="decimal" className={input} />
+              </label>
+            ))}
+            <label className="block">
+              <span className={label}>Desi</span>
+              <input value={desi !== null ? String(desi) : f.desi} onChange={(e) => setF({ ...f, desi: e.target.value })} disabled={desi !== null} inputMode="decimal" className={input} placeholder="ör. 25" />
+            </label>
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">Desi = en × boy × yükseklik / 3000; ölçüler girilince kendiliğinden hesaplanır.</p>
+        </section>
+
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <label className="block">
             <span className={label}>Stok</span>
             <input value={f.stok} onChange={(e) => setF({ ...f, stok: e.target.value.replace(/\D/g, "") })} inputMode="numeric" className={input} />
           </label>
           <label className="block">
-            <span className={label}>Desi</span>
-            <input value={f.desi} onChange={(e) => setF({ ...f, desi: e.target.value })} inputMode="decimal" className={input} placeholder="ör. 25" />
-          </label>
-          <label className="block sm:col-span-2">
             <span className={label}>Hazırlık süresi (iş günü)</span>
             <input value={f.hazirlikGun} onChange={(e) => setF({ ...f, hazirlikGun: e.target.value.replace(/\D/g, "") })} inputMode="numeric" className={input} />
           </label>
-          <label className="flex items-end gap-2.5 pb-2.5 text-sm sm:col-span-3">
+          <label className="col-span-2 flex items-end gap-2.5 pb-2.5 text-sm">
             <input type="checkbox" checked={f.aktif} onChange={(e) => setF({ ...f, aktif: e.target.checked })} className="size-4 accent-[var(--primary)]" />
-            Satışta (kapatılırsa tüm kanallarda stok 0 gönderilir)
+            Satışta (kapatılırsa pazaryerlerinde stok 0 gönderilir)
           </label>
-          <p className="text-[11px] text-muted-foreground sm:col-span-5">
+          <p className="col-span-2 text-[11px] text-muted-foreground sm:col-span-4">
             Siparişe üretim yapılıyorsa stoku sabit bir sayı tutun (ör. 10); pazaryeri satışla düşürür, panelden gönderilen değer yeniden yazar.
           </p>
         </section>
 
-        {channels.map((c, idx) => (
-          <ListingSection
-            key={c.id}
-            c={c}
-            l={ls[idx]}
-            onChange={(patch) => setLs(ls.map((x, i) => (i === idx ? { ...x, ...patch } : x)))}
-            base={base}
-            kdv={f.kdv}
-            status={it?.listelemeler.find((x) => x.siteId === c.id) ?? null}
-          />
-        ))}
+        {channels.some((c) => !c.pazaryeri) && <h3 className="pt-1 text-[13px] font-bold tracking-wide text-muted-foreground uppercase">E-ticaret sitesi</h3>}
+        {channels.map((c, idx) =>
+          c.pazaryeri ? null : (
+            <WooSection
+              key={c.id}
+              c={c}
+              l={ls[idx]}
+              onChange={(patch) => setLs(ls.map((x, i) => (i === idx ? { ...x, ...patch } : x)))}
+              base={base}
+              kdv={f.kdv}
+              hata={it?.listelemeler.find((x) => x.siteId === c.id)?.hata ?? null}
+            />
+          ),
+        )}
+        {channels.some((c) => c.pazaryeri) && <h3 className="pt-1 text-[13px] font-bold tracking-wide text-muted-foreground uppercase">Pazaryerleri</h3>}
+        {channels.map((c, idx) =>
+          c.pazaryeri ? (
+            <ListingSection
+              key={c.id}
+              c={c}
+              l={ls[idx]}
+              onChange={(patch) => setLs(ls.map((x, i) => (i === idx ? { ...x, ...patch } : x)))}
+              base={base}
+              kdv={f.kdv}
+              status={it?.listelemeler.find((x) => x.siteId === c.id) ?? null}
+            />
+          ) : null,
+        )}
 
         {err && <p className="rounded-xl bg-danger-soft px-3 py-2 text-xs font-medium text-danger">{err}</p>}
         <div className="flex gap-2">
@@ -595,9 +767,142 @@ function ItemSheet({ item, channels, catalog, onClose }: { item: ItemRow | "yeni
             {busy ? "Kaydediliyor…" : "Kaydet"}
           </Button>
         </div>
-        <p className="text-center text-[11px] text-muted-foreground">Kayıt pazaryerine göndermez; kanal kartındaki “Bekleyenleri gönder” ile gönderilir.</p>
+        <p className="text-center text-[11px] text-muted-foreground">Kayıt pazaryerine göndermez; kanal kartındaki “Bekleyenleri gönder” ile gönderilir. Siteye fiyat yalnızca site ayarında açıksa yazılır.</p>
       </div>
     </Sheet>
+  );
+}
+
+/** Sitedeki ürüne bağlantı: ürün aranır, varyantlıysa varyant seçilir; site fiyatı korunabilir */
+function WooSection({ c, l, onChange, base, kdv, hata }: { c: Channel; l: ListingForm; onChange: (p: Partial<ListingForm>) => void; base: number | null; kdv: number; hata: string | null }) {
+  const [q, setQ] = useState("");
+  const [res, setRes] = useState<WooRow[]>([]);
+  const [vars, setVars] = useState<{ urun: WooRow; liste: { id: number; ad: string; sku: string; fiyat: number | null }[] } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const hesap = base === null ? null : Math.round(base * (1 + kdv / 100) * (1 + c.ayarlar.fiyatFarki / 100));
+  const satis = numOrNull(l.fiyat) ?? hesap;
+
+  const search = () =>
+    start(async () => {
+      const r = await pyWooAra(c.id, q);
+      if (!r.ok) return setErr(r.hata);
+      setErr(r.liste.length ? null : "Sitede bu adla ürün bulunamadı.");
+      setRes(r.liste);
+      setVars(null);
+    });
+  const pick = (p: WooRow) =>
+    p.varyantli
+      ? start(async () => {
+          const r = await pyWooVaryantlar(c.id, p.id);
+          if (!r.ok) return setErr(r.hata);
+          setVars({ urun: p, liste: r.liste });
+        })
+      : (onChange({ aktif: true, disUrunId: p.id, disVaryantId: null, disAd: p.ad, disFiyat: p.fiyat }), setRes([]));
+
+  return (
+    <section className={cn("rounded-2xl border p-4", l.aktif ? "border-primary/40" : "border-border")}>
+      <p className="flex items-center gap-2 text-[15px] font-semibold">
+        <Globe className="size-4 text-muted-foreground" /> {c.ad}
+      </p>
+      {hata && <p className="mt-2 rounded-xl bg-danger-soft px-3 py-2 text-xs font-medium break-words text-danger">{hata}</p>}
+      {l.aktif && l.disUrunId ? (
+        <div className="mt-3 space-y-3">
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 text-sm">
+            <span className="flex min-w-0 items-center gap-2">
+              <Link2 className="size-4 shrink-0 text-success" />
+              <span className="min-w-0">
+                <span className="block truncate font-semibold">{l.disAd ?? `#${l.disUrunId}`}</span>
+                <span className="text-xs text-muted-foreground">
+                  Sitede {tl(l.disFiyat)} · #{l.disUrunId}
+                  {l.disVaryantId ? ` / varyant #${l.disVaryantId}` : ""}
+                </span>
+              </span>
+            </span>
+            <button type="button" onClick={() => onChange({ aktif: false, disUrunId: null, disVaryantId: null, disAd: null, disFiyat: null })} className="text-muted-foreground hover:text-foreground" aria-label="Bağlantıyı kaldır">
+              <X className="size-4" />
+            </button>
+          </div>
+          <label className="block">
+            <span className={label}>Site fiyatı (KDV dahil, isteğe bağlı)</span>
+            <div className="flex gap-2">
+              <input value={l.fiyat} onChange={(e) => onChange({ fiyat: e.target.value })} inputMode="decimal" className={input} placeholder={hesap ? `Kurala göre ${tl(hesap)}` : "Önce perakende fiyat girin"} />
+              {l.disFiyat !== null && satis !== l.disFiyat && (
+                <Button variant="outline" className="h-10 shrink-0" onClick={() => onChange({ fiyat: String(l.disFiyat) })}>
+                  Sitedekini koru
+                </Button>
+              )}
+            </div>
+            <span className="mt-1 block text-[11px] text-muted-foreground">
+              Boşsa KDV dahil perakende{c.ayarlar.fiyatFarki ? ` × %${c.ayarlar.fiyatFarki} fark` : ""}.
+              {satis !== null && l.disFiyat !== null && satis !== l.disFiyat ? ` Panel ${tl(satis)}, sitede ${tl(l.disFiyat)}.` : ""}
+              {c.ayarlar.fiyatYaz ? " Fark siteye yazılır." : " Site ayarında fiyat yazma kapalı; site değişmez."}
+            </span>
+          </label>
+        </div>
+      ) : (
+        <div className="mt-3">
+          <div className="flex gap-2">
+            <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), search())} className={input} placeholder="Sitedeki ürünü arayın (ad ya da stok kodu)" />
+            <Button variant="outline" className="h-10" disabled={pending || q.trim().length < 2} onClick={search}>
+              <Search /> Ara
+            </Button>
+          </div>
+          {vars ? (
+            <div className="mt-1 max-h-64 overflow-auto rounded-xl border border-border">
+              <p className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2 text-xs font-semibold">
+                {vars.urun.ad} · varyant seçin
+                <button type="button" onClick={() => setVars(null)} className="text-primary hover:underline">
+                  Geri
+                </button>
+              </p>
+              {vars.liste.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => (onChange({ aktif: true, disUrunId: vars.urun.id, disVaryantId: v.id, disAd: `${vars.urun.ad} · ${v.ad}`, disFiyat: v.fiyat }), setVars(null), setRes([]))}
+                  className="flex w-full justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-muted"
+                >
+                  <span>
+                    {v.ad}
+                    {v.sku && <span className="text-xs text-muted-foreground"> · {v.sku}</span>}
+                  </span>
+                  <span className="shrink-0 text-muted-foreground">{tl(v.fiyat)}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            res.length > 0 && (
+              <div className="mt-1 max-h-64 overflow-auto rounded-xl border border-border">
+                {res.map((p) => (
+                  <div key={p.id} className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-muted">
+                    <button type="button" onClick={() => pick(p)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                      <span className="size-9 shrink-0 overflow-hidden rounded-lg border border-border bg-white">
+                        {p.gorsel && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={p.gorsel} alt="" className="size-full object-contain" />
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate">{p.ad}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {p.sku || "stok kodu yok"} · {p.varyantli ? "varyantlı" : tl(p.fiyat)}
+                          {p.durum !== "publish" ? ` · ${p.durum}` : ""}
+                        </span>
+                      </span>
+                    </button>
+                    <a href={p.link} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground" aria-label="Sitede aç">
+                      <ExternalLink className="size-4" />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+          {err ? <p className="mt-1 text-[11px] font-medium text-danger">{err}</p> : <p className="mt-1 text-[11px] text-muted-foreground">Bağlanmazsa bu ürün sitede yönetilmez; sitedeki ürüne dokunulmaz.</p>}
+        </div>
+      )}
+    </section>
   );
 }
 

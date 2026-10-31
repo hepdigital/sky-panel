@@ -7,7 +7,7 @@ import { brandsFor } from "@/server/brands";
 import { canEditProduct, listProducts } from "@/server/catalog";
 import { listColors } from "@/server/colors";
 
-export const metadata: Metadata = { title: "Ürünler" };
+export const metadata: Metadata = { title: "Teklif ürünleri" };
 
 async function Products() {
   await connection();

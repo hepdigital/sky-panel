@@ -5,6 +5,7 @@ import { db, schema } from "./db";
 import { ensureMarketplaceSchema } from "./db/ensure";
 import { marketplaceTick } from "./marketplaces/listing";
 import { TY_PANEL_STATUS, tyAction, tyFetch, tyKeyValid, tyTest } from "./marketplaces/trendyol";
+import { wcRequest } from "./marketplaces/woocommerce";
 import { syncRequests } from "./site-requests";
 
 const { siteBaglantilari: sites, siparisler, musteriler } = schema;
@@ -110,20 +111,6 @@ type WcOrder = {
   meta_data: { key: string; value: unknown }[];
 };
 
-function wcAuth(site: Site) {
-  return `Basic ${Buffer.from(site.anahtar ?? "").toString("base64")}`;
-}
-async function wcRequest(site: Site, path: string, init?: RequestInit) {
-  const res = await fetch(`${base(site)}/wp-json/wc/v3${path}`, {
-    ...init,
-    headers: { Authorization: wcAuth(site), "Content-Type": "application/json", ...(init?.headers ?? {}) },
-    cache: "no-store",
-    signal: AbortSignal.timeout(TIMEOUT),
-  });
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(`WooCommerce: ${(data as { message?: string } | null)?.message ?? `HTTP ${res.status}`}`);
-  return data;
-}
 
 const n = (v: string | number | null | undefined) => Math.round(Number(v ?? 0) * 100) / 100;
 const fullName = (a: WcAddress) => [a.first_name, a.last_name].filter(Boolean).join(" ").trim();
@@ -353,8 +340,9 @@ export async function syncSite(siteId: number) {
     }
     // Form talepleri (toptan alım, bayilik, iletişim): çekilemezse sipariş eşitlemesi başarısız sayılmaz
     if (site.tur === "gazebotente") await syncRequests(site, (path) => gtRequest(site, path)).catch((e) => console.error("syncRequests", e));
-    // Pazaryeri ürünleri: gönderim sonuçları, onaylar, değişen fiyat/stok (hata sipariş eşitlemesini bozmaz)
-    if (site.tur === "trendyol") await marketplaceTick(site.id).catch((e) => console.error("marketplaceTick", e));
+    // Ürün kanalları: pazaryerinde gönderim sonuçları, onaylar, değişen fiyat/stok; sitede (açıksa) değişen fiyat.
+    // Hata sipariş eşitlemesini bozmaz
+    if (site.tur === "trendyol" || site.tur === "woocommerce") await marketplaceTick(site.id).catch((e) => console.error("marketplaceTick", e));
     await db().update(sites).set({ sonBasari: new Date(), sonHata: null }).where(eq(sites.id, site.id));
     return { ok: true as const, count };
   } catch (e) {

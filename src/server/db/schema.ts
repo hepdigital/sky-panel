@@ -464,9 +464,20 @@ export const pazaryeriUrunleri = mysqlTable(
     olcu: varchar("olcu", { length: 60 }),
     /** Görsel adresleri (JSON dizi; /dosya/…, /terminal/img/… ya da https://…) */
     gorseller: text("gorseller"),
+    /** Kargo desisi: paket ölçüleri girildiyse en × boy × yükseklik / 3000 */
     desi: decimal("desi", { precision: 8, scale: 2, mode: "number" }),
+    /** Paket ağırlığı (kg) ve ölçüleri (cm) */
+    agirlik: decimal("agirlik", { precision: 8, scale: 2, mode: "number" }),
+    en: decimal("en", { precision: 8, scale: 1, mode: "number" }),
+    boy: decimal("boy", { precision: 8, scale: 1, mode: "number" }),
+    yukseklik: decimal("yukseklik", { precision: 8, scale: 1, mode: "number" }),
     kdv: smallint("kdv", { unsigned: true }).notNull().default(20),
+    /** Perakende fiyat (KDV hariç); boşsa bağlı teklif ürününden */
     fiyat: decimal("fiyat", { precision: 12, scale: 2, mode: "number" }),
+    /** Bağlı teklif ürününün ek seçeneği (ör. kumaş baskı) fiyata dahil */
+    secenekDahil: boolean("secenek_dahil").notNull().default(false),
+    /** Birim maliyet (KDV hariç); boşsa bağlı teklif ürününden */
+    maliyet: decimal("maliyet", { precision: 12, scale: 2, mode: "number" }),
     stok: int("stok", { unsigned: true }).notNull().default(0),
     hazirlikGun: smallint("hazirlik_gun", { unsigned: true }).notNull().default(3),
     aktif: boolean("aktif").notNull().default(true),
@@ -506,6 +517,11 @@ export const pazaryeriListelemeleri = mysqlTable(
     /** Son gönderilen fiyat ve stok ("fiyat|liste|stok"): değişince yeniden gönderilir */
     sonFiyatStok: varchar("son_fiyat_stok", { length: 80 }),
     sonGonderim: timestamp("son_gonderim"),
+    /** WooCommerce: bağlı ürün ve varyant kimliği, sitedeki ad ve son okunan fiyat (KDV dahil) */
+    disUrunId: int("dis_urun_id", { unsigned: true }),
+    disVaryantId: int("dis_varyant_id", { unsigned: true }),
+    disAd: varchar("dis_ad", { length: 255 }),
+    disFiyat: decimal("dis_fiyat", { precision: 12, scale: 2, mode: "number" }),
     guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
   },
   (t) => [uniqueIndex("pl_urun_site").on(t.urunId, t.siteId), index("pl_site_durum").on(t.siteId, t.durum)],

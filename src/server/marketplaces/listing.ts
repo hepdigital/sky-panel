@@ -6,11 +6,16 @@ import {
   tyBatch, tyBrands, tyCategories, tyCategoryAttributes, tyPriceStock, tyProductState, tySendProducts,
   type CategoryAttribute, type TyItem,
 } from "./trendyol";
+import { wcCurrent, wcSearch, wcSetPrices, wcVariations } from "./woocommerce";
 
-// Pazaryeri listeleme çekirdeği. Ürün kartı (pazaryeri_urunleri) tüm kanallarda ortaktır: barkod, stok kodu, görseller,
-// desi, KDV, fiyat, stok. Her kanal (bağlantı) için ayrı listeleme tutulur: kategori, özellikler, marka, kanala özel fiyat
-// ve gönderim durumu. Akış: taslak → gönderildi (toplu işlem) → onay (kart oluştu, pazaryeri inceliyor) → yayında; ya da hata.
-// Fiyat/stok yalnızca oluşmuş kartlar için ve değiştiğinde gönderilir. Şimdilik Trendyol; Hepsiburada aynı yapıya eklenecek.
+// Satış ürünleri çekirdeği. Ürün kartı (pazaryeri_urunleri) tüm kanallarda ortaktır: stok kodu, barkod, görseller,
+// paket ölçüleri/desi, KDV, fiyat, maliyet, stok; isterse bir teklif ürününe bağlanır ve fiyatını oradan alır.
+// Her kanal (bağlantı) için ayrı listeleme tutulur:
+//  - Pazaryeri (Trendyol…): kategori, özellikler, marka, kanala özel fiyat ve gönderim durumu. Akış: taslak → gönderildi
+//    (toplu işlem) → onay (kart oluştu, pazaryeri inceliyor) → yayında; ya da hata. Fiyat/stok oluşmuş kartlar için ve
+//    değiştiğinde gönderilir.
+//  - WooCommerce: sitedeki ürün/varyanta bağlantı. Sitedeki ad ve fiyat okunur; fiyat yalnızca kanal ayarında "fiyatı
+//    siteye yaz" açıksa ve değiştiğinde yazılır. Ürün sitede oluşturulmaz, başlık/görsel/açıklama değişmez.
 
 const { pazaryeriUrunleri: items, pazaryeriListelemeleri: listings, pazaryeriKategorileri: categories, pazaryeriIslemleri: logs, pazaryeriAyarlari: settingsT, siteBaglantilari: sites, urunler } = schema;
 type Site = typeof sites.$inferSelect;
@@ -18,32 +23,40 @@ type Item = typeof items.$inferSelect;
 type Listing = typeof listings.$inferSelect;
 
 export const MARKETPLACE_TURLERI = ["trendyol"] as const;
-const isMarketplace = (s: Site) => (MARKETPLACE_TURLERI as readonly string[]).includes(s.tur);
+/** Ürün kanalları: e-ticaret sitesi (WooCommerce) ve pazaryerleri */
+export const KANAL_TURLERI = ["woocommerce", ...MARKETPLACE_TURLERI] as const;
+const isMarketplace = (s: Pick<Site, "tur">) => (MARKETPLACE_TURLERI as readonly string[]).includes(s.tur);
 
 /* ───────────── kanal ayarları ───────────── */
 
 export type ChannelSettings = {
   /** Kanal fiyat farkı (%): komisyon ve kargo payı; KDV dahil perakendeye eklenir */
   fiyatFarki: number;
+  /** WooCommerce: değişen fiyat siteye yazılır (kapalıyken yalnızca okunur) */
+  fiyatYaz: boolean;
   /** Trendyol kargo firması kimliği (anlaşmalı kargo); boşsa gönderilmez */
   kargoFirmaId: number | null;
   /** Varsayılan marka (yeni listelemelerde önerilir) */
   markaId: number | null;
   markaAd: string | null;
 };
-const DEFAULT_SETTINGS: ChannelSettings = { fiyatFarki: 0, kargoFirmaId: null, markaId: null, markaAd: null };
+const DEFAULT_SETTINGS: ChannelSettings = { fiyatFarki: 0, fiyatYaz: false, kargoFirmaId: null, markaId: null, markaAd: null };
 
-export async function marketplaceChannels() {
+/** Ürün kanalları: önce WooCommerce siteleri, sonra pazaryerleri */
+export async function salesChannels() {
   await ensureMarketplaceSchema();
   const rows = await db()
     .select({ id: sites.id, ad: sites.ad, tur: sites.tur, aktif: sites.aktif, markaId: sites.markaId, ayar: settingsT.veri })
     .from(sites)
     .leftJoin(settingsT, eq(settingsT.siteId, sites.id))
-    .where(inArray(sites.tur, [...MARKETPLACE_TURLERI]))
-    .orderBy(asc(sites.id));
-  return rows.map((r) => ({ id: r.id, ad: r.ad, tur: r.tur, aktif: r.aktif, ayarlar: { ...DEFAULT_SETTINGS, ...(r.ayar ? (JSON.parse(r.ayar) as Partial<ChannelSettings>) : {}) } }));
+    .where(inArray(sites.tur, [...KANAL_TURLERI]))
+    .orderBy(sql`${sites.tur} = 'woocommerce' DESC`, asc(sites.id));
+  return rows.map((r) => ({
+    id: r.id, ad: r.ad, tur: r.tur, aktif: r.aktif, pazaryeri: isMarketplace(r),
+    ayarlar: { ...DEFAULT_SETTINGS, ...(r.ayar ? (JSON.parse(r.ayar) as Partial<ChannelSettings>) : {}) },
+  }));
 }
-export type MarketplaceChannel = Awaited<ReturnType<typeof marketplaceChannels>>[number];
+export type SalesChannel = Awaited<ReturnType<typeof salesChannels>>[number];
 
 async function settingsOf(siteId: number): Promise<ChannelSettings> {
   const [r] = await db().select({ veri: settingsT.veri }).from(settingsT).where(eq(settingsT.siteId, siteId));
@@ -54,6 +67,7 @@ export async function saveSettings(siteId: number, s: ChannelSettings) {
   await ensureMarketplaceSchema();
   const v: ChannelSettings = {
     fiyatFarki: Math.max(-50, Math.min(200, Number(s.fiyatFarki) || 0)),
+    fiyatYaz: !!s.fiyatYaz,
     kargoFirmaId: s.kargoFirmaId && Number(s.kargoFirmaId) > 0 ? Math.round(Number(s.kargoFirmaId)) : null,
     markaId: s.markaId ? Number(s.markaId) : null,
     markaAd: s.markaAd?.trim().slice(0, 120) || null,
@@ -66,6 +80,12 @@ export async function saveSettings(siteId: number, s: ChannelSettings) {
 async function siteOf(siteId: number) {
   const [s] = await db().select().from(sites).where(eq(sites.id, siteId));
   if (!s || !isMarketplace(s)) throw new Error("Pazaryeri bağlantısı bulunamadı.");
+  return s;
+}
+
+async function wooSiteOf(siteId: number) {
+  const [s] = await db().select().from(sites).where(eq(sites.id, siteId));
+  if (s?.tur !== "woocommerce") throw new Error("WooCommerce bağlantısı bulunamadı.");
   return s;
 }
 
@@ -100,8 +120,14 @@ export const barcodeValid = (b: string) => /^\d{13}$/.test(b) ? ean13(b.slice(0,
 
 /* ───────────── fiyat ───────────── */
 
-/** KDV hariç taban fiyat: kartın fiyatı, yoksa bağlı katalog ürününün perakendesi */
+/** Bağlı teklif ürününün perakendesi (KDV hariç); ek seçenek dahilse seçenek fiyatı eklenir */
+export const catalogPrice = (perakende: number | null, secenek: number | null, dahil: boolean) => (perakende === null ? null : perakende + (dahil ? (secenek ?? 0) : 0));
+
+/** KDV hariç taban fiyat: kartın fiyatı, yoksa bağlı teklif ürününün fiyatı */
 const basePrice = (item: Pick<Item, "fiyat">, catalog: number | null) => item.fiyat ?? catalog ?? null;
+
+/** Kargo desisi: en × boy × yükseklik (cm) / 3000, bir ondalık */
+export const desiOf = (en: number | null, boy: number | null, yukseklik: number | null) => (en && boy && yukseklik ? Math.round((en * boy * yukseklik) / 300) / 10 : null);
 
 /** Kanaldaki satış fiyatı (KDV dahil, tam TL): kanala özel fiyat ya da taban × KDV × (1 + fark) */
 export function channelPrice(item: Pick<Item, "fiyat" | "kdv">, catalog: number | null, listing: Pick<Listing, "fiyat"> | null, s: ChannelSettings) {
@@ -122,6 +148,11 @@ export type ListingInput = {
   markaAd: string | null;
   ozellikler: Record<string, { v?: number; c?: string }>;
   fiyat: number | null;
+  /** WooCommerce: bağlı ürün ve varyant, sitedeki ad ve fiyat (seçilirken okunur) */
+  disUrunId?: number | null;
+  disVaryantId?: number | null;
+  disAd?: string | null;
+  disFiyat?: number | null;
 };
 
 export type ItemInput = {
@@ -137,8 +168,14 @@ export type ItemInput = {
   olcu: string;
   gorseller: string[];
   desi: number | null;
+  agirlik: number | null;
+  en: number | null;
+  boy: number | null;
+  yukseklik: number | null;
   kdv: number;
   fiyat: number | null;
+  secenekDahil: boolean;
+  maliyet: number | null;
   stok: number;
   hazirlikGun: number;
   aktif: boolean;
@@ -149,7 +186,7 @@ export async function listItems() {
   await ensureMarketplaceSchema();
   const [rows, ls] = await Promise.all([
     db()
-      .select({ i: items, katalogAd: urunler.ad, katalogFiyat: urunler.perakende })
+      .select({ i: items, katalogAd: urunler.ad, perakende: urunler.perakende, secenek: urunler.secenekPerakende, katalogMaliyet: urunler.maliyet, secenekMaliyet: urunler.secenekMaliyet })
       .from(items)
       .leftJoin(urunler, eq(urunler.id, items.urunId))
       .orderBy(asc(items.grupKodu), asc(items.id)),
@@ -159,7 +196,8 @@ export async function listItems() {
     ...r.i,
     gorseller: r.i.gorseller ? (JSON.parse(r.i.gorseller) as string[]) : [],
     katalogAd: r.katalogAd,
-    katalogFiyat: r.katalogFiyat,
+    katalogFiyat: catalogPrice(r.perakende, r.secenek, r.i.secenekDahil),
+    katalogMaliyet: r.katalogMaliyet === null ? null : r.katalogMaliyet + (r.i.secenekDahil ? (r.secenekMaliyet ?? 0) : 0),
     listelemeler: ls.filter((l) => l.urunId === r.i.id).map((l) => ({ ...l, ozellikler: l.ozellikler ? (JSON.parse(l.ozellikler) as ListingInput["ozellikler"]) : {} })),
   }));
 }
@@ -184,7 +222,9 @@ export async function saveItem(input: ItemInput): Promise<{ ok: true; id: number
   const values = {
     stokKodu, barkod, ad, aciklama: clip(input.aciklama, 30000), grupKodu: clip(input.grupKodu, 60) ?? stokKodu, markaAdi: clip(input.markaAdi, 80),
     urunId: input.urunId || null, renk: clip(input.renk, 40), olcu: clip(input.olcu, 60), gorseller: JSON.stringify(gorseller),
-    desi: num(input.desi), kdv: [0, 1, 10, 20].includes(Number(input.kdv)) ? Number(input.kdv) : 20, fiyat: num(input.fiyat),
+    desi: desiOf(num(input.en), num(input.boy), num(input.yukseklik)) ?? num(input.desi),
+    agirlik: num(input.agirlik), en: num(input.en), boy: num(input.boy), yukseklik: num(input.yukseklik),
+    secenekDahil: !!input.urunId && !!input.secenekDahil, maliyet: num(input.maliyet), kdv: [0, 1, 10, 20].includes(Number(input.kdv)) ? Number(input.kdv) : 20, fiyat: num(input.fiyat),
     stok: Math.max(0, Math.round(Number(input.stok) || 0)), hazirlikGun: Math.max(1, Math.min(30, Math.round(Number(input.hazirlikGun) || 3))), aktif: !!input.aktif,
   };
   const dup = await db()
@@ -199,12 +239,27 @@ export async function saveItem(input: ItemInput): Promise<{ ok: true; id: number
   // Oluşmuş kartın barkodu değiştirilemez (pazaryeri kartı barkodla bağlıdır)
   const oldListings = id ? await db().select().from(listings).where(eq(listings.urunId, id)) : [];
   if (old && old.barkod !== barkod && oldListings.some((l) => l.olustu)) return { ok: false, hata: "Pazaryerinde oluşmuş ürünün barkodu değiştirilemez." };
+  const channels = new Map((await salesChannels()).map((c) => [c.id, c]));
+  // Aynı site ürününe/varyantına iki kart bağlanamaz
+  for (const l of input.listelemeler) {
+    if (channels.get(l.siteId)?.tur !== "woocommerce" || !l.aktif || !l.disUrunId) continue;
+    const [taken] = await db()
+      .select({ ad: items.ad })
+      .from(listings)
+      .innerJoin(items, eq(items.id, listings.urunId))
+      .where(sql`${listings.siteId} = ${l.siteId} AND ${listings.disUrunId} = ${l.disUrunId} AND COALESCE(${listings.disVaryantId}, 0) = ${l.disVaryantId ?? 0} AND ${listings.urunId} <> ${id ?? 0}`);
+    if (taken) return { ok: false, hata: `Bu site ürünü zaten “${taken.ad}” kartına bağlı.` };
+  }
   if (id) await db().update(items).set(values).where(eq(items.id, id));
   else id = (await db().insert(items).values(values).$returningId())[0].id;
 
-  const channels = new Set((await marketplaceChannels()).map((c) => c.id));
   for (const l of input.listelemeler) {
-    if (!channels.has(l.siteId)) continue;
+    const ch = channels.get(l.siteId);
+    if (!ch) continue;
+    if (ch.tur === "woocommerce") {
+      await saveWooListing(id, l, oldListings.find((x) => x.siteId === l.siteId));
+      continue;
+    }
     const ozellikler: ListingInput["ozellikler"] = {};
     for (const [k, v] of Object.entries(l.ozellikler ?? {})) {
       if (!/^\d+$/.test(k)) continue;
@@ -231,6 +286,25 @@ export async function saveItem(input: ItemInput): Promise<{ ok: true; id: number
     await db().update(listings).set({ ...lv, durum }).where(eq(listings.id, ex.id));
   }
   return { ok: true, id };
+}
+
+/** WooCommerce bağlantısı: bağlıysa "yayinda", kapalıysa "pasif"; bağlantı değişince fiyat yeniden yazılabilir */
+async function saveWooListing(urunId: number, l: ListingInput, ex: Listing | undefined) {
+  const disUrunId = l.disUrunId ? Number(l.disUrunId) : null;
+  const v = {
+    aktif: !!l.aktif && !!disUrunId, disUrunId, disVaryantId: disUrunId && l.disVaryantId ? Number(l.disVaryantId) : null,
+    disAd: clip(l.disAd, 255), disFiyat: num(l.disFiyat), fiyat: num(l.fiyat),
+  };
+  const durum = v.aktif ? ("yayinda" as const) : ("pasif" as const);
+  if (!ex) {
+    if (v.aktif) await db().insert(listings).values({ ...v, urunId, siteId: l.siteId, durum });
+    return;
+  }
+  const relinked = ex.disUrunId !== v.disUrunId || ex.disVaryantId !== v.disVaryantId;
+  await db()
+    .update(listings)
+    .set({ ...v, durum, hata: null, ...(relinked ? { sonFiyatStok: null } : {}) })
+    .where(eq(listings.id, ex.id));
 }
 
 /** Kart silinir yalnızca hiçbir pazaryerinde oluşmamışsa; oluşmuşsa kapatılır (stok 0) */
@@ -314,7 +388,8 @@ const descriptionHtml = (s: string) =>
     .map((p) => `<p>${escapeHtml(p.trim()).replace(/\n/g, "<br>")}</p>`)
     .join("");
 
-type Row = { i: Item; l: Listing; katalog: number | null };
+type Row = { i: Item; l: Listing; perakende: number | null; secenek: number | null };
+const catalogOf = (r: Row) => catalogPrice(r.perakende, r.secenek, r.i.secenekDahil);
 
 /** Gönderime hazır mı: eksikler listesi (boşsa hazır) */
 export async function listingProblems(siteId: number, r: Row, s: ChannelSettings) {
@@ -324,7 +399,7 @@ export async function listingProblems(siteId: number, r: Row, s: ChannelSettings
   if (!r.l.markaId) p.push("marka seçilmedi");
   if (!gorseller.length) p.push("görsel yok");
   if (!r.i.desi) p.push("desi girilmedi");
-  if (!channelPrice(r.i, r.katalog, r.l, s)) p.push("fiyat yok");
+  if (!channelPrice(r.i, catalogOf(r), r.l, s)) p.push("fiyat yok");
   if ((r.i.aciklama ?? "").trim().length < 30) p.push("açıklama çok kısa (en az 30 karakter)");
   if (r.l.kategoriId) {
     const attrs = await categoryAttributes(siteId, r.l.kategoriId).catch(() => null);
@@ -339,7 +414,7 @@ export async function listingProblems(siteId: number, r: Row, s: ChannelSettings
 }
 
 function toTyItem(r: Row, s: ChannelSettings): TyItem {
-  const price = channelPrice(r.i, r.katalog, r.l, s)!;
+  const price = channelPrice(r.i, catalogOf(r), r.l, s)!;
   const vals = r.l.ozellikler ? (JSON.parse(r.l.ozellikler) as ListingInput["ozellikler"]) : {};
   return {
     barcode: r.i.barkod,
@@ -364,7 +439,7 @@ function toTyItem(r: Row, s: ChannelSettings): TyItem {
 
 async function rowsOf(siteId: number, where?: ReturnType<typeof and>) {
   return db()
-    .select({ i: items, l: listings, katalog: urunler.perakende })
+    .select({ i: items, l: listings, perakende: urunler.perakende, secenek: urunler.secenekPerakende })
     .from(listings)
     .innerJoin(items, eq(items.id, listings.urunId))
     .leftJoin(urunler, eq(urunler.id, items.urunId))
@@ -452,7 +527,7 @@ export async function pushPriceStock(siteId: number, kim?: string) {
   const rows = await rowsOf(siteId, eq(listings.olustu, true));
   const changed: { r: Row; sig: string; item: { barcode: string; quantity: number; salePrice: number; listPrice: number } }[] = [];
   for (const r of rows) {
-    const price = channelPrice(r.i, r.katalog, r.l, s);
+    const price = channelPrice(r.i, catalogOf(r), r.l, s);
     if (!price) continue;
     const quantity = r.i.aktif && r.l.aktif ? r.i.stok : 0;
     const sig = `${price}|${price}|${quantity}`;
@@ -467,13 +542,73 @@ export async function pushPriceStock(siteId: number, kim?: string) {
   return changed.length;
 }
 
-/** Sipariş eşitlemesiyle birlikte çalışır: gönderim sonuçları, onaylar ve değişen fiyat/stok */
+/** Sipariş eşitlemesiyle birlikte çalışır: gönderim sonuçları, onaylar ve değişen fiyat/stok; sitede (açıksa) değişen fiyat */
 export async function marketplaceTick(siteId: number) {
   await ensureMarketplaceSchema();
-  const [n] = await db().select({ n: sql<number>`COUNT(*)`.mapWith(Number) }).from(listings).where(eq(listings.siteId, siteId));
+  const [n] = await db()
+    .select({ n: sql<number>`COUNT(*)`.mapWith(Number), tur: sql<string>`MAX(${sites.tur})` })
+    .from(listings)
+    .innerJoin(sites, eq(sites.id, listings.siteId))
+    .where(eq(listings.siteId, siteId));
   if (!n?.n) return;
+  if (n.tur === "woocommerce") {
+    if ((await settingsOf(siteId)).fiyatYaz) await pushWooPrices(siteId);
+    return;
+  }
   await checkListings(siteId);
   await pushPriceStock(siteId);
+}
+
+/* ───────────── WooCommerce ───────────── */
+
+export async function wooSearch(siteId: number, q: string) {
+  return q.trim().length < 2 ? [] : wcSearch(await wooSiteOf(siteId), q.trim());
+}
+
+export async function wooVariations(siteId: number, productId: number) {
+  return wcVariations(await wooSiteOf(siteId), productId);
+}
+
+/** Bağlı ürünlerin sitedeki adını ve fiyatını yeniden okur; sitede bulunamayan bağlantı hataya düşer */
+export async function refreshWoo(siteId: number) {
+  await ensureMarketplaceSchema();
+  const site = await wooSiteOf(siteId);
+  const rows = await db().select().from(listings).where(and(eq(listings.siteId, siteId), sql`${listings.disUrunId} IS NOT NULL`));
+  const cur = await wcCurrent(site, rows.map((l) => ({ urunId: l.disUrunId!, varyantId: l.disVaryantId })));
+  let eksik = 0;
+  for (const l of rows) {
+    const c = cur.get(`${l.disUrunId}:${l.disVaryantId ?? 0}`);
+    if (!c) eksik++;
+    await db()
+      .update(listings)
+      .set(c ? { disAd: c.ad.slice(0, 255), disFiyat: c.fiyat, hata: null } : { hata: "Sitede bu ürün/varyant bulunamadı (silinmiş olabilir)." })
+      .where(eq(listings.id, l.id));
+  }
+  await log(siteId, "site-oku", null, eksik ? "hata" : "tamam", `${rows.length} bağlı ürünün sitedeki fiyatı okundu${eksik ? `; ${eksik} ürün sitede bulunamadı` : ""}.`);
+  return { okunan: rows.length, eksik };
+}
+
+/** Fiyatı sitedekinden farklı olan bağlı ürünlerin fiyatını yazar (ürün ya da bağlantı kapalıysa dokunulmaz) */
+export async function pushWooPrices(siteId: number, kim?: string) {
+  await ensureMarketplaceSchema();
+  const site = await wooSiteOf(siteId);
+  const s = await settingsOf(siteId);
+  if (!s.fiyatYaz) throw new Error("Bu sitede fiyat yazma kapalı (kanal ayarları).");
+  const rows = await rowsOf(siteId, and(eq(listings.aktif, true), eq(items.aktif, true), sql`${listings.disUrunId} IS NOT NULL`));
+  const changed = rows
+    .map((r) => ({ r, price: channelPrice(r.i, catalogOf(r), r.l, s) }))
+    .filter((x): x is { r: Row; price: number } => !!x.price && String(x.price) !== x.r.l.sonFiyatStok && x.price !== x.r.l.disFiyat);
+  if (!changed.length) return 0;
+  try {
+    await wcSetPrices(site, changed.map((c) => ({ urunId: c.r.l.disUrunId!, varyantId: c.r.l.disVaryantId, fiyat: c.price, kdv: c.r.i.kdv })));
+  } catch (e) {
+    const hata = e instanceof Error ? e.message : "Fiyat yazılamadı.";
+    await log(siteId, "site-fiyat", null, "hata", hata, kim);
+    throw e;
+  }
+  for (const c of changed) await db().update(listings).set({ sonFiyatStok: String(c.price), disFiyat: c.price, sonGonderim: new Date(), hata: null }).where(eq(listings.id, c.r.l.id));
+  await log(siteId, "site-fiyat", null, "tamam", `${changed.length} ürün: ${changed.map((c) => `${c.r.i.stokKodu} ${c.price} ₺`).join(", ")}`, kim);
+  return changed.length;
 }
 
 /* ───────────── kayıt ───────────── */

@@ -88,7 +88,7 @@ export function ProductAdmin({
     <div className="mx-auto max-w-[1200px]">
       <div className="flex flex-wrap items-end justify-between gap-3 pt-1">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-[28px]">Ürünler</h1>
+          <h1 className="text-2xl font-bold tracking-tight md:text-[28px]">Teklif ürünleri</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Teklif ekranının ürün menüsü buradan gelir · fiyatlar KDV hariç · boş fiyat “fiyat sorunuz” demektir
           </p>

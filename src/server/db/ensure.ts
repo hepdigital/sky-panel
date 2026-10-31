@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { db, schema } from "./index";
 
 // Pazaryeri şeması ilk kullanımda kurulur (canlıda drizzle push kullanılmaz): bağlantı türüne pazaryerleri, bağlantıya
-// ürün kartı / listeleme / kategori / ayar / işlem tabloları eklenir. Her adım tekrar çalıştırılabilir.
+// ürün kartı / listeleme / kategori / ayar / işlem tabloları ve sonradan eklenen kolonlar eklenir. Her adım tekrar çalıştırılabilir.
 // Kısıt adları drizzle'ın adlandırmasıyla (tablo_kolon_hedef_kolon_fk) yazılır; db/kurulum.sql ile aynıdır.
 
 const TABLES = [
@@ -20,8 +20,14 @@ const TABLES = [
     olcu varchar(60) NULL,
     gorseller text NULL,
     desi decimal(8,2) NULL,
+    agirlik decimal(8,2) NULL,
+    en decimal(8,1) NULL,
+    boy decimal(8,1) NULL,
+    yukseklik decimal(8,1) NULL,
     kdv smallint unsigned NOT NULL DEFAULT 20,
     fiyat decimal(12,2) NULL,
+    secenek_dahil tinyint(1) NOT NULL DEFAULT 0,
+    maliyet decimal(12,2) NULL,
     stok int unsigned NOT NULL DEFAULT 0,
     hazirlik_gun smallint unsigned NOT NULL DEFAULT 3,
     aktif tinyint(1) NOT NULL DEFAULT 1,
@@ -49,6 +55,10 @@ const TABLES = [
     hata text NULL,
     son_fiyat_stok varchar(80) NULL,
     son_gonderim timestamp NULL,
+    dis_urun_id int unsigned NULL,
+    dis_varyant_id int unsigned NULL,
+    dis_ad varchar(255) NULL,
+    dis_fiyat decimal(12,2) NULL,
     guncelleme timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
     UNIQUE KEY pl_urun_site (urun_id, site_id),
     KEY pl_site_durum (site_id, durum),
@@ -87,6 +97,20 @@ const TABLES = [
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
+/** Önceki sürümde oluşmuş tablolara sonradan eklenen kolonlar (yoksa eklenir) */
+const COLUMNS: [table: string, column: string, def: string][] = [
+  ["pazaryeri_urunleri", "agirlik", "decimal(8,2) NULL AFTER desi"],
+  ["pazaryeri_urunleri", "en", "decimal(8,1) NULL AFTER agirlik"],
+  ["pazaryeri_urunleri", "boy", "decimal(8,1) NULL AFTER en"],
+  ["pazaryeri_urunleri", "yukseklik", "decimal(8,1) NULL AFTER boy"],
+  ["pazaryeri_urunleri", "secenek_dahil", "tinyint(1) NOT NULL DEFAULT 0 AFTER fiyat"],
+  ["pazaryeri_urunleri", "maliyet", "decimal(12,2) NULL AFTER secenek_dahil"],
+  ["pazaryeri_listelemeleri", "dis_urun_id", "int unsigned NULL AFTER son_gonderim"],
+  ["pazaryeri_listelemeleri", "dis_varyant_id", "int unsigned NULL AFTER dis_urun_id"],
+  ["pazaryeri_listelemeleri", "dis_ad", "varchar(255) NULL AFTER dis_varyant_id"],
+  ["pazaryeri_listelemeleri", "dis_fiyat", "decimal(12,2) NULL AFTER dis_ad"],
+];
+
 async function columnType(table: string, column: string) {
   const [rows] = (await db().execute(
     sql`SELECT COLUMN_TYPE AS t FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ${table} AND COLUMN_NAME = ${column}`,
@@ -104,6 +128,9 @@ export const ensureMarketplaceSchema = () =>
       await db().execute(sql.raw(`ALTER TABLE site_baglantilari MODIFY tur enum(${list}) NOT NULL`));
     }
     for (const t of TABLES) await db().execute(sql.raw(t));
+    for (const [table, column, def] of COLUMNS) {
+      if (!(await columnType(table, column))) await db().execute(sql.raw(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`));
+    }
   })().catch((e) => {
     ready = null;
     throw e;
