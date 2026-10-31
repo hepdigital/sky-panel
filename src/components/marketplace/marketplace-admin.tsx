@@ -59,6 +59,7 @@ type ItemRow = {
   kdv: number;
   fiyat: number | null;
   secenekDahil: boolean;
+  yalnizSecenek: boolean;
   maliyet: number | null;
   stok: number;
   hazirlikGun: number;
@@ -74,7 +75,8 @@ type CatalogRow = {
 };
 type WooRow = { id: number; ad: string; sku: string; varyantli: boolean; fiyat: number | null; link: string; gorsel: string | null; durum: string };
 type ImportRow = {
-  disVaryantId: number | null; ad: string; sku: string; fiyat: number | null; olcu: string; renk: string; gorsel: string | null; urunId: number | null; stokKodu: string; bagli: string | null;
+  disVaryantId: number | null; ad: string; sku: string; fiyat: number | null; olcu: string; renk: string; gorsel: string | null; urunId: number | null;
+  secenek: "yok" | "dahil" | "yalniz"; stokKodu: string; bagli: string | null;
 };
 type ImportPreview = { urun: { id: number; ad: string; sku: string; varyantli: boolean; aciklama: string; gorseller: string[] }; grupKodu: string; satirlar: ImportRow[] };
 /** Düzenlenen kart: mevcut, yeni ya da bir grubun yeni seçeneği (ortak alanlar kopyalanır) */
@@ -102,6 +104,12 @@ const farkFor = (base: number | null, kdv: number, site: number | null, kanal: n
   }
   return Math.max(-50, Math.min(200, f0));
 };
+const catalogPrice = (perakende: number | null, secenek: number | null, dahil: boolean, yalniz = false) =>
+  yalniz ? secenek : perakende === null ? null : perakende + (dahil ? (secenek ?? 0) : 0);
+type SecenekModu = "yok" | "dahil" | "yalniz";
+/** Ek seçenek modunun adı ve fiyatı (KDV hariç, teklif ürünündeki gibi) */
+const modeLabel = (c: Pick<CatalogRow, "perakende" | "secenekAd" | "secenekPerakende">, m: SecenekModu) =>
+  `${m === "yok" ? "Seçeneksiz" : m === "dahil" ? `${c.secenekAd} dahil` : `Yalnız ${c.secenekAd?.replace(/\s*dahil$/i, "")}`} · ${tl(catalogPrice(c.perakende, c.secenekPerakende, m === "dahil", m === "yalniz"))}`;
 const numOrNull = (v: string) => (v.trim() === "" || !Number.isFinite(Number(v.replace(",", "."))) ? null : Number(v.replace(",", ".")));
 
 const DURUM: Record<string, { label: string; tone: BadgeTone }> = {
@@ -610,7 +618,7 @@ function ItemSheet({ item, items, channels, catalog, onClose }: { item: EditTarg
   const [f, setF] = useState<Form>({
     stokKodu: it?.stokKodu ?? "", barkod: it?.barkod ?? "", ad: src?.ad ?? "", aciklama: src?.aciklama ?? "", grupKodu: src?.grupKodu ?? "", markaAdi: src?.markaAdi ?? "",
     urunId: it?.urunId ?? null, renk: it?.renk ?? "", olcu: it?.olcu ?? "", gorseller: src?.gorseller ?? [], kdv: src?.kdv ?? 20, aktif: it?.aktif ?? true,
-    secenekDahil: it?.secenekDahil ?? false,
+    secenekDahil: it?.secenekDahil ?? false, yalnizSecenek: it?.yalnizSecenek ?? false,
     desi: src?.desi?.toString() ?? "", agirlik: src?.agirlik?.toString() ?? "", en: src?.en?.toString() ?? "", boy: src?.boy?.toString() ?? "", yukseklik: src?.yukseklik?.toString() ?? "",
     fiyat: it?.fiyat?.toString() ?? "", maliyet: it?.maliyet?.toString() ?? "", stok: (src?.stok ?? 10).toString(), hazirlikGun: (src?.hazirlikGun ?? 3).toString(),
   });
@@ -632,8 +640,8 @@ function ItemSheet({ item, items, channels, catalog, onClose }: { item: EditTarg
   const [up, setUp] = useState(false);
   const [url, setUrl] = useState("");
   const katalog = catalog.find((c) => c.id === f.urunId) ?? null;
-  const katalogFiyat = katalog?.perakende == null ? null : katalog.perakende + (f.secenekDahil ? (katalog.secenekPerakende ?? 0) : 0);
-  const katalogMaliyet = katalog?.maliyet == null ? null : katalog.maliyet + (f.secenekDahil ? (katalog.secenekMaliyet ?? 0) : 0);
+  const katalogFiyat = !katalog ? null : catalogPrice(katalog.perakende, katalog.secenekPerakende, f.secenekDahil, f.yalnizSecenek);
+  const katalogMaliyet = !katalog ? null : f.yalnizSecenek ? katalog.secenekMaliyet : katalog.maliyet == null ? null : katalog.maliyet + (f.secenekDahil ? (katalog.secenekMaliyet ?? 0) : 0);
   const base = numOrNull(f.fiyat) ?? katalogFiyat;
   const desi = desiOf(numOrNull(f.en), numOrNull(f.boy), numOrNull(f.yukseklik));
 
@@ -643,10 +651,12 @@ function ItemSheet({ item, items, channels, catalog, onClose }: { item: EditTarg
 
   function fromCatalog(id: number) {
     const c = catalog.find((x) => x.id === id);
-    if (!c) return setF({ ...f, urunId: null, secenekDahil: false });
+    if (!c) return setF({ ...f, urunId: null, secenekDahil: false, yalnizSecenek: false });
     setF({
       ...f,
       urunId: c.id,
+      secenekDahil: c.secenekAd ? f.secenekDahil : false,
+      yalnizSecenek: c.secenekAd ? f.yalnizSecenek : false,
       ad: f.ad || c.ad,
       stokKodu: f.stokKodu || c.kod.toUpperCase(),
       aciklama: f.aciklama || [c.ad, c.aciklama].filter(Boolean).join("\n\n"),
@@ -715,9 +725,19 @@ function ItemSheet({ item, items, channels, catalog, onClose }: { item: EditTarg
             </select>
           </label>
           {katalog?.secenekAd && (
-            <label className="-mt-1 flex items-center gap-2.5 text-sm">
-              <input type="checkbox" checked={f.secenekDahil} onChange={(e) => setF({ ...f, secenekDahil: e.target.checked })} className="size-4 accent-[var(--primary)]" />
-              “{katalog.secenekAd}” fiyata dahil (+{tl(katalog.secenekPerakende)})
+            <label className="-mt-1 block">
+              <span className={label}>Ek seçenek: “{katalog.secenekAd}”</span>
+              <select
+                value={f.yalnizSecenek ? "yalniz" : f.secenekDahil ? "dahil" : "yok"}
+                onChange={(e) => setF({ ...f, secenekDahil: e.target.value === "dahil", yalnizSecenek: e.target.value === "yalniz" })}
+                className={input}
+              >
+                {(["yok", "dahil", "yalniz"] as const).map((m) => (
+                  <option key={m} value={m}>
+                    {modeLabel(katalog, m)}
+                  </option>
+                ))}
+              </select>
             </label>
           )}
           <label className="block">
@@ -1254,9 +1274,13 @@ function ImportSheet({ open, channels, catalog, onClose }: { open: boolean; chan
   const [pending, start] = useTransition();
   const c = channels.find((x) => x.id === siteId) ?? channels[0];
   const secili = rows.filter((r) => r.sec && !r.bagli);
-  const panelPrice = (r: ImportRow) => {
+  const basePrice = (r: ImportRow) => {
     const k = catalog.find((x) => x.id === r.urunId);
-    return k?.perakende == null ? null : Math.round(k.perakende * 1.2 * (1 + (c?.ayarlar.fiyatFarki ?? 0) / 100));
+    return !k ? null : catalogPrice(k.perakende, k.secenekPerakende, !!k.secenekAd && r.secenek === "dahil", !!k.secenekAd && r.secenek === "yalniz");
+  };
+  const panelPrice = (r: ImportRow) => {
+    const b = basePrice(r);
+    return b === null ? null : Math.round(b * 1.2 * (1 + (c?.ayarlar.fiyatFarki ?? 0) / 100));
   };
 
   const search = () =>
@@ -1281,7 +1305,7 @@ function ImportSheet({ open, channels, catalog, onClose }: { open: boolean; chan
       if (!pv) return;
       const r = await pyWooAktar({
         siteId, disUrunId: pv.urun.id, ad, aciklama: pv.urun.aciklama, grupKodu: grup, kdv: 20,
-        satirlar: secili.map((x) => ({ disVaryantId: x.disVaryantId, stokKodu: x.stokKodu, urunId: x.urunId, olcu: x.olcu, renk: x.renk })),
+        satirlar: secili.map((x) => ({ disVaryantId: x.disVaryantId, stokKodu: x.stokKodu, urunId: x.urunId, secenek: x.secenek, olcu: x.olcu, renk: x.renk })),
       });
       if (!r.ok) return setErr(r.hata);
       router.refresh();
@@ -1377,7 +1401,7 @@ function ImportSheet({ open, channels, catalog, onClose }: { open: boolean; chan
                       {r.urunId && pp !== null && (
                         <span className="text-xs text-muted-foreground">
                           · panel {tl(pp)}
-                          {pp !== r.fiyat && r.fiyat !== null && ` · fark %${farkFor(catalog.find((k) => k.id === r.urunId)?.perakende ?? null, 20, r.fiyat, c?.ayarlar.fiyatFarki ?? 0)?.toLocaleString("tr-TR")} yazılır`}
+                          {pp !== r.fiyat && r.fiyat !== null && ` · fark %${farkFor(basePrice(r), 20, r.fiyat, c?.ayarlar.fiyatFarki ?? 0)?.toLocaleString("tr-TR")} yazılır`}
                         </span>
                       )}
                     </label>
@@ -1386,7 +1410,7 @@ function ImportSheet({ open, channels, catalog, onClose }: { open: boolean; chan
                     ) : (
                       r.sec && (
                         <div className="grid gap-2 pl-6 sm:grid-cols-[1fr_180px]">
-                          <select value={r.urunId ?? ""} onChange={(e) => patch(i, { urunId: Number(e.target.value) || null })} className={input}>
+                          <select value={r.urunId ?? ""} onChange={(e) => patch(i, { urunId: Number(e.target.value) || null, secenek: "yok" })} className={input}>
                             <option value="">Teklif ürününe bağlama (fiyat siteden)</option>
                             {catalog.map((k) => (
                               <option key={k.id} value={k.id}>
@@ -1396,6 +1420,18 @@ function ImportSheet({ open, channels, catalog, onClose }: { open: boolean; chan
                             ))}
                           </select>
                           <input value={r.stokKodu} onChange={(e) => patch(i, { stokKodu: e.target.value.replace(/\s/g, "") })} className={input} placeholder="Stok kodu" />
+                          {(() => {
+                            const k = catalog.find((x) => x.id === r.urunId);
+                            return k?.secenekAd ? (
+                              <select value={r.secenek} onChange={(e) => patch(i, { secenek: e.target.value as ImportRow["secenek"] })} className={cn(input, "sm:col-span-2")} aria-label="Ek seçenek">
+                                {(["yok", "dahil", "yalniz"] as const).map((m) => (
+                                  <option key={m} value={m}>
+                                    {modeLabel(k, m)}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : null;
+                          })()}
                         </div>
                       )
                     )}

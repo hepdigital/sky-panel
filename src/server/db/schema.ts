@@ -476,6 +476,8 @@ export const pazaryeriUrunleri = mysqlTable(
     fiyat: decimal("fiyat", { precision: 12, scale: 2, mode: "number" }),
     /** Bağlı teklif ürününün ek seçeneği (ör. kumaş baskı) fiyata dahil */
     secenekDahil: boolean("secenek_dahil").notNull().default(false),
+    /** Yalnızca ek seçenek satılır (ör. örümcek standın sadece kumaş baskısı): fiyat ve maliyet seçeneğinki */
+    yalnizSecenek: boolean("yalniz_secenek").notNull().default(false),
     /** Birim maliyet (KDV hariç); boşsa bağlı teklif ürününden */
     maliyet: decimal("maliyet", { precision: 12, scale: 2, mode: "number" }),
     stok: int("stok", { unsigned: true }).notNull().default(0),

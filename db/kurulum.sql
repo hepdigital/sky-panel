@@ -376,6 +376,7 @@ CREATE TABLE IF NOT EXISTS pazaryeri_urunleri (
     kdv smallint unsigned NOT NULL DEFAULT 20,
     fiyat decimal(12,2) NULL,
     secenek_dahil tinyint(1) NOT NULL DEFAULT 0,
+    yalniz_secenek tinyint(1) NOT NULL DEFAULT 0,
     maliyet decimal(12,2) NULL,
     stok int unsigned NOT NULL DEFAULT 0,
     hazirlik_gun smallint unsigned NOT NULL DEFAULT 3,

@@ -29,7 +29,7 @@ async function Products() {
       items={items.map((i) => ({
         id: i.id, stokKodu: i.stokKodu, barkod: i.barkod, ad: i.ad, aciklama: i.aciklama ?? "", grupKodu: i.grupKodu, markaAdi: i.markaAdi ?? "", urunId: i.urunId,
         renk: i.renk ?? "", olcu: i.olcu ?? "", gorseller: i.gorseller, desi: i.desi, agirlik: i.agirlik, en: i.en, boy: i.boy, yukseklik: i.yukseklik, kdv: i.kdv,
-        fiyat: i.fiyat, secenekDahil: i.secenekDahil, maliyet: i.maliyet, stok: i.stok, hazirlikGun: i.hazirlikGun, aktif: i.aktif,
+        fiyat: i.fiyat, secenekDahil: i.secenekDahil, yalnizSecenek: i.yalnizSecenek, maliyet: i.maliyet, stok: i.stok, hazirlikGun: i.hazirlikGun, aktif: i.aktif,
         katalogAd: i.katalogAd, katalogFiyat: i.katalogFiyat, katalogMaliyet: i.katalogMaliyet,
         listelemeler: i.listelemeler.map((l) => {
           const ch = channels.find((c) => c.id === l.siteId);
