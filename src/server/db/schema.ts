@@ -509,6 +509,8 @@ export const pazaryeriListelemeleri = mysqlTable(
     ozellikler: longtext("ozellikler"),
     /** Kanala özel satış fiyatı (KDV dahil); boşsa kuralla hesaplanır */
     fiyat: decimal("fiyat", { precision: 12, scale: 2, mode: "number" }),
+    /** Ürüne özel kanal fiyat farkı (%); boşsa kanalın farkı geçerli */
+    fiyatFarki: decimal("fiyat_farki", { precision: 6, scale: 2, mode: "number" }),
     durum: mysqlEnum("durum", LISTELEME_DURUMLARI).notNull().default("taslak"),
     /** Kart pazaryerinde oluştu (sonraki gönderimler güncellemedir) */
     olustu: boolean("olustu").notNull().default(false),

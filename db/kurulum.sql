@@ -399,6 +399,7 @@ CREATE TABLE IF NOT EXISTS pazaryeri_listelemeleri (
     marka_ad varchar(120) NULL,
     ozellikler longtext NULL,
     fiyat decimal(12,2) NULL,
+    fiyat_farki decimal(6,2) NULL,
     durum enum('taslak','gonderildi','onay','yayinda','hata','pasif') NOT NULL DEFAULT 'taslak',
     olustu tinyint(1) NOT NULL DEFAULT 0,
     batch_id varchar(80) NULL,

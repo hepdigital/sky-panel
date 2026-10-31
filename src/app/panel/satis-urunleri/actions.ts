@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/server/auth";
 import {
   categoryAttributes, checkListings, deleteItem, nextBarcode, pushPriceStock, pushWooPrices, refreshCategories, refreshWoo, saveItem, saveSettings, searchBrands, searchCategories,
-  sendListings, wooSearch, wooVariations,
-  type ChannelSettings, type ItemInput,
+  sendListings, wooImport, wooImportPreview, wooSearch, wooVariations,
+  type ChannelSettings, type ItemInput, type WooImportInput,
 } from "@/server/marketplaces/listing";
 
 type Fail = { ok: false; hata: string };
@@ -143,6 +143,28 @@ export async function pyWooYenile(siteId: number, yaz: boolean) {
     return { ok: true as const, ...r, yazilan };
   } catch (e) {
     done();
+    return fail(e);
+  }
+}
+
+/** Siteden aktarım önizlemesi (yalnızca okuma) */
+export async function pyWooOnizle(siteId: number, urunId: number) {
+  await requireAdmin();
+  try {
+    return { ok: true as const, ...(await wooImportPreview(Number(siteId), Number(urunId))) };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Seçilen site ürünü/varyantları için kart açar ve bağlar (sitede değişiklik yapmaz) */
+export async function pyWooAktar(input: WooImportInput) {
+  await requireAdmin();
+  try {
+    const r = await wooImport(input);
+    done();
+    return { ok: true as const, ...r };
+  } catch (e) {
     return fail(e);
   }
 }

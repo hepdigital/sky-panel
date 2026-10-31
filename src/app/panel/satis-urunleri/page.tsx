@@ -34,7 +34,7 @@ async function Products() {
         listelemeler: i.listelemeler.map((l) => {
           const ch = channels.find((c) => c.id === l.siteId);
           return {
-            siteId: l.siteId, aktif: l.aktif, kategoriId: l.kategoriId, kategoriYol: l.kategoriYol, markaId: l.markaId, markaAd: l.markaAd, ozellikler: l.ozellikler, fiyat: l.fiyat,
+            siteId: l.siteId, aktif: l.aktif, kategoriId: l.kategoriId, kategoriYol: l.kategoriYol, markaId: l.markaId, markaAd: l.markaAd, ozellikler: l.ozellikler, fiyat: l.fiyat, fiyatFarki: l.fiyatFarki,
             durum: l.durum, olustu: l.olustu, hata: l.hata, sonGonderim: iso(l.sonGonderim),
             disUrunId: l.disUrunId, disVaryantId: l.disVaryantId, disAd: l.disAd, disFiyat: l.disFiyat,
             satisFiyati: ch ? channelPrice(i, i.katalogFiyat, l, ch.ayarlar) : null,

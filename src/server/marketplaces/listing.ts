@@ -6,7 +6,7 @@ import {
   tyBatch, tyBrands, tyCategories, tyCategoryAttributes, tyPriceStock, tyProductState, tySendProducts,
   type CategoryAttribute, type TyItem,
 } from "./trendyol";
-import { wcCurrent, wcSearch, wcSetPrices, wcVariations } from "./woocommerce";
+import { wcCurrent, wcProduct, wcSearch, wcSetPrices, wcVariations } from "./woocommerce";
 
 // Satış ürünleri çekirdeği. Ürün kartı (pazaryeri_urunleri) tüm kanallarda ortaktır: stok kodu, barkod, görseller,
 // paket ölçüleri/desi, KDV, fiyat, maliyet, stok; isterse bir teklif ürününe bağlanır ve fiyatını oradan alır.
@@ -129,13 +129,15 @@ const basePrice = (item: Pick<Item, "fiyat">, catalog: number | null) => item.fi
 /** Kargo desisi: en × boy × yükseklik (cm) / 3000, bir ondalık */
 export const desiOf = (en: number | null, boy: number | null, yukseklik: number | null) => (en && boy && yukseklik ? Math.round((en * boy * yukseklik) / 300) / 10 : null);
 
-/** Kanaldaki satış fiyatı (KDV dahil, tam TL): kanala özel fiyat ya da taban × KDV × (1 + fark) */
-export function channelPrice(item: Pick<Item, "fiyat" | "kdv">, catalog: number | null, listing: Pick<Listing, "fiyat"> | null, s: ChannelSettings) {
+/** Kanaldaki satış fiyatı (KDV dahil, tam TL): kanala özel fiyat ya da taban × KDV × (1 + fark); fark ürüne özelse o, yoksa kanalınki */
+export function channelPrice(item: Pick<Item, "fiyat" | "kdv">, catalog: number | null, listing: Pick<Listing, "fiyat" | "fiyatFarki"> | null, s: ChannelSettings) {
   if (listing?.fiyat) return Math.round(listing.fiyat);
   const base = basePrice(item, catalog);
   if (base === null) return null;
-  return Math.round(base * (1 + item.kdv / 100) * (1 + s.fiyatFarki / 100));
+  return Math.round(base * (1 + item.kdv / 100) * (1 + (listing?.fiyatFarki ?? s.fiyatFarki) / 100));
 }
+
+const farkOf = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? null : Math.max(-50, Math.min(200, Number(v))));
 
 /* ───────────── kartlar ───────────── */
 
@@ -148,6 +150,8 @@ export type ListingInput = {
   markaAd: string | null;
   ozellikler: Record<string, { v?: number; c?: string }>;
   fiyat: number | null;
+  /** Ürüne özel fiyat farkı (%); boşsa kanalınki */
+  fiyatFarki?: number | null;
   /** WooCommerce: bağlı ürün ve varyant, sitedeki ad ve fiyat (seçilirken okunur) */
   disUrunId?: number | null;
   disVaryantId?: number | null;
@@ -180,6 +184,8 @@ export type ItemInput = {
   hazirlikGun: number;
   aktif: boolean;
   listelemeler: ListingInput[];
+  /** Ad, açıklama, marka, KDV ve hazırlık süresi aynı grup kodlu diğer seçeneklere de yazılır */
+  grubaUygula?: boolean;
 };
 
 export async function listItems() {
@@ -268,7 +274,7 @@ export async function saveItem(input: ItemInput): Promise<{ ok: true; id: number
     }
     const lv = {
       aktif: !!l.aktif, kategoriId: l.kategoriId || null, kategoriYol: clip(l.kategoriYol, 500), markaId: l.markaId || null, markaAd: clip(l.markaAd, 120),
-      ozellikler: JSON.stringify(ozellikler), fiyat: num(l.fiyat),
+      ozellikler: JSON.stringify(ozellikler), fiyat: num(l.fiyat), fiyatFarki: farkOf(l.fiyatFarki),
     };
     const ex = oldListings.find((x) => x.siteId === l.siteId);
     if (!ex) {
@@ -285,7 +291,22 @@ export async function saveItem(input: ItemInput): Promise<{ ok: true; id: number
     else if (ex.durum === "pasif") durum = "onay";
     await db().update(listings).set({ ...lv, durum }).where(eq(listings.id, ex.id));
   }
+  if (input.grubaUygula) await applyToGroup(id, values);
   return { ok: true, id };
+}
+
+/** Ortak alanları gruptaki diğer kartlara yazar; pazaryerinde içeriği değişen kart yeniden gönderilmek üzere taslağa döner */
+async function applyToGroup(id: number, v: Pick<Item, "grupKodu" | "ad" | "aciklama" | "markaAdi" | "kdv" | "hazirlikGun">) {
+  const common = { ad: v.ad, aciklama: v.aciklama, markaAdi: v.markaAdi, kdv: v.kdv, hazirlikGun: v.hazirlikGun };
+  const sibs = await db().select().from(items).where(sql`${items.grupKodu} = ${v.grupKodu} AND ${items.id} <> ${id}`);
+  const changed = sibs.filter((x) => x.ad !== common.ad || x.aciklama !== common.aciklama || x.markaAdi !== common.markaAdi || x.kdv !== common.kdv || x.hazirlikGun !== common.hazirlikGun);
+  if (!changed.length) return;
+  const ids = changed.map((x) => x.id);
+  await db().update(items).set(common).where(inArray(items.id, ids));
+  await db()
+    .update(listings)
+    .set({ durum: "taslak" })
+    .where(and(inArray(listings.urunId, ids), eq(listings.aktif, true), sql`${listings.disUrunId} IS NULL`, inArray(listings.durum, ["onay", "yayinda", "hata"])));
 }
 
 /** WooCommerce bağlantısı: bağlıysa "yayinda", kapalıysa "pasif"; bağlantı değişince fiyat yeniden yazılabilir */
@@ -293,7 +314,7 @@ async function saveWooListing(urunId: number, l: ListingInput, ex: Listing | und
   const disUrunId = l.disUrunId ? Number(l.disUrunId) : null;
   const v = {
     aktif: !!l.aktif && !!disUrunId, disUrunId, disVaryantId: disUrunId && l.disVaryantId ? Number(l.disVaryantId) : null,
-    disAd: clip(l.disAd, 255), disFiyat: num(l.disFiyat), fiyat: num(l.fiyat),
+    disAd: clip(l.disAd, 255), disFiyat: num(l.disFiyat), fiyat: num(l.fiyat), fiyatFarki: farkOf(l.fiyatFarki),
   };
   const durum = v.aktif ? ("yayinda" as const) : ("pasif" as const);
   if (!ex) {
@@ -567,6 +588,149 @@ export async function wooSearch(siteId: number, q: string) {
 
 export async function wooVariations(siteId: number, productId: number) {
   return wcVariations(await wooSiteOf(siteId), productId);
+}
+
+/* Siteden aktarım: sitedeki ürünün her varyantı ayrı kart olur (kendi stok kodu, barkodu, stoku), aynı grup koduyla
+   panelde tek ürün altında görünür; teklif ürünü ölçü ve ad benzerliğiyle önerilir. Sitede hiçbir şey değişmez. */
+
+const TR: Record<string, string> = { ç: "C", ğ: "G", ı: "I", i: "I", ö: "O", ş: "S", ü: "U" };
+const slug = (s: string) =>
+  s
+    .toLocaleLowerCase("tr")
+    .replace(/[çğıiöşü]/g, (c) => TR[c])
+    .toUpperCase()
+    .replace(/×/g, "X")
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+/** Addan kısa kod: en fazla 24 karakter, kelime sınırında */
+const shortSlug = (s: string) => {
+  const full = slug(s);
+  if (full.length <= 24) return full;
+  const cut = full.slice(0, 25);
+  return cut.slice(0, cut.lastIndexOf("-") > 8 ? cut.lastIndexOf("-") : 24);
+};
+/** Kodların tire ile ayrılmış ortak öneki: LB-55X250, LB-75X300 → LB */
+const commonPrefix = (codes: string[]) => {
+  const parts = codes.map((c) => c.split("-"));
+  const out: string[] = [];
+  for (let i = 0; parts.every((x) => x.length > i + 1 && x[i] === parts[0][i]); i++) out.push(parts[0][i]);
+  return out.join("-");
+};
+/** "55 × 250 cm", "55x250" → "55x250" */
+const sizeKey = (s: string | null | undefined) => {
+  const m = (s ?? "").match(/(\d+(?:[.,]\d+)?)\s*[x×*]\s*(\d+(?:[.,]\d+)?)/i);
+  return m ? `${Number(m[1].replace(",", "."))}x${Number(m[2].replace(",", "."))}` : null;
+};
+const STOP = new Set(["cm", "m", "mm", "x", "ve", "ile", "adet"]);
+const words = (s: string) =>
+  new Set(
+    s
+      .toLocaleLowerCase("tr")
+      .replace(/[^a-zçğıöşü0-9]+/g, " ")
+      .split(" ")
+      .filter((w) => w && !/^\d/.test(w) && !STOP.has(w)),
+  );
+
+type CatalogLite = { id: number; kod: string; ad: string; aciklama: string | null };
+/** Teklif ürünü önerisi: ölçü geçiyorsa aynı ölçüdekiler arasından, ad benzerliği en yüksek ve tek olan */
+function suggestCatalog(text: string, catalog: CatalogLite[]) {
+  const key = sizeKey(text);
+  const w = words(text);
+  const scored = catalog
+    .filter((c) => !key || sizeKey(`${c.ad} ${c.aciklama ?? ""}`) === key)
+    .map((c) => ({ c, n: [...words(c.ad)].filter((x) => w.has(x)).length }))
+    .filter((x) => x.n >= (key ? 1 : 2))
+    .sort((a, b) => b.n - a.n);
+  return scored.length && (scored.length === 1 || scored[0].n > scored[1].n) ? scored[0].c : null;
+}
+
+export type WooImportRow = {
+  disVaryantId: number | null; ad: string; sku: string; fiyat: number | null; olcu: string; renk: string; gorsel: string | null;
+  urunId: number | null; stokKodu: string; bagli: string | null;
+};
+
+/** Aktarım önizlemesi: varyant başına önerilen stok kodu ve teklif ürünü; zaten bir karta bağlı olanlar işaretli */
+export async function wooImportPreview(siteId: number, productId: number) {
+  await ensureMarketplaceSchema();
+  const p = await wcProduct(await wooSiteOf(siteId), productId);
+  const [catalog, linked, codes] = await Promise.all([
+    db().select({ id: urunler.id, kod: urunler.kod, ad: urunler.ad, aciklama: urunler.aciklama }).from(urunler).where(eq(urunler.aktif, true)),
+    db()
+      .select({ v: listings.disVaryantId, ad: items.ad, stokKodu: items.stokKodu })
+      .from(listings)
+      .innerJoin(items, eq(items.id, listings.urunId))
+      .where(and(eq(listings.siteId, siteId), eq(listings.disUrunId, productId))),
+    db().select({ k: items.stokKodu }).from(items),
+  ]);
+  const used = new Set(codes.map((c) => c.k.toUpperCase()));
+  const unique = (k: string) => {
+    let out = k || "URUN";
+    for (let n = 2; used.has(out.toUpperCase()); n++) out = `${k}-${n}`;
+    used.add(out.toUpperCase());
+    return out;
+  };
+  const vs = p.varyantli ? [...p.varyantlar].sort((a, b) => a.id - b.id) : [{ id: 0, ad: "", sku: p.sku, fiyat: p.fiyat, nitelikler: [], gorsel: null }];
+  const matches = vs.map((v) => suggestCatalog(`${p.ad} ${v.ad}`, catalog));
+  // Stok kodu: sitedeki stok kodu, yoksa eşleşen teklif ürününün kodu (LB-55X250), yoksa addan kısa kod; grup kodu bunların ortak öneki
+  const codes2 = matches.map((c) => c?.kod.toUpperCase() ?? null);
+  const common = vs.length > 1 && codes2.every(Boolean) ? commonPrefix(codes2 as string[]) : "";
+  const base = p.sku || common || shortSlug(p.ad);
+  const rows = vs.map((v, i): WooImportRow => {
+    const renk = v.nitelikler.filter((a) => /renk|color/i.test(a.ad)).map((a) => a.deger).join(" ");
+    const olcu = v.nitelikler.filter((a) => !/renk|color/i.test(a.ad)).map((a) => a.deger).join(" ");
+    const c = matches[i];
+    const l = linked.find((x) => (x.v ?? 0) === v.id);
+    const own = p.varyantli ? `${base}-${shortSlug(v.ad.replace(/\s*(cm|mm|m)$/i, ""))}` : base;
+    // Varyantın kendi stok kodu yoksa WooCommerce ana ürününkini gösterir: o varyanta ait sayılmaz
+    const sku = v.sku && (!p.varyantli || v.sku !== p.sku) ? v.sku : "";
+    return {
+      disVaryantId: v.id || null, ad: v.ad, sku: v.sku, fiyat: v.fiyat, olcu, renk, gorsel: v.gorsel, urunId: c?.id ?? null,
+      stokKodu: l ? l.stokKodu : unique(sku || codes2[i] || own),
+      bagli: l ? l.ad : null,
+    };
+  });
+  // Tek ürünün grup kodu kendi stok kodudur
+  return { urun: { id: p.id, ad: p.ad, sku: p.sku, varyantli: p.varyantli, aciklama: p.aciklama, gorseller: p.gorseller }, grupKodu: p.varyantli ? base : rows[0].stokKodu, satirlar: rows };
+}
+
+export type WooImportInput = {
+  siteId: number; disUrunId: number; ad: string; aciklama: string; grupKodu: string; kdv: number;
+  satirlar: { disVaryantId: number | null; stokKodu: string; urunId: number | null; olcu: string; renk: string }[];
+};
+
+/**
+ * Seçilen varyantlar için kart açar ve sitedeki varyanta bağlar. Fiyat ve görseller siteden yeniden okunur; teklif ürününe
+ * bağlananın fiyatı teklif ürününden gelir, bağlanmayanın KDV hariç fiyatı sitedeki fiyattan çıkarılır.
+ */
+export async function wooImport(input: WooImportInput) {
+  await ensureMarketplaceSchema();
+  const p = await wcProduct(await wooSiteOf(input.siteId), input.disUrunId);
+  const kdv = [0, 1, 10, 20].includes(Number(input.kdv)) ? Number(input.kdv) : 20;
+  const hatalar: string[] = [];
+  let eklenen = 0;
+  for (const r of input.satirlar) {
+    const v = r.disVaryantId ? p.varyantlar.find((x) => x.id === Number(r.disVaryantId)) : null;
+    if (r.disVaryantId && !v) {
+      hatalar.push(`#${r.disVaryantId}: sitede bu varyant yok`);
+      continue;
+    }
+    const siteFiyat = v ? v.fiyat : p.fiyat;
+    const res = await saveItem({
+      id: null, stokKodu: r.stokKodu, barkod: await nextBarcode(), ad: input.ad || p.ad, aciklama: input.aciklama, grupKodu: input.grupKodu, markaAdi: "",
+      urunId: r.urunId || null, renk: r.renk, olcu: r.olcu, gorseller: [...new Set([v?.gorsel, ...p.gorseller].filter((g): g is string => !!g))].slice(0, 8),
+      desi: null, agirlik: null, en: null, boy: null, yukseklik: null, kdv,
+      fiyat: r.urunId || siteFiyat === null ? null : Math.round((siteFiyat / (1 + kdv / 100)) * 100) / 100,
+      secenekDahil: false, maliyet: null, stok: 10, hazirlikGun: 3, aktif: true,
+      listelemeler: [{
+        siteId: input.siteId, aktif: true, kategoriId: null, kategoriYol: null, markaId: null, markaAd: null, ozellikler: {}, fiyat: null,
+        disUrunId: p.id, disVaryantId: v?.id ?? null, disAd: v ? `${p.ad} · ${v.ad}` : p.ad, disFiyat: siteFiyat,
+      }],
+    });
+    if (res.ok) eklenen++;
+    else hatalar.push(`${r.stokKodu}: ${res.hata}`);
+  }
+  return { eklenen, hatalar };
 }
 
 /** Bağlı ürünlerin sitedeki adını ve fiyatını yeniden okur; sitede bulunamayan bağlantı hataya düşer */

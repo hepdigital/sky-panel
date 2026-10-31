@@ -49,6 +49,7 @@ const TABLES = [
     marka_ad varchar(120) NULL,
     ozellikler longtext NULL,
     fiyat decimal(12,2) NULL,
+    fiyat_farki decimal(6,2) NULL,
     durum enum('taslak','gonderildi','onay','yayinda','hata','pasif') NOT NULL DEFAULT 'taslak',
     olustu tinyint(1) NOT NULL DEFAULT 0,
     batch_id varchar(80) NULL,
@@ -109,6 +110,7 @@ const COLUMNS: [table: string, column: string, def: string][] = [
   ["pazaryeri_listelemeleri", "dis_varyant_id", "int unsigned NULL AFTER dis_urun_id"],
   ["pazaryeri_listelemeleri", "dis_ad", "varchar(255) NULL AFTER dis_varyant_id"],
   ["pazaryeri_listelemeleri", "dis_fiyat", "decimal(12,2) NULL AFTER dis_ad"],
+  ["pazaryeri_listelemeleri", "fiyat_farki", "decimal(6,2) NULL AFTER fiyat"],
 ];
 
 async function columnType(table: string, column: string) {

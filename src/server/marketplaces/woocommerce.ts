@@ -136,3 +136,38 @@ export async function wcSetPrices(site: Site, updates: { urunId: number; varyant
     }));
   }
 }
+
+export type WcDetail = {
+  id: number; ad: string; sku: string; varyantli: boolean; aciklama: string; gorseller: string[]; fiyat: number | null;
+  varyantlar: { id: number; ad: string; sku: string; fiyat: number | null; nitelikler: { ad: string; deger: string }[]; gorsel: string | null }[];
+};
+
+/** HTML açıklamayı düz metne çevirir (paragraflar boş satırla) */
+const plain = (html: string) =>
+  decode(
+    html
+      .replace(/<\s*br\s*\/?>/gi, "\n")
+      .replace(/<\/\s*(p|div|li|h\d)\s*>/gi, "\n\n")
+      .replace(/<li[^>]*>/gi, "• ")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " "),
+  )
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+/** Siteden karta aktarım için ürün ayrıntısı: açıklama, görseller ve varyantlar (yalnızca okuma) */
+export async function wcProduct(site: Site, id: number): Promise<WcDetail> {
+  const tax = await siteTax(site);
+  const p = (await wcRequest(site, `/products/${id}`)) as WcProduct & { description: string; short_description: string };
+  const list = p.type === "variable" ? ((await wcRequest(site, `/products/${id}/variations?per_page=100`)) as WcVariation[]) : [];
+  return {
+    id: p.id, ad: decode(p.name), sku: p.sku, varyantli: p.type === "variable", aciklama: plain(p.description || p.short_description || ""),
+    gorseller: p.images.map((g) => g.src).filter((g) => g.startsWith("https://")).slice(0, 8), fiyat: gross(tax, p.price, p),
+    varyantlar: list.map((v) => ({
+      id: v.id, ad: variationName(v), sku: v.sku, fiyat: gross(tax, v.price, v, p.tax_class),
+      nitelikler: v.attributes.map((a) => ({ ad: a.name, deger: a.option })), gorsel: v.image?.src?.startsWith("https://") ? v.image.src : null,
+    })),
+  };
+}
