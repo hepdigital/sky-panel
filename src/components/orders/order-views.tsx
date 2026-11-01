@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, CircleCheckBig, Globe, ListPlus, RefreshCw, ClipboardList, Factory, FileDown, PackageCheck, Search, Truck, XCircle, type LucideIcon } from "lucide-react";
-import { siparisDurumu, siteleriEsitle } from "@/app/panel/siparisler/actions";
+import { siparisDurumu, siparisKargo, siteleriEsitle } from "@/app/panel/siparisler/actions";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { BrandFilter, BrandTag, type BrandOption } from "@/components/brand/bran
 import { QuoteItems } from "@/components/terminal/quote-items";
 import type { PdfData } from "@/lib/terminal/calc";
 import { downloadPdf } from "@/lib/terminal/pdf";
+import { KARGOLAR, kargoAd, takipLinki } from "@/lib/cargo";
 import { cn, formatDate, formatTRY } from "@/lib/utils";
 import { OpenDesigns, type OpenDesign } from "./open-designs";
 
@@ -188,7 +189,7 @@ export function OrderTable({
                   </div>
                   <p className="col-span-2 text-xs text-muted-foreground md:col-span-1">
                     {brands.length > 1 && <BrandTag ad={o.marka} renk={o.markaRenk} className="mr-1.5" />}
-                    {o.kaynak === "site" ? "Site siparişi" : (o.satisci ?? "—")} · {formatDate(o.olusturma, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    {o.kaynak === "site" ? (o.satisci ? `Ödeme linki · ${o.satisci}` : "Site siparişi") : (o.satisci ?? "—")} · {formatDate(o.olusturma, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </Link>
               </li>
@@ -212,6 +213,9 @@ type Order = {
   musteriId: number | null;
   veri: PdfData;
   marka: string | null;
+  /** Müşteri kartındaki telefon (kargo bilgisini WhatsApp'tan göndermek için) */
+  telefon: string | null;
+  kargo: { firma: string | null; takipNo: string | null; tarih: string | null };
 };
 
 export function OrderDetail({ order }: { order: Order }) {
@@ -318,6 +322,8 @@ export function OrderDetail({ order }: { order: Order }) {
         {msg && <p className="mt-2 text-xs text-muted-foreground">{msg}</p>}
       </Card>
 
+      <CargoCard order={order} />
+
       {/* Müşteri ve kalemler */}
       <Card className="mt-4 px-5 py-4">
         <p className="text-xs text-muted-foreground">Müşteri</p>
@@ -346,5 +352,72 @@ export function OrderDetail({ order }: { order: Order }) {
         </Card>
       )}
     </div>
+  );
+}
+
+/** Tekliften dönen siparişin kargosu: firma + takip no, takip linki, müşteriye WhatsApp ile gönderim */
+function CargoCard({ order }: { order: Order }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [firma, setFirma] = useState(order.kargo.firma ?? "");
+  const [takipNo, setTakipNo] = useState(order.kargo.takipNo ?? "");
+  const [msg, setMsg] = useState<string | null>(null);
+  const link = takipLinki(order.kargo.firma, order.kargo.takipNo);
+  const save = (kargodaYap: boolean) =>
+    start(async () => {
+      const r = await siparisKargo(order.id, firma, takipNo, kargodaYap);
+      setMsg(r.ok ? (kargodaYap ? "Kargoya verildi." : "Kargo bilgisi kaydedildi.") : r.hata);
+      router.refresh();
+    });
+  const input = "h-10 w-full rounded-xl border border-input bg-card px-3 text-sm outline-none focus:border-primary";
+  const phone = (order.telefon ?? "").replace(/\D/g, "").replace(/^(90|0)/, "");
+  const text = `Merhaba${order.veri.yetkili ? ` ${order.veri.yetkili}` : ""}, ${order.no} numaralı siparişiniz ${kargoAd(order.kargo.firma)} ile gönderildi.${order.kargo.takipNo ? ` Takip numarası: ${order.kargo.takipNo}.` : ""}${link ? `\nTakip: ${link}` : ""}`;
+  return (
+    <Card className="mt-4 p-5">
+      <h2 className="flex items-center gap-1.5 text-[15px] font-semibold">
+        <Truck className="size-4" /> Kargo
+      </h2>
+      {order.kargo.firma && (
+        <div className="mt-2 rounded-lg bg-muted/60 px-3 py-2 text-xs">
+          <p>
+            <span className="font-semibold">{kargoAd(order.kargo.firma)}</span>
+            {order.kargo.takipNo ? ` · takip no ${order.kargo.takipNo}` : ""}
+            {order.kargo.tarih ? ` · ${formatDate(order.kargo.tarih, { day: "numeric", month: "short" })}` : ""}
+          </p>
+          <div className="mt-1 flex flex-wrap gap-3">
+            {link && (
+              <a href={link} target="_blank" rel="noopener" className="font-semibold text-primary hover:underline">
+                Takip et
+              </a>
+            )}
+            {phone.length === 10 && (
+              <a href={`https://wa.me/90${phone}?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener" className="font-semibold text-[#128C7E] hover:underline">
+                WhatsApp ile müşteriye gönder
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
+        <select value={firma} onChange={(e) => setFirma(e.target.value)} className={input}>
+          <option value="">Kargo firması…</option>
+          {KARGOLAR.map((k) => (
+            <option key={k.key} value={k.key}>
+              {k.label}
+            </option>
+          ))}
+        </select>
+        <input value={takipNo} onChange={(e) => setTakipNo(e.target.value)} placeholder="Takip no" className={input} />
+        <Button size="sm" variant="outline" className="h-10" disabled={pending || !firma} onClick={() => save(false)}>
+          Kaydet
+        </Button>
+        {order.durum !== "kargoda" && order.durum !== "teslim" && order.durum !== "iptal" && (
+          <Button size="sm" className="h-10" disabled={pending || !firma} onClick={() => save(true)}>
+            <Truck /> Kaydet ve kargoya ver
+          </Button>
+        )}
+      </div>
+      {msg && <p className="mt-2 text-xs text-muted-foreground">{msg}</p>}
+    </Card>
   );
 }

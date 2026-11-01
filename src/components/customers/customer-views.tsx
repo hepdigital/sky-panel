@@ -8,7 +8,7 @@ import { OrderBadge, type OrderStatus } from "@/components/orders/order-views";
 import { ASAMA, type Asama } from "@/components/terminal/quote-flow";
 import { BrandTag } from "@/components/brand/brand-filter";
 import { Avatar } from "@/components/tasks/task-meta";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn, formatDate, formatTRY } from "@/lib/utils";
@@ -186,7 +186,11 @@ type Detail = CustomerDraft & {
   markaRenk: string | null;
   site: string | null;
   quotes: { id: number; no: string; olusturma: string; asama: Asama; dahil: number; satisci: string | null }[];
-  orders: { id: number; no: string; olusturma: string; durum: OrderStatus; dahil: number; satisci: string | null }[];
+  orders: { id: number; no: string; olusturma: string; durum: OrderStatus; dahil: number; satisci: string | null; kaynak: "teklif" | "site"; odemeDurumu: string | null }[];
+  /** Aynı telefon/e-postayla gelen site talepleri ve konfigüratör tasarımları */
+  talepler: { id: number; tur: string; turAd: string; durum: string; ozet: string; toplam: string | null; tarih: string }[];
+  /** Aynı telefona açılan ödeme linkleri */
+  linkler: { id: number; no: string; toplam: number; aciklama: string | null; tarih: string; siparisId: number | null; durum: "bekliyor" | "odendi" | "iptal" }[];
 };
 
 /** wa.me numarası: 05xx… / 5xx… / +90 5xx… → 905xx… */
@@ -196,6 +200,9 @@ function wa(tel: string) {
   if (d.length === 11 && d.startsWith("0")) return `9${d}`;
   return d;
 }
+
+const TALEP_AD: Record<string, string> = { yeni: "Yeni", arandi: "Arandı", teklif: "Teklif verildi", kazanildi: "Satışa döndü", kaybedildi: "Olumsuz" };
+const TALEP_TON: Record<string, BadgeTone> = { yeni: "danger", arandi: "info", teklif: "warning", kazanildi: "success", kaybedildi: "neutral" };
 
 export function CustomerDetail({ c, admin, groups, staff, brands }: { c: Detail; admin: boolean; groups: Group[]; staff: Staff[]; brands: BrandOpt[] }) {
   const [editing, setEditing] = useState(false);
@@ -314,8 +321,61 @@ export function CustomerDetail({ c, admin, groups, staff, brands }: { c: Detail;
                           {o.satisci ? ` · ${o.satisci}` : ""}
                         </p>
                       </div>
+                      {o.kaynak === "site" && o.odemeDurumu !== "odendi" && o.durum !== "iptal" && <span className="text-[11px] font-semibold text-warning">ödeme bekleniyor</span>}
                       <OrderBadge durum={o.durum} />
                       <span className="tabular w-24 text-right text-sm font-bold">{TL(o.dahil)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+          {c.talepler.length > 0 && (
+            <Card className="overflow-hidden">
+              <h2 className="px-5 pt-4 pb-3 text-[15px] font-semibold">Talepler ve tasarımlar</h2>
+              <ul className="divide-y divide-border border-t border-border">
+                {c.talepler.map((t) => (
+                  <li key={t.id}>
+                    <Link href={t.tur === "konfigurator" ? "/panel/siparisler" : "/panel/talepler"} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/40">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">{t.turAd}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {formatDate(t.tarih, { day: "numeric", month: "short", year: "numeric" })} · {t.ozet}
+                        </p>
+                      </div>
+                      <Badge tone={TALEP_TON[t.durum] ?? "neutral"}>{TALEP_AD[t.durum] ?? t.durum}</Badge>
+                      {t.toplam && <span className="tabular w-24 text-right text-sm font-bold">{t.toplam}</span>}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+          <Card className="overflow-hidden">
+            <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
+              <h2 className="text-[15px] font-semibold">Ödeme linkleri</h2>
+              {c.telefon && (
+                <Link
+                  href={`/panel/odeme-linkleri?${new URLSearchParams({ musteri: c.yetkili ? `${c.yetkili}${c.firma && c.firma !== c.yetkili ? ` (${c.firma})` : ""}` : c.firma, telefon: c.telefon, ...(c.eposta ? { eposta: c.eposta } : {}) })}`}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  + Ödeme linki oluştur
+                </Link>
+              )}
+            </div>
+            {!c.linkler.length ? (
+              <p className="border-t border-border px-5 py-6 text-center text-sm text-muted-foreground">Bu müşteriye ödeme linki açılmadı.</p>
+            ) : (
+              <ul className="divide-y divide-border border-t border-border">
+                {c.linkler.map((l) => (
+                  <li key={l.id}>
+                    <Link href={l.siparisId ? `/panel/siparisler/${l.siparisId}` : "/panel/odeme-linkleri"} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/40">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">Sipariş {l.no}{l.aciklama ? ` · ${l.aciklama}` : ""}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(l.tarih, { day: "numeric", month: "short", year: "numeric" })}</p>
+                      </div>
+                      <Badge tone={l.durum === "odendi" ? "success" : l.durum === "iptal" ? "neutral" : "warning"}>{l.durum === "odendi" ? "Ödendi" : l.durum === "iptal" ? "İptal" : "Ödeme bekleniyor"}</Badge>
+                      <span className="tabular w-24 text-right text-sm font-bold">{TL(l.toplam)}</span>
                     </Link>
                   </li>
                 ))}

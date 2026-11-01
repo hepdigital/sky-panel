@@ -5,7 +5,7 @@ import { connection } from "next/server";
 import { OrderDetail } from "@/components/orders/order-views";
 import { SiteOrderDetail } from "@/components/orders/site-order";
 import { requireSeller } from "@/server/auth";
-import { getOrder } from "@/server/orders";
+import { getOrder, orderCargo } from "@/server/orders";
 import { refreshNotes } from "@/server/sites";
 
 export const metadata: Metadata = { title: "Sipariş" };
@@ -31,11 +31,13 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
         veri={o.veri} o={o.siteVeri}
       />
     );
+  const kargo = await orderCargo(o.id);
   return (
     <OrderDetail
       order={{
         id: o.id, no: o.no, olusturma: o.olusturma.toISOString(), durum: o.durum, notlar: o.notlar, satisci: o.satisci,
         teklifId: o.teklifId, teklifNo: o.teklifNo, musteriId: o.musteriId, veri: o.veri, marka: o.marka,
+        telefon: o.musteriTelefon, kargo,
       }}
     />
   );

@@ -30,7 +30,17 @@ const whatsapp = (telefon: string, musteri: string, toplam: number, link: string
     `Merhaba ${musteri}, ${formatTRY(toplam)} tutarındaki ödemenizi kredi kartına taksitle aşağıdaki linkten yapabilirsiniz:\n${link}`,
   )}`;
 
-export function PaymentLinks({ sites, rows, komisyonOrani }: { sites: Site[]; rows: LinkRow[]; komisyonOrani: number }) {
+export function PaymentLinks({
+  sites,
+  rows,
+  komisyonOrani,
+  initial,
+}: {
+  sites: Site[];
+  rows: LinkRow[];
+  komisyonOrani: number;
+  initial: { musteri: string; telefon: string; eposta: string };
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [siteId, setSiteId] = useState(sites[0]?.id ?? 0);
@@ -102,15 +112,15 @@ export function PaymentLinks({ sites, rows, komisyonOrani }: { sites: Site[]; ro
               )}
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-muted-foreground">Müşteri adı soyadı / firma</span>
-                <input name="musteri" required className={inputCls} />
+                <input name="musteri" required defaultValue={initial.musteri} className={inputCls} />
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-muted-foreground">Telefon</span>
-                <input name="telefon" required inputMode="tel" placeholder="0532 123 45 67" className={inputCls} />
+                <input name="telefon" required inputMode="tel" placeholder="0532 123 45 67" defaultValue={initial.telefon} className={inputCls} />
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-muted-foreground">E-posta (isteğe bağlı, makbuz için)</span>
-                <input name="eposta" type="email" className={inputCls} />
+                <input name="eposta" type="email" defaultValue={initial.eposta} className={inputCls} />
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-muted-foreground">Açıklama (müşteri görür)</span>

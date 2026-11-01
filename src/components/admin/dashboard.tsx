@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CalendarDays, CheckCircle2, Eye, FilePlus2, FileText, ListPlus, Send, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowRight, CalendarDays, CheckCircle2, Clock, Eye, FilePlus2, FileText, Inbox, Link2, ListPlus, Send, ShoppingCart, Wallet, type LucideIcon } from "lucide-react";
 import { OrderBadge, ORDER_STATUS, type OrderStatus } from "@/components/orders/order-views";
 import { ASAMA } from "@/components/terminal/quote-flow";
 import { Avatar, PriorityTag, STATUS, dueText } from "@/components/tasks/task-meta";
@@ -85,8 +85,16 @@ export function Dashboard({ greeting, role, period, brands, activeBrand, sites, 
             <Kpi icon={FileText} label="Verilen teklif" value={String(data.teklif.adet)} hint={TL(data.teklif.tutar)} />
             <Kpi icon={Send} label="Müşteriye gönderilen" value={String(data.teklif.gonderilen)} hint={`${data.teklif.gorulen} tanesi görüldü · ${data.teklif.bekleyen} yanıt bekliyor`} />
             <Kpi icon={CheckCircle2} label="Onaylanan teklif" value={String(data.teklif.onaylanan)} hint={`Dönüşüm ${data.teklif.adet ? pct(data.teklif.onaylanan / data.teklif.adet) : "—"}${data.teklif.reddedilen ? ` · ${data.teklif.reddedilen} red` : ""}`} tone="success" />
-            <Kpi icon={Wallet} label="Sipariş (KDV dahil)" value={TL(data.siparis.tutar)} hint={`${data.siparis.adet} sipariş`} tone="primary" />
+            <Kpi
+              icon={Wallet}
+              label="Ciro (ödenen, KDV dahil)"
+              value={TL(data.siparis.tutar)}
+              hint={`${data.siparis.adet} sipariş${admin && data.siparis.karTutar ? ` · kâr ${TL(data.siparis.kar ?? 0)} (%${Math.round(((data.siparis.kar ?? 0) / data.siparis.karTutar) * 100)})` : ""}`}
+              tone="primary"
+            />
           </section>
+
+          <FollowUps t={data.takip} />
 
           <section className="grid gap-4 md:gap-5 lg:grid-cols-12">
             <div className="min-w-0 space-y-4 md:space-y-5 lg:col-span-8">
@@ -96,6 +104,7 @@ export function Dashboard({ greeting, role, period, brands, activeBrand, sites, 
             </div>
             <div className="min-w-0 space-y-4 md:space-y-5 lg:col-span-4">
               {sites.length > 0 && <Sites sites={sites} />}
+              <Sources rows={data.kaynaklar} showBrand={!activeBrand && brands.length > 1} note={admin && data.siparis.maliyetsiz ? `${data.siparis.maliyetsiz} siparişin maliyeti eksik; kâra katılmadı.` : null} />
               <OpenOrders acik={data.acik} />
               <Channels rows={data.kanallar} />
               <MyTasks tasks={tasks} />
@@ -361,3 +370,58 @@ function MyTasks({ tasks, big }: { tasks: TaskRow[]; big?: boolean }) {
   );
 }
 
+
+/** Takip edilecekler: ödeme bekleyen site siparişleri, aranmamış tasarımlar, yeni talepler, açık ödeme linkleri */
+function FollowUps({ t }: { t: DashboardData["takip"] }) {
+  const items: { icon: LucideIcon; label: string; value: string; hint: string; href: string; warn: boolean }[] = [
+    { icon: Clock, label: "Ödeme bekleyen site siparişi", value: String(t.odemeBekleyen.adet), hint: t.odemeBekleyen.adet ? `${TL(t.odemeBekleyen.tutar)} · son 30 gün` : "son 30 gün", href: "/panel/siparisler?kaynak=site", warn: t.odemeBekleyen.adet > 0 },
+    { icon: ShoppingCart, label: "Aranmamış tasarım", value: String(t.tasarim), hint: "konfigüratörde telefon bırakanlar", href: "/panel/siparisler", warn: t.tasarim > 0 },
+    { icon: Inbox, label: "Yeni talep", value: String(t.talep), hint: "toptan, bayilik, iletişim formları", href: "/panel/talepler", warn: t.talep > 0 },
+    { icon: Link2, label: "Açık ödeme linki", value: String(t.odemeLinki.adet), hint: t.odemeLinki.adet ? `${TL(t.odemeLinki.tutar)} ödeme bekliyor` : "ödenmemiş link yok", href: "/panel/odeme-linkleri", warn: false },
+  ];
+  return (
+    <section className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+      {items.map((x) => (
+        <Link key={x.label} href={x.href} className={cn("group rounded-2xl border bg-card px-4 py-3 transition-colors hover:border-primary", x.warn ? "border-warning/50" : "border-border")}>
+          <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <x.icon className={cn("size-3.5", x.warn && "text-warning")} /> {x.label}
+          </p>
+          <p className="tabular mt-1 text-xl font-bold">{x.value}</p>
+          <p className="truncate text-[11px] text-muted-foreground">{x.hint}</p>
+        </Link>
+      ))}
+    </section>
+  );
+}
+
+/** Ciro nereden geliyor: tekliften dönen siparişler, siteler ve pazaryerleri (dönemde, ödenmiş) */
+function Sources({ rows, showBrand, note }: { rows: DashboardData["kaynaklar"]; showBrand: boolean; note: string | null }) {
+  const total = rows.reduce((a, r) => a + r.tutar, 0);
+  return (
+    <Section title="Ciro kaynakları">
+      {!rows.length ? (
+        <Empty text="Bu dönemde ödenmiş sipariş yok." />
+      ) : (
+        <ul className="space-y-3 border-t border-border px-5 py-4">
+          {rows.map((r) => (
+            <li key={`${r.ad}-${r.marka}`}>
+              <div className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="min-w-0 truncate font-semibold">
+                  {r.ad}
+                  {showBrand && r.marka ? <span className="font-normal text-muted-foreground"> · {r.marka}</span> : null}
+                </span>
+                <span className="tabular shrink-0 text-xs text-muted-foreground">
+                  {r.adet} sipariş · <span className="font-semibold text-foreground">{TL(r.tutar)}</span>
+                </span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${total ? (r.tutar / total) * 100 : 0}%` }} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {note && <p className="px-5 pb-4 text-[11px] text-muted-foreground">{note}</p>}
+    </Section>
+  );
+}

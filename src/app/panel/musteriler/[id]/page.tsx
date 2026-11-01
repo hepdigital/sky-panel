@@ -32,6 +32,8 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
         grup: c.grup ? { id: c.grup.id, ad: c.grup.ad, fiyatListesi: c.grup.fiyatListesi, oran: c.grup.oran } : null,
         quotes: c.quotes.map((q) => ({ ...q, olusturma: q.olusturma.toISOString() })),
         orders: c.orders.map((o) => ({ ...o, olusturma: o.olusturma.toISOString() })),
+        talepler: c.talepler.map((t) => ({ ...t, tarih: t.tarih.toISOString() })),
+        linkler: c.linkler.map((l) => ({ ...l, tarih: l.tarih.toISOString() })),
       }}
     />
   );

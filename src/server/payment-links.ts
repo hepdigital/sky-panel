@@ -196,3 +196,15 @@ export async function installmentTable(me: Me, siteId: number, tutar: number): P
     return { ok: false, hata: "Taksit bilgisi alınamadı." };
   }
 }
+
+/** Site siparişi bir ödeme linkinden geldiyse linki açan satışçı (sipariş eşitlemesi siparişi ona bağlar) */
+export async function paymentLinkOwner(siteId: number, disId: string | number | null | undefined): Promise<number | null> {
+  if (!disId || !/^\d+$/.test(String(disId))) return null;
+  try {
+    await ensureTable();
+    const [[r]] = (await db().execute(sql`SELECT kullanici_id FROM odeme_linkleri WHERE site_id = ${siteId} AND dis_id = ${Number(disId)} LIMIT 1`)) as unknown as [{ kullanici_id: number | null }[]];
+    return r?.kullanici_id ?? null;
+  } catch {
+    return null;
+  }
+}

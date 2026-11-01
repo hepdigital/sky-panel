@@ -174,6 +174,33 @@ export function SiteOrderDetail({ id, no, marka, site, disDurum, odemeYontemi, o
               </div>
             ) : (
             <>
+            {o.kargo.firma && (
+              <div className="mt-1 rounded-lg bg-muted/60 px-3 py-2 text-xs">
+                <p>
+                  <span className="font-semibold">{v.kargolar.find((k) => k.key === o.kargo.firma)?.label ?? o.kargo.firma}</span>
+                  {o.kargo.takipNo ? ` · takip no ${o.kargo.takipNo}` : ""}
+                </p>
+                <div className="mt-1 flex flex-wrap gap-3">
+                  {o.kargo.link && (
+                    <a href={o.kargo.link} target="_blank" rel="noopener" className="inline-flex items-center gap-1 font-semibold text-primary hover:underline">
+                      Takip et <ExternalLink className="size-3" />
+                    </a>
+                  )}
+                  {o.musteri.telefon && (
+                    <a
+                      href={`https://wa.me/90${o.musteri.telefon.replace(/\D/g, "").replace(/^(90|0)/, "")}?text=${encodeURIComponent(
+                        `Merhaba ${o.musteri.ad}, ${no} numaralı siparişiniz ${v.kargolar.find((k) => k.key === o.kargo.firma)?.label ?? o.kargo.firma} ile gönderildi.${o.kargo.takipNo ? ` Takip numarası: ${o.kargo.takipNo}.` : ""}${o.kargo.link ? `\nTakip: ${o.kargo.link}` : ""}`,
+                      )}`}
+                      target="_blank"
+                      rel="noopener"
+                      className="font-semibold text-[#128C7E] hover:underline"
+                    >
+                      WhatsApp ile müşteriye gönder
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="mt-1 grid grid-cols-[1fr_1fr] gap-2">
               {v.kargolar.length ? (
                 <select value={kargo.firma} onChange={(e) => setKargo({ ...kargo, firma: e.target.value })} className={input}>

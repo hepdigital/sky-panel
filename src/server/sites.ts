@@ -1,7 +1,9 @@
 import "server-only";
 import { and, asc, eq, or, sql } from "drizzle-orm";
+import { KARGOLAR, kargoAd, takipLinki } from "@/lib/cargo";
 import type { PdfData } from "@/lib/terminal/calc";
 import { db, schema } from "./db";
+import { paymentLinkOwner } from "./payment-links";
 import { ensureMarketplaceSchema } from "./db/ensure";
 import { marketplaceTick } from "./marketplaces/listing";
 import { TY_PANEL_STATUS, tyAction, tyFetch, tyKeyValid, tyTest } from "./marketplaces/trendyol";
@@ -148,7 +150,12 @@ function wcToOrder(site: Site, o: WcOrder, notes: { note: string; customer_note:
     kdv,
     toplam: n(o.total),
     kargoUcreti: n(o.shipping_total),
-    kargo: { firma: null, takipNo: metaOf(o, "_tracking_number", "tracking_number", "_kargo_takip_no"), gonderim: null },
+    // Panelden yazılan kargo bilgisi siparişin meta alanlarında (_sky_kargo_*); eski eklentilerin takip numarası da okunur
+    kargo: (() => {
+      const firma = metaOf(o, "_sky_kargo_firma");
+      const takipNo = metaOf(o, "_sky_kargo_takip_no", "_tracking_number", "tracking_number", "_kargo_takip_no");
+      return { firma, takipNo, gonderim: metaOf(o, "_sky_kargo_tarih"), link: takipLinki(firma, takipNo) };
+    })(),
     kalemler: o.line_items.map((li) => {
       const total = n(li.total) + n(li.total_tax);
       const secenekler: Record<string, string> = {};
@@ -182,7 +189,7 @@ async function wcVocabulary(site: Site): Promise<Vocabulary> {
       .map((x) => ({ key: x.slug, label: x.name || TR[x.slug] || x.slug })),
     odemeDurumlari: [],
     odemeYontemleri: gateways.filter((g) => g.enabled).map((g) => ({ key: g.id, label: g.title })),
-    kargolar: [],
+    kargolar: KARGOLAR,
   };
 }
 
@@ -226,7 +233,20 @@ async function wcAction(site: Site, disId: string, a: SiteAction, kim: string) {
   } else if (a.islem === "not") {
     await wcRequest(site, `/orders/${disId}/notes`, { method: "POST", body: JSON.stringify({ note: `${a.mesaj} (${kim})`, customer_note: !!a.gorunur }) });
   } else if (a.islem === "kargo") {
-    await wcRequest(site, `/orders/${disId}/notes`, { method: "POST", body: JSON.stringify({ note: `Kargo: ${a.kargoFirma}${a.takipNo ? ` · takip no ${a.takipNo}` : ""} (${kim})`, customer_note: !!a.bildir }) });
+    // Firma ve takip no siparişe yazılır (sitedeki sipariş sayfasında takip linkiyle görünür); müşteriye bildirilirse not e-postayla gider
+    const link = takipLinki(a.kargoFirma, a.takipNo);
+    await wcRequest(site, `/orders/${disId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        meta_data: [
+          { key: "_sky_kargo_firma", value: a.kargoFirma },
+          { key: "_sky_kargo_takip_no", value: a.takipNo },
+          { key: "_sky_kargo_tarih", value: new Date().toISOString() },
+        ],
+      }),
+    });
+    const metin = `Siparişiniz ${kargoAd(a.kargoFirma)} ile gönderildi.${a.takipNo ? ` Takip numarası: ${a.takipNo}.` : ""}${link ? ` Takip: ${link}` : ""}`;
+    await wcRequest(site, `/orders/${disId}/notes`, { method: "POST", body: JSON.stringify({ note: a.bildir ? metin : `${metin} (${kim})`, customer_note: !!a.bildir }) });
   } else {
     throw new Error("WooCommerce'te ödeme durumu ayrı değiştirilemez; sipariş durumunu kullanın.");
   }
@@ -290,10 +310,15 @@ async function upsert(site: Site, o: SiteOrder, vocab?: Vocabulary | null) {
     veri: JSON.stringify(toVeri(site, o)), siteVeri: JSON.stringify(o), disTarih: new Date(o.olusturma),
   };
   const disNo = o.disNo ?? o.no;
-  const [ex] = await db().select({ id: siparisler.id, siteVeri: siparisler.siteVeri }).from(siparisler).where(and(eq(siparisler.siteId, site.id), eq(siparisler.disNo, disNo)));
+  const [ex] = await db()
+    .select({ id: siparisler.id, siteVeri: siparisler.siteVeri, kullaniciId: siparisler.kullaniciId })
+    .from(siparisler)
+    .where(and(eq(siparisler.siteId, site.id), eq(siparisler.disNo, disNo)));
+  // Panelden açılan ödeme linkinin siparişi linki açan satışçıya bağlanır (satış raporu ve satışçının sipariş listesi)
+  const satisci = site.tur === "woocommerce" && !ex?.kullaniciId ? await paymentLinkOwner(site.id, o.disId) : null;
   if (ex) {
     if (!o.gecmis.length && ex.siteVeri) values.siteVeri = JSON.stringify({ ...o, gecmis: (JSON.parse(ex.siteVeri) as SiteOrder).gecmis ?? [] });
-    await db().update(siparisler).set(values).where(eq(siparisler.id, ex.id));
+    await db().update(siparisler).set({ ...values, ...(satisci ? { kullaniciId: satisci } : {}) }).where(eq(siparisler.id, ex.id));
     return ex.id;
   }
   const musteriId = await customerFor(site, o);
@@ -304,7 +329,7 @@ async function upsert(site: Site, o: SiteOrder, vocab?: Vocabulary | null) {
     .insert(siparisler)
     .values({
       ...values, no: clash ? `${o.no}-${o.disNo ?? site.id}` : o.no, yil: d.getFullYear(), sira: 0, kaynak: "site", siteId: site.id, disNo,
-      markaId: site.markaId, musteriId, kullaniciId: null,
+      markaId: site.markaId, musteriId, kullaniciId: satisci,
     })
     .$returningId();
   return r.id;

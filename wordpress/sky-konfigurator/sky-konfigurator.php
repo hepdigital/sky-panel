@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SKY Konfigüratör
  * Description: SKY panelindeki gazebo konfigüratörünü siteye yerleştirir ve panelin imzaladığı tasarımı WooCommerce sepetine ekler. Fiyat panelde hesaplanır; site yalnızca imzayı doğrular.
- * Version: 1.5.0
+ * Version: 1.6.0
  * Author: SKY Görsel Çözümler
  * Requires Plugins: woocommerce
  * Text Domain: sky-konfigurator
@@ -13,6 +13,7 @@
  * Kategori banner'ı: gazebo kategorilerinin üstünde "Kendi gazebonu tasarla"; ölçü ve baskı kategoriden seçili gelir (?olcu=3x3&baski=baskisiz).
  * Ödeme linki: panelin açtığı ürünsüz siparişlerde (_sky_odeme_linki) misafir ödeme sayfası e-posta doğrulaması istemez.
  * Taksit: GET /wp-json/sky/v1/taksit?tutar=&ts=&sig= (panelin imzası) → iyzico'nun kart ailesi bazında taksit tutarları (sitedeki iyzico anahtarlarıyla).
+ * Kargo: panelin yazdığı _sky_kargo_firma / _sky_kargo_takip_no müşterinin sipariş sayfasında takip linkiyle gösterilir.
  * Ürün: stok kodu SKY-GAZEBO-TASARLA olan, katalogda gizli bir WooCommerce ürünü; yalnızca konfigüratörden sepete düşer.
  */
 
@@ -51,6 +52,7 @@ final class Sky_Konfigurator {
 		add_filter( 'woocommerce_hidden_order_itemmeta', array( __CLASS__, 'hidden_meta' ) );
 		add_filter( 'woocommerce_order_email_verification_grace_period', array( __CLASS__, 'payment_link_grace' ), 10, 2 );
 		add_action( 'rest_api_init', array( __CLASS__, 'rest_routes' ) );
+		add_action( 'woocommerce_order_details_after_order_table', array( __CLASS__, 'order_tracking' ), 5 );
 		add_action( 'woocommerce_before_shop_loop', array( __CLASS__, 'category_banner' ), 1 );
 		// WoodMart yerleşim oluşturucusu (Elementor, öğe önbellekli) kategori sayfasında woocommerce_before_shop_loop'u çağırmaz:
 		// ana içerik tamponlanır, banner sıralama ve ürünleri tutan "list-section" sınıflı kapsayıcının hemen önüne konur
@@ -119,6 +121,40 @@ final class Sky_Konfigurator {
 	 */
 	public static function payment_link_grace( $grace, $order ) {
 		return $order instanceof WC_Order && '1' === (string) $order->get_meta( '_sky_odeme_linki' ) ? 30 * DAY_IN_SECONDS : $grace;
+	}
+
+	/* ───────────── kargo takibi ───────────── */
+
+	/** Panelle aynı liste: firma anahtarı → ad ve takip adresi ({no}) */
+	const KARGOLAR = array(
+		'yurtici' => array( 'Yurtiçi Kargo', 'https://www.yurticikargo.com/tr/online-servisler/gonderi-sorgula?code={no}' ),
+		'aras'    => array( 'Aras Kargo', 'https://kargotakip.araskargo.com.tr/mainpage.aspx?code={no}' ),
+		'mng'     => array( 'MNG Kargo', 'https://www.mngkargo.com.tr/gonderi-takip/?code={no}' ),
+		'surat'   => array( 'Sürat Kargo', 'https://www.suratkargo.com.tr/KargoTakip/?kargotakipno={no}' ),
+		'ptt'     => array( 'PTT Kargo', 'https://gonderitakip.ptt.gov.tr/Track/Verify?q={no}' ),
+		'ambar'   => array( 'Ambar / nakliye', '' ),
+		'elden'   => array( 'Elden teslim', '' ),
+	);
+
+	/** Müşterinin sipariş sayfasında (Hesabım > Siparişler, sipariş alındı) kargo firması, takip no ve takip düğmesi */
+	public static function order_tracking( $order ) {
+		if ( ! $order instanceof WC_Order ) {
+			return;
+		}
+		$firma = (string) $order->get_meta( '_sky_kargo_firma' );
+		$no    = (string) $order->get_meta( '_sky_kargo_takip_no' );
+		if ( '' === $firma ) {
+			return;
+		}
+		$k    = self::KARGOLAR[ $firma ] ?? array( $firma, '' );
+		$link = $k[1] && '' !== $no ? str_replace( '{no}', rawurlencode( $no ), $k[1] ) : '';
+		echo '<section class="sky-kargo" style="margin:24px 0;padding:16px 20px;border:1px solid #e5e7eb;border-radius:8px">';
+		echo '<h2 style="margin:0 0 6px;font-size:18px">Kargo</h2>';
+		echo '<p style="margin:0">' . esc_html( $k[0] ) . ( '' !== $no ? ' · Takip no: <strong>' . esc_html( $no ) . '</strong>' : '' ) . '</p>';
+		if ( $link ) {
+			echo '<p style="margin:10px 0 0"><a class="button" href="' . esc_url( $link ) . '" target="_blank" rel="noopener">Kargoyu takip et</a></p>';
+		}
+		echo '</section>';
 	}
 
 	/* ───────────── taksit tablosu (panel) ───────────── */

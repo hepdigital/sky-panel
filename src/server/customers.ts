@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, isNotNull, isNull, like, or, sql } from "d
 import { isAdmin, type Me } from "./auth";
 import { brandsFor, canUseBrand } from "./brands";
 import { db, schema } from "./db";
+import { ensureRequestTable } from "./site-requests";
 
 const { musteriler, iskontoGruplari, teklifler, siparisler, kullanicilar } = schema;
 const own = (me: Me) => (isAdmin(me) ? undefined : eq(musteriler.sahipId, me.id));
@@ -58,8 +59,16 @@ const siparisTutari = sql<number>`(SELECT COALESCE(SUM(${siparisler.tutarKdvDahi
 const sonIslem = sql<string | null>`GREATEST(COALESCE((SELECT MAX(${teklifler.olusturma}) FROM ${teklifler} WHERE ${teklifler.musteriId} = ${musteriler.id}), ${musteriler.olusturma}), COALESCE((SELECT MAX(COALESCE(${siparisler.disTarih}, ${siparisler.olusturma})) FROM ${siparisler} WHERE ${siparisler.musteriId} = ${musteriler.id}), ${musteriler.olusturma}), ${musteriler.olusturma})`;
 
 export async function listCustomers(me: Me, q: string, kaynak: "panel" | "site" | null = null) {
+  // Telefon farklı biçimlerde kayıtlı olabilir (0532…, +90 532…, 532 …): rakamlarla da aranır
+  const digits = q.replace(/\D/g, "").replace(/^(90|0)/, "");
   const search = q.trim()
-    ? or(like(musteriler.firma, likeOf(q.trim())), like(musteriler.yetkili, likeOf(q.trim())), like(musteriler.telefon, likeOf(q.trim())), like(musteriler.eposta, likeOf(q.trim())))
+    ? or(
+        like(musteriler.firma, likeOf(q.trim())),
+        like(musteriler.yetkili, likeOf(q.trim())),
+        like(musteriler.telefon, likeOf(q.trim())),
+        like(musteriler.eposta, likeOf(q.trim())),
+        digits.length >= 6 ? sql`REGEXP_REPLACE(${musteriler.telefon}, '[^0-9]', '') LIKE ${`%${digits}%`}` : undefined,
+      )
     : undefined;
   const rows = await db()
     .select({
@@ -103,14 +112,70 @@ export async function getCustomer(me: Me, id: number) {
       .orderBy(desc(teklifler.id))
       .limit(100),
     db()
-      .select({ id: siparisler.id, no: siparisler.no, olusturma: siparisler.olusturma, durum: siparisler.durum, dahil: siparisler.tutarKdvDahil, satisci: kullanicilar.adSoyad })
+      .select({
+        id: siparisler.id, no: siparisler.no, olusturma: siparisler.olusturma, disTarih: siparisler.disTarih, durum: siparisler.durum, dahil: siparisler.tutarKdvDahil,
+        satisci: kullanicilar.adSoyad, kaynak: siparisler.kaynak, odemeDurumu: siparisler.odemeDurumu,
+      })
       .from(siparisler)
       .leftJoin(kullanicilar, eq(kullanicilar.id, siparisler.kullaniciId))
       .where(eq(siparisler.musteriId, id))
-      .orderBy(desc(siparisler.id))
+      .orderBy(desc(sql`COALESCE(${siparisler.disTarih}, ${siparisler.olusturma})`), desc(siparisler.id))
       .limit(100),
   ]);
-  return { ...m.m, grup: m.grup, temsilci: m.temsilci, marka: m.marka, markaRenk: m.markaRenk, site: m.site, quotes, orders };
+  const [talepler, linkler] = await Promise.all([customerRequests(me, m.m.telefon, m.m.eposta), customerLinks(me, m.m.telefon)]);
+  return {
+    ...m.m, grup: m.grup, temsilci: m.temsilci, marka: m.marka, markaRenk: m.markaRenk, site: m.site, quotes,
+    orders: orders.map(({ disTarih, ...o }) => ({ ...o, olusturma: disTarih ?? o.olusturma })),
+    talepler, linkler,
+  };
+}
+
+/** Telefonun son 10 hanesi (eşleştirme için; 10 haneden kısaysa eşleştirilmez) */
+const phoneKey = (v: string | null | undefined) => {
+  const d = (v ?? "").replace(/\D/g, "");
+  return d.length >= 10 ? d.slice(-10) : null;
+};
+const phoneMatch = (col: string, key: string) => sql`RIGHT(REGEXP_REPLACE(${sql.raw(col)}, '[^0-9]', ''), 10) = ${key}`;
+
+/** Müşterinin site talepleri ve konfigüratör tasarımları: aynı telefon (son 10 hane) ya da aynı e-posta */
+async function customerRequests(me: Me, telefon: string | null, eposta: string | null) {
+  const key = phoneKey(telefon);
+  const mail = eposta?.trim().toLowerCase() || null;
+  if (!key && !mail) return [];
+  try {
+    await ensureRequestTable();
+    const ids = isAdmin(me) ? null : (await brandsFor(me)).map((b) => b.id);
+    if (ids && !ids.length) return [];
+    const [rows] = (await db().execute(sql`
+      SELECT id, tur, tur_ad, durum, mesaj, dis_tarih FROM site_talepleri
+      WHERE (${key ? phoneMatch("telefon", key) : sql`0`} OR ${mail ? sql`LOWER(eposta) = ${mail}` : sql`0`})
+      ${ids ? sql`AND marka_id IN (${sql.join(ids.map((i) => sql`${i}`), sql`, `)})` : sql``}
+      ORDER BY dis_tarih DESC LIMIT 50`)) as unknown as [{ id: number; tur: string; tur_ad: string; durum: string; mesaj: string; dis_tarih: Date }[]];
+    return rows.map((r) => ({ id: r.id, tur: r.tur, turAd: r.tur_ad, durum: r.durum, ozet: r.mesaj.split("\n")[0].slice(0, 160), toplam: r.mesaj.match(/^Toplam \(KDV dahil\): (.+)$/m)?.[1] ?? null, tarih: new Date(r.dis_tarih) }));
+  } catch {
+    return [];
+  }
+}
+
+/** Müşteriye açılmış ödeme linkleri (aynı telefon); satışçı yalnız kendi açtıklarını görür */
+async function customerLinks(me: Me, telefon: string | null) {
+  const key = phoneKey(telefon);
+  if (!key) return [];
+  try {
+    const [rows] = (await db().execute(sql`
+      SELECT l.id, l.dis_no, l.toplam, l.aciklama, l.iptal, l.olusturma, sp.odeme_durumu, sp.durum, sp.id AS siparis_id
+      FROM odeme_linkleri l
+      LEFT JOIN siparisler sp ON sp.site_id = l.site_id AND BINARY sp.dis_no = BINARY l.dis_no
+      WHERE ${phoneMatch("l.telefon", key)} ${isAdmin(me) ? sql`` : sql`AND l.kullanici_id = ${me.id}`}
+      ORDER BY l.id DESC LIMIT 50`)) as unknown as [{ id: number; dis_no: string; toplam: string; aciklama: string | null; iptal: number; olusturma: Date; odeme_durumu: string | null; durum: string | null; siparis_id: number | null }[]];
+    return rows.map((r) => ({
+      id: r.id, no: r.dis_no, toplam: Number(r.toplam), aciklama: r.aciklama, tarih: new Date(r.olusturma), siparisId: r.siparis_id,
+      durum: r.iptal || r.durum === "iptal" ? ("iptal" as const) : r.odeme_durumu === "odendi" ? ("odendi" as const) : ("bekliyor" as const),
+    }));
+  } catch {
+    // Tablo henüz yoksa (hiç link açılmamış) liste boş
+    return [];
+  }
 }
 
 export type CustomerInput = {

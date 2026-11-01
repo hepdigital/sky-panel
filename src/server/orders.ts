@@ -10,6 +10,9 @@ const { siparisler, teklifler, kullanicilar } = schema;
 /**
  * Görünürlük: yönetici hepsini; satışçı kendi (tekliften dönen) siparişlerini ve çalıştığı markaların site siparişlerini görür.
  */
+export async function orderScope(me: Me): Promise<SQL | undefined> {
+  return own(me);
+}
 async function own(me: Me): Promise<SQL | undefined> {
   if (isAdmin(me)) return undefined;
   const ids = (await brandsFor(me)).map((b) => b.id);
@@ -82,8 +85,9 @@ export async function listOrders(me: Me, q: string, markaId: number | null = nul
 
 export async function getOrder(me: Me, id: number) {
   const [o] = await db()
-    .select({ s: siparisler, satisci: kullanicilar.adSoyad, teklifNo: teklifler.no, marka: schema.markalar.ad, site: schema.siteBaglantilari })
+    .select({ s: siparisler, satisci: kullanicilar.adSoyad, teklifNo: teklifler.no, marka: schema.markalar.ad, site: schema.siteBaglantilari, musteriTelefon: schema.musteriler.telefon })
     .from(siparisler)
+    .leftJoin(schema.musteriler, eq(schema.musteriler.id, siparisler.musteriId))
     .leftJoin(schema.siteBaglantilari, eq(schema.siteBaglantilari.id, siparisler.siteId))
     .leftJoin(kullanicilar, eq(kullanicilar.id, siparisler.kullaniciId))
     .leftJoin(teklifler, eq(teklifler.id, siparisler.teklifId))
@@ -91,7 +95,7 @@ export async function getOrder(me: Me, id: number) {
     .where(and(eq(siparisler.id, id), await own(me)));
   if (!o) return null;
   return {
-    ...o.s, satisci: o.satisci, teklifNo: o.teklifNo, marka: o.marka, veri: JSON.parse(o.s.veri) as PdfData,
+    ...o.s, satisci: o.satisci, teklifNo: o.teklifNo, marka: o.marka, musteriTelefon: o.musteriTelefon, veri: JSON.parse(o.s.veri) as PdfData,
     siteVeri: o.s.siteVeri ? (JSON.parse(o.s.siteVeri) as SiteOrder) : null,
     site: o.site ? { id: o.site.id, ad: o.site.ad, tur: o.site.tur, adres: o.site.adres, sozluk: o.site.sozluk ? (JSON.parse(o.site.sozluk) as Vocabulary) : null } : null,
   };
@@ -104,4 +108,42 @@ export async function setOrderStatus(me: Me, id: number, durum: (typeof schema.S
     // Site siparişinin durumu sitenin kendi durumlarıyla değişir (sites.pushAction); buradan değişmez
     .where(and(eq(siparisler.id, id), eq(siparisler.kaynak, "teklif"), await own(me)));
   return r[0].affectedRows > 0;
+}
+
+/* ───────────── kargo (tekliften dönen siparişler) ───────────── */
+
+// Site siparişlerinde kargo siteye yazılır (sites.ts); tekliften dönen siparişte firma ve takip no panelde tutulur.
+// Kolonlar ilk kullanımda eklenir (canlıda drizzle push kullanılmaz); şemaya eklenmedi ki eski tabloda sorgular bozulmasın.
+let cargoReady: Promise<unknown> | null = null;
+const ensureCargo = () =>
+  (cargoReady ??= (async () => {
+    const [rows] = (await db().execute(
+      sql`SELECT COLUMN_NAME AS c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'siparisler' AND COLUMN_NAME IN ('kargo_firma', 'kargo_takip_no', 'kargo_tarih')`,
+    )) as unknown as [{ c: string }[]];
+    const have = new Set(rows.map((r) => r.c));
+    if (!have.has("kargo_firma")) await db().execute(sql.raw("ALTER TABLE siparisler ADD COLUMN kargo_firma varchar(40) NULL AFTER notlar"));
+    if (!have.has("kargo_takip_no")) await db().execute(sql.raw("ALTER TABLE siparisler ADD COLUMN kargo_takip_no varchar(80) NULL AFTER kargo_firma"));
+    if (!have.has("kargo_tarih")) await db().execute(sql.raw("ALTER TABLE siparisler ADD COLUMN kargo_tarih timestamp NULL AFTER kargo_takip_no"));
+  })().catch((e) => {
+    cargoReady = null;
+    throw e;
+  }));
+
+export async function orderCargo(id: number) {
+  await ensureCargo();
+  const [[r]] = (await db().execute(sql`SELECT kargo_firma, kargo_takip_no, kargo_tarih FROM siparisler WHERE id = ${id}`)) as unknown as [
+    { kargo_firma: string | null; kargo_takip_no: string | null; kargo_tarih: Date | null }[],
+  ];
+  return { firma: r?.kargo_firma ?? null, takipNo: r?.kargo_takip_no ?? null, tarih: r?.kargo_tarih ? new Date(r.kargo_tarih).toISOString() : null };
+}
+
+/** Kargo bilgisini kaydeder; kargodaYap ise sipariş "kargoda"ya geçer */
+export async function setOrderCargo(me: Me, id: number, firma: string, takipNo: string, kargodaYap: boolean) {
+  await ensureCargo();
+  const [o] = await db().select({ id: siparisler.id }).from(siparisler).where(and(eq(siparisler.id, id), eq(siparisler.kaynak, "teklif"), await own(me)));
+  if (!o) return false;
+  await db().execute(
+    sql`UPDATE siparisler SET kargo_firma = ${firma.slice(0, 40) || null}, kargo_takip_no = ${takipNo.trim().slice(0, 80) || null}, kargo_tarih = COALESCE(kargo_tarih, NOW())${kargodaYap ? sql`, durum = 'kargoda'` : sql``} WHERE id = ${id}`,
+  );
+  return true;
 }

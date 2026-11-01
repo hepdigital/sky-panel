@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getSeller } from "@/server/auth";
 import { SIPARIS_DURUMLARI } from "@/server/db/schema";
 import { brandsFor } from "@/server/brands";
-import { convertQuote, getOrder, setOrderStatus } from "@/server/orders";
+import { convertQuote, getOrder, setOrderCargo, setOrderStatus } from "@/server/orders";
 import { listSites, pushAction, syncSite, type SiteAction } from "@/server/sites";
 
 type Result = { ok: true; id?: number } | { ok: false; hata: string };
@@ -24,6 +24,17 @@ export async function siparisDurumu(id: number, durum: string, notlar?: string):
   const d = SIPARIS_DURUMLARI.find((x) => x === durum);
   if (!d) return { ok: false, hata: "Geçersiz durum." };
   if (!(await setOrderStatus(me, id, d, notlar))) return { ok: false, hata: "Sipariş bulunamadı." };
+  revalidatePath(`/panel/siparisler/${id}`);
+  revalidatePath("/panel/siparisler");
+  return { ok: true };
+}
+
+/** Tekliften dönen siparişin kargo bilgisi (firma, takip no); kargodaYap ise durum "kargoda" olur */
+export async function siparisKargo(id: number, firma: string, takipNo: string, kargodaYap: boolean): Promise<Result> {
+  const me = await getSeller();
+  if (!me) return { ok: false, hata: "Oturum kapanmış." };
+  if (!firma) return { ok: false, hata: "Kargo firmasını seçin." };
+  if (!(await setOrderCargo(me, Number(id), String(firma), String(takipNo ?? ""), !!kargodaYap))) return { ok: false, hata: "Sipariş bulunamadı." };
   revalidatePath(`/panel/siparisler/${id}`);
   revalidatePath("/panel/siparisler");
   return { ok: true };
