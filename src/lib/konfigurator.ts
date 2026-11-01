@@ -13,6 +13,14 @@ export const KONF_KDV = 20;
 export const KONF_FRAMES = ["SQ3", "SH4", "AH4", "SQ4", "AH5"];
 export const FRAME_MAT: Record<string, string> = { SQ3: "Beyaz boyalı çelik", SH4: "Siyah boyalı çelik", SQ4: "Siyah boyalı çelik", AH4: "Alüminyum", AH5: "Alüminyum" };
 export const SIDE_NAMES = ["Ön", "Arka", "Sol", "Sağ"];
+/** Müşterinin bildiği iskelet adları (tablodaki açıklama alt yazıda kalır) */
+export const FRAME_NAME: Record<string, string> = {
+  SQ3: "30'luk Çelik İskelet",
+  SH4: "40'lık Çelik İskelet",
+  SQ4: "40'lık Çelik İskelet",
+  AH4: "40'lık Alüminyum İskelet",
+  AH5: "52'lik Alüminyum İskelet",
+};
 
 /** Ölçüde satılan iskelet serileri */
 export const framesOf = (size: string) => KONF_FRAMES.filter((id) => val(priceTable().FRAMES[id]?.p[size] ?? null, KONF_MODE) !== null);
@@ -60,7 +68,7 @@ export function summaryLines(g: Gazebo, colorAd: string | null) {
   const walls = g.sides.map((s, i) => (s.walls[0].kind === "yok" ? null : `${SIDE_NAMES[i]}: ${wallName(s.walls[0])}`)).filter(Boolean);
   return [
     { ad: "Ölçü", deger: `${SZ[g.size]} m` },
-    { ad: "İskelet", deger: `${priceTable().FRAMES[g.frame!]?.desc ?? g.frame} (${FRAME_MAT[g.frame!] ?? ""})` },
+    { ad: "İskelet", deger: FRAME_NAME[g.frame!] ?? priceTable().FRAMES[g.frame!]?.desc ?? g.frame ?? "" },
     { ad: "Kumaş", deger: fabricName(f) },
     ...(f === 2 ? [] : [{ ad: "Renk", deger: colorAd ?? "" }]),
     { ad: "Duvarlar", deger: walls.join(" · ") || "Duvarsız" },

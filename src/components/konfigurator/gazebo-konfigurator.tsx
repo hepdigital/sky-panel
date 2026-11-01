@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { Check, ChevronLeft, ChevronRight, Loader2, Minus, Plus, Rotate3d, ShoppingCart } from "lucide-react";
-import { FRAME_MAT, SIDE_NAMES, fitWall, framesOf } from "@/lib/konfigurator";
+import { FRAME_MAT, FRAME_NAME, SIDE_NAMES, fitWall, framesOf } from "@/lib/konfigurator";
 import { FABRICS, SIZES, SZ, cfgKey, gzRows, gzTotal, imgSrc, plan, slotPrice, slots, val, type Gazebo } from "@/lib/terminal/calc";
 import { priceTable, setPriceTable, type PriceTable } from "@/lib/terminal/price-table";
 import { cn } from "@/lib/utils";
@@ -132,7 +132,7 @@ export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: st
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-6">
           {/* 3D: mobilde üstte yapışkan, masaüstünde solda */}
           <div className="sticky top-0 z-20 -mx-4 bg-[#f5f6f8] px-4 pb-2 pt-2 lg:top-6 lg:mx-0 lg:self-start lg:p-0">
-            <Preview g={g} onCapture={(c) => (capture.current = c)} />
+            <Preview g={g} focus={step === 3 ? GROUND_SIDES[side] : null} onCapture={(c) => (capture.current = c)} />
           </div>
 
           <div className="min-w-0">
@@ -152,8 +152,8 @@ export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: st
                         active={g.frame === id}
                         onClick={() => update({ frame: id })}
                         img={imgSrc(`f:${id}`)}
-                        title={FRAMES[id].desc}
-                        hint={`${FRAME_MAT[id] ?? ""} · ${SZ[g.size]} m`}
+                        title={FRAME_NAME[id] ?? FRAMES[id].desc}
+                        hint={`${FRAMES[id].desc} · ${FRAME_MAT[id] ?? ""}`}
                         price={tl(val(FRAMES[id].p[g.size], MODE)!)}
                       />
                     ))}
@@ -226,7 +226,12 @@ const kindsFor = (grup: string, f: number) =>
 
 /* ───────────── parçalar ───────────── */
 
-function Preview({ g, onCapture }: { g: Gazebo; onCapture: (c: Capture | null) => void }) {
+/** Kenar sırası (Ön, Arka, Sol, Sağ) → 3D'deki kenar */
+const GROUND_SIDES = ["on", "arka", "sol", "sag"] as const;
+/** Zemindeki logo (sitenin logosu, panelden servis edilir) */
+const GROUND_LOGO = "/konfigurator/sky-logo.png";
+
+function Preview({ g, focus, onCapture }: { g: Gazebo; focus: (typeof GROUND_SIDES)[number] | null; onCapture: (c: Capture | null) => void }) {
   const key = cfgKey(g);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const input = useMemo(() => viewerInput(g), [key]);
@@ -239,7 +244,7 @@ function Preview({ g, onCapture }: { g: Gazebo; onCapture: (c: Capture | null) =
           </div>
         }
       >
-        <Viewer {...input} curtainsOpen registerCapture={onCapture} />
+        <Viewer {...input} curtainsOpen registerCapture={onCapture} groundMarks={{ logo: GROUND_LOGO, active: focus, accent: ORANGE }} focusSide={focus} />
       </ViewerBoundary>
       <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-[#555] shadow-sm ring-1 ring-black/5">
         <Rotate3d className="size-3.5" /> Sürükleyerek çevirin
@@ -375,7 +380,7 @@ function SizeStep({ g, framesOf, onPick }: { g: Gazebo; framesOf: (s: string) =>
             style={active ? { borderColor: NAVY, background: "#f3f7fb" } : undefined}
           >
             <span className="relative aspect-[4/3] w-full">
-              <Image src={imgSrc(`r:${s}`)} alt="" fill sizes="160px" className="object-contain" />
+              <Image src={`/konfigurator/olcu-${s}.webp`} alt={`${SZ[s]} m gazebo`} fill sizes="200px" className="rounded-[6px] object-cover" />
             </span>
             <span className="mt-1 text-[15px] font-semibold">{SZ[s]} m</span>
             <span className="text-[11px] text-[#777]">{Number.isFinite(from) ? `${tl(from)}'den` : ""}</span>
@@ -441,7 +446,7 @@ function WallsStep({ g, side, setSide, onWall }: { g: Gazebo; side: number; setS
                 type="button"
                 onClick={() => setSide(i)}
                 aria-pressed={active}
-                className={cn("min-w-0 rounded-[8px] border-2 px-1.5 py-2 text-center", active ? "text-white" : "border-[#e6e9ee] bg-white hover:border-[#c9ced6]")}
+                className={cn("relative min-w-0 rounded-[8px] border-2 px-1.5 py-2 text-center", active ? "text-white" : "border-[#e6e9ee] bg-white hover:border-[#c9ced6]")}
                 style={active ? { background: NAVY, borderColor: NAVY } : undefined}
               >
                 <span className="block text-[13px] font-semibold leading-tight">{SIDE_NAMES[i]}</span>
@@ -449,6 +454,8 @@ function WallsStep({ g, side, setSide, onWall }: { g: Gazebo; side: number; setS
                 <span className={cn("block text-[10px] font-semibold leading-tight", active ? "text-white" : "")} style={active ? undefined : { color: NAVY }}>
                   {sidePrice(i) !== null ? tl(sidePrice(i)!) : "—"}
                 </span>
+                {/* Seçili kenar: aşağıdaki duvar seçeneklerini gösteren ok */}
+                {active && <span aria-hidden className="absolute -bottom-[9px] left-1/2 size-3.5 -translate-x-1/2 rotate-45 rounded-[2px]" style={{ background: NAVY }} />}
               </button>
             );
           })}
@@ -535,7 +542,7 @@ function Summary({ g, colors, qty, setQty }: { g: Gazebo; colors: Color[]; qty: 
           <li key={r.c} className="flex items-center gap-3 px-3 py-2.5">
             <span className="relative size-10 shrink-0 overflow-hidden rounded-[6px] bg-[#f5f6f8]">{r.img && <Image src={imgSrc(r.img)} alt="" fill sizes="40px" className="object-contain" />}</span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-semibold">{r.t}</span>
+              <span className="block text-[13px] font-semibold">{r.img?.startsWith("f:") ? (FRAME_NAME[r.img.slice(2)] ?? r.t) : r.t}</span>
               <span className="block truncate text-[11px] text-[#777]">{r.s}</span>
             </span>
             <span className="shrink-0 text-[13px] font-semibold">{tl(r.v)}</span>

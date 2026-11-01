@@ -3,7 +3,7 @@
 import { ContactShadows, OrbitControls, PerspectiveCamera, useGLTF, useTexture } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Suspense, use, useDeferredValue, useEffect, useMemo, useRef } from "react";
-import { Color, DoubleSide, FrontSide, Group, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera as Camera, RepeatWrapping, SRGBColorSpace, Vector3, type Texture } from "three";
+import { CanvasTexture, Color, DoubleSide, FrontSide, Group, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera as Camera, RepeatWrapping, SRGBColorSpace, Vector3, type Texture } from "three";
 import { configToParams, sides, wallSlotId, type GazeboConfig, type WallStyle } from "../model";
 import { buildDecals, decalFontReady, setCurtainOpen, type DecalOptions } from "./decal";
 import { flattenScene, footprint, placeWall, wallBays, type Part, type SceneFile } from "./scene";
@@ -453,7 +453,116 @@ export type ViewerProps = {
   wallHex?: string;
   /** Kodla çizilen duvarlarda perdeler açık mı (değişince animasyonla açılır/kapanır) */
   curtainsOpen?: boolean;
+  /** Zemin işaretleri: kenar adları (ÖN, ARKA, SOL, SAĞ) ve ortada logo; etkin kenarın adı vurgu renginde */
+  groundMarks?: GroundMarks;
+  /** Verilen kenar seçilince kamera o kenarı gösteren çapraz açıya döner */
+  focusSide?: GroundSide | null;
 };
+
+export type GroundSide = "on" | "arka" | "sol" | "sag";
+export type GroundMarks = { logo?: string; active?: GroundSide | null; accent?: string };
+
+const SIDE_TEXT: Record<GroundSide, string> = { on: "ÖN", arka: "ARKA", sol: "SOL", sag: "SAĞ" };
+/** Yazı zemine yatık; üst kenarı çadıra bakar, kenarın dışından okunur (ön +z, sol −x) */
+const SIDE_TURN: Record<GroundSide, number> = { on: 0, arka: Math.PI, sol: -Math.PI / 2, sag: Math.PI / 2 };
+const GROUND_Y = 0.004;
+
+function labelTexture(text: string, color: string) {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 192;
+  const g = c.getContext("2d")!;
+  g.font = "700 116px Poppins, Arial, Helvetica, sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillStyle = color;
+  g.fillText(text, 256, 100);
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+function SideLabel({ side, width, depth, color }: { side: GroundSide; width: number; depth: number; color: string }) {
+  const map = useMemo(() => labelTexture(SIDE_TEXT[side], color), [side, color]);
+  useEffect(() => () => map.dispose(), [map]);
+  // Yazı boyu çadırın kısa kenarına göre (küçük çadırda da okunur, büyükte taşmaz)
+  const w = Math.max(1, Math.min(1.6, Math.min(width, depth) * 0.42));
+  const m = w * 0.32 + 0.35;
+  const pos: [number, number, number] =
+    side === "on" ? [0, GROUND_Y, depth / 2 + m] : side === "arka" ? [0, GROUND_Y, -(depth / 2 + m)] : side === "sol" ? [-(width / 2 + m), GROUND_Y, 0] : [width / 2 + m, GROUND_Y, 0];
+  return (
+    <mesh position={pos} rotation={[-Math.PI / 2, 0, SIDE_TURN[side]]} renderOrder={2}>
+      <planeGeometry args={[w, w * 0.375]} />
+      <meshBasicMaterial map={map} transparent depthWrite={false} toneMapped={false} />
+    </mesh>
+  );
+}
+
+function GroundLogo({ src, width, depth }: { src: string; width: number; depth: number }) {
+  const tex = useTexture(src);
+  const img = tex.image as { width: number; height: number };
+  const w = Math.min(width, depth) * 0.62;
+  return (
+    <mesh position={[0, GROUND_Y, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={2}>
+      <planeGeometry args={[w, (w * img.height) / img.width]} />
+      <meshBasicMaterial map={tex} transparent depthWrite={false} toneMapped={false} opacity={0.9} />
+    </mesh>
+  );
+}
+
+function GroundMarksLayer({ marks, width, depth }: { marks: GroundMarks; width: number; depth: number }) {
+  return (
+    <group>
+      {(Object.keys(SIDE_TEXT) as GroundSide[]).map((s) => (
+        <SideLabel key={s} side={s} width={width} depth={depth} color={marks.active === s ? (marks.accent ?? "#F15A24") : "#7d848e"} />
+      ))}
+      {marks.logo && (
+        <Suspense fallback={null}>
+          <GroundLogo src={marks.logo} width={width} depth={depth} />
+        </Suspense>
+      )}
+    </group>
+  );
+}
+
+/** Kenarı gösteren çapraz bakış yönleri (çadır merkezinden kameraya) */
+const FOCUS_DIR: Record<GroundSide, [number, number, number]> = {
+  on: [-2.4, 1.9, 5.6],
+  arka: [2.4, 1.9, -5.6],
+  sol: [-5.6, 1.9, -2.4],
+  sag: [5.6, 1.9, 2.4],
+};
+
+/** Seçilen kenara yumuşak dönüş (~0,6 sn); uzaklık korunur, kullanıcı sonra serbestçe çevirebilir */
+function FocusCamera({ side }: { side: GroundSide | null | undefined }) {
+  const camera = useThree((st) => st.camera);
+  const controls = useThree((st) => st.controls) as { target: Vector3; update: () => void } | null;
+  const invalidate = useThree((st) => st.invalidate);
+  const anim = useRef<{ from: Vector3; to: Vector3; t: number } | null>(null);
+  useEffect(() => {
+    if (!side) return;
+    const target = controls?.target ?? new Vector3(...TARGET);
+    // Küre üzerinde dönüş: başlangıç ve bitiş yönleri arasında ara değer
+    anim.current = { from: camera.position.clone().sub(target).normalize(), to: new Vector3(...FOCUS_DIR[side]).normalize(), t: 0 };
+    invalidate();
+  }, [side, camera, controls, invalidate]);
+  useFrame((_, delta) => {
+    const a = anim.current;
+    if (!a) return;
+    a.t = Math.min(1, a.t + delta / 0.6);
+    const e = 1 - Math.pow(1 - a.t, 3);
+    const target = controls?.target ?? new Vector3(...TARGET);
+    const dist = camera.position.distanceTo(target);
+    const dir = a.from.clone().lerp(a.to, e).normalize();
+    camera.position.copy(target.clone().add(dir.multiplyScalar(dist)));
+    camera.lookAt(target);
+    controls?.update();
+    if (a.t >= 1) anim.current = null;
+    invalidate();
+  });
+  return null;
+}
 
 export default function MastertentViewer({ onSnapshot, registerCapture, registerArSource, ...props }: ViewerProps) {
   // Yeni duvar modeli inerken önceki görünüm ekranda kalır (çadır bir anlığına kaybolmaz)
@@ -483,6 +592,7 @@ export default function MastertentViewer({ onSnapshot, registerCapture, register
         <Tent {...props} config={config} fabricHex={solidHex} wallHex={wallHex?.startsWith("#") ? wallHex : undefined} registerArSource={registerArSource} />
         <CurtainAnimator open={props.curtainsOpen ?? true} />
         <ContactShadows position={[0, 0.001, 0]} opacity={0.45} scale={10} blur={2.2} far={4} />
+        {props.groundMarks && <GroundMarksLayer marks={props.groundMarks} width={props.width} depth={props.depth} />}
         <Snapshotter
           snapshotKey={configToParams(config).toString()}
           radius={radius}
@@ -499,6 +609,7 @@ export default function MastertentViewer({ onSnapshot, registerCapture, register
         maxPolarAngle={Math.PI / 2 - 0.05}
         makeDefault
       />
+      <FocusCamera side={props.focusSide} />
     </Canvas>
   );
 }
