@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { eq } from "drizzle-orm";
 import { GazeboKonfigurator } from "@/components/konfigurator/gazebo-konfigurator";
+import { SIZES } from "@/lib/terminal/calc";
 import { listColors } from "@/server/colors";
 import { db, schema } from "@/server/db";
 import { gazeboTables } from "@/server/gazebo-prices";
@@ -27,7 +28,19 @@ async function Konfigurator({ params, searchParams }: { params: Promise<{ marka:
   const [brand] = await db().select({ id: schema.markalar.id }).from(schema.markalar).where(eq(schema.markalar.kod, marka));
   if (!brand) notFound();
   const [tables, colors, ekler] = await Promise.all([gazeboTables([brand.id]), listColors(), konfExtras(brand.id)]);
-  return <GazeboKonfigurator marka={marka} gomulu={gomulu} table={tables[brand.id]} colors={colors.filter((c) => c.aktif).map((c) => ({ hex: c.hex, ad: c.ad }))} ekler={odeme ? ekler : []} />;
+  // Ön seçim: ?olcu=3x3 (3x45, 3x4,5 de olur) ve ?baski=baskili|baskisiz (sitedeki kategori banner'ından)
+  const olcu = String(sp.olcu ?? "").toLowerCase().replace(",", ".").replace(/^(\d)x(\d)(\d)$/, "$1x$2.$3");
+  const baskili = sp.baski === "baskili" ? true : sp.baski === "baskisiz" ? false : undefined;
+  return (
+    <GazeboKonfigurator
+      marka={marka}
+      gomulu={gomulu}
+      table={tables[brand.id]}
+      colors={colors.filter((c) => c.aktif).map((c) => ({ hex: c.hex, ad: c.ad }))}
+      ekler={odeme ? ekler : []}
+      start={{ olcu: SIZES.includes(olcu) ? olcu : undefined, baskili }}
+    />
+  );
 }
 
 export default function KonfiguratorPage({

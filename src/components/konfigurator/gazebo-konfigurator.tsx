@@ -43,12 +43,30 @@ type Color = { hex: string; ad: string };
  * Ödemeye geç: tasarım ve ek ürünler sunucuda fiyatlanıp imzalanır, bilet siteye (üst pencere) iletilir; site doğrulayıp
  * sepete ekler ve ödeme sayfasına geçer. ekler: son adımda önerilen ürünler (panelin teklif ürünleri, markanın fiyatı).
  */
-export function GazeboKonfigurator({ marka, gomulu, table, colors, ekler }: { marka: string; gomulu: boolean; table: PriceTable; colors: Color[]; ekler: KonfEk[] }) {
+export function GazeboKonfigurator({
+  marka,
+  gomulu,
+  table,
+  colors,
+  ekler,
+  start,
+}: {
+  marka: string;
+  gomulu: boolean;
+  table: PriceTable;
+  colors: Color[];
+  ekler: KonfEk[];
+  /** Siteden gelen ön seçim (kategori banner'ı): ölçü ve baskı seçili gelir, ilk seçilmemiş adımdan başlanır */
+  start?: { olcu?: string; baskili?: boolean };
+}) {
   // Hesaplar etkin fiyat tablosunu okur: markanın tablosu her çizimde etkin
   setPriceTable(table);
   const { FRAMES, ROOF } = table;
 
-  const [step, setStep] = useState(0);
+  const olcu0 = start?.olcu && framesOf(start.olcu).length ? start.olcu : null;
+  // Baskılı kumaşı olmayan ölçüde baskı ön seçimi yok sayılır
+  const baski0 = start?.baskili === undefined || (start.baskili && val(ROOF[olcu0 ?? "3x3"]?.[2] ?? null, MODE) === null) ? null : start.baskili;
+  const [step, setStep] = useState(olcu0 ? (baski0 === null ? 1 : 2) : 0);
   const [side, setSide] = useState(0);
   const [qty, setQty] = useState(1);
   /** Ek ürün adetleri (kod → adet) */
@@ -61,9 +79,9 @@ export function GazeboKonfigurator({ marka, gomulu, table, colors, ekler }: { ma
   const waiting = useRef<number | null>(null);
   useEffect(() => () => void (waiting.current && window.clearTimeout(waiting.current)), []);
   const [g, setG] = useState<Gazebo>(() => ({
-    size: "3x3",
-    frame: framesOf("3x3")[0] ?? null,
-    roofFab: 0,
+    size: olcu0 ?? "3x3",
+    frame: framesOf(olcu0 ?? "3x3")[0] ?? null,
+    roofFab: baski0 ? 2 : 0,
     color: colors.find((c) => c.hex === "#ffffff")?.hex ?? colors[0]?.hex ?? "#ffffff",
     sides: [0, 1, 2, 3].map(() => ({ walls: [{ kind: "yok", f: 0 } as Wall] })),
   }));

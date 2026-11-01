@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SKY Konfigüratör
  * Description: SKY panelindeki gazebo konfigüratörünü siteye yerleştirir ve panelin imzaladığı tasarımı WooCommerce sepetine ekler. Fiyat panelde hesaplanır; site yalnızca imzayı doğrular.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: SKY Görsel Çözümler
  * Requires Plugins: woocommerce
  * Text Domain: sky-konfigurator
@@ -10,6 +10,7 @@
  * Kurulum: wp-config.php'ye ortak anahtar (panelde KONFIGURATOR_SECRET ile aynı):
  *   define( 'SKY_KONFIGURATOR_SECRET', '...' );
  * Sayfa: içeriği [sky_konfigurator] olan sayfa tam ekran konfigüratör olarak açılır (tema başlığı ve altbilgisi olmadan).
+ * Kategori banner'ı: gazebo kategorilerinin üstünde "Kendi gazebonu tasarla"; ölçü ve baskı kategoriden seçili gelir (?olcu=3x3&baski=baskisiz).
  * Ürün: stok kodu SKY-GAZEBO-TASARLA olan, katalogda gizli bir WooCommerce ürünü; yalnızca konfigüratörden sepete düşer.
  */
 
@@ -22,6 +23,12 @@ final class Sky_Konfigurator {
 	const SHORTCODE = 'sky_konfigurator';
 	const FIELD     = 'sky_konfigurator_token';
 	const KEY       = 'sky_konf';
+	const PAGE      = 'gazebo-tasarla';
+
+	/** Banner'ın gösterildiği kategoriler (alt kategorileriyle); baskısız/baskılı ön seçimi bu ana kategorilerden */
+	const BANNER_CATS = array( 'gazebo-tente', 'baskili-gazebo-cadir', 'gazebo-cadir', 'gazebo-portatif-cardak-kamelya' );
+	const BASKISIZ    = 'gazebo-tente';
+	const BASKILI     = 'baskili-gazebo-cadir';
 
 	/** Yalnızca bu eklentinin eklemesine izin verilir (ürün sayfasından ya da ?add-to-cart ile eklenemez) */
 	private static $adding = false;
@@ -40,6 +47,8 @@ final class Sky_Konfigurator {
 		add_action( 'woocommerce_checkout_create_order_line_item', array( __CLASS__, 'order_item' ), 10, 3 );
 		add_filter( 'woocommerce_order_item_thumbnail', array( __CLASS__, 'order_thumb' ), 10, 2 );
 		add_filter( 'woocommerce_hidden_order_itemmeta', array( __CLASS__, 'hidden_meta' ) );
+		add_action( 'woocommerce_before_shop_loop', array( __CLASS__, 'category_banner' ), 1 );
+		add_action( 'woocommerce_no_products_found', array( __CLASS__, 'category_banner' ), 1 );
 	}
 
 	/* ───────────── bilet ───────────── */
@@ -81,7 +90,89 @@ final class Sky_Konfigurator {
 
 	private static function frame_src() {
 		// s=2: bu sürüm ek ürünleri sepete ekler ve ödemeye geçer (panel ekleri ve "Ödemeye geç"i buna göre gösterir)
-		return self::PANEL . '/konfigurator/' . self::MARKA . '?gomulu=1&s=2';
+		$args = array( 'gomulu' => 1, 's' => 2 );
+		// Ön seçim sayfa adresinden panele geçer (kategori banner'ı): ?olcu=3x3&baski=baskili
+		$olcu = isset( $_GET['olcu'] ) ? sanitize_text_field( wp_unslash( $_GET['olcu'] ) ) : '';
+		if ( preg_match( '/^\d+x\d+([.,]\d+)?$/', $olcu ) ) {
+			$args['olcu'] = $olcu;
+		}
+		$baski = isset( $_GET['baski'] ) ? sanitize_key( wp_unslash( $_GET['baski'] ) ) : '';
+		if ( in_array( $baski, array( 'baskili', 'baskisiz' ), true ) ) {
+			$args['baski'] = $baski;
+		}
+		return add_query_arg( $args, self::PANEL . '/konfigurator/' . self::MARKA );
+	}
+
+	/* ───────────── kategori banner'ı ───────────── */
+
+	/** Gazebo kategorilerinin üstünde konfigüratör çağrısı; ölçü kategorisinde ölçü, baskısız/baskılı dalında baskı seçili gelir */
+	public static function category_banner() {
+		static $done = false;
+		if ( $done || ! is_product_category() ) {
+			return;
+		}
+		$term = get_queried_object();
+		if ( ! $term instanceof WP_Term ) {
+			return;
+		}
+		$slugs = array( $term->slug );
+		foreach ( get_ancestors( $term->term_id, 'product_cat', 'taxonomy' ) as $id ) {
+			$t = get_term( $id, 'product_cat' );
+			if ( $t instanceof WP_Term ) {
+				$slugs[] = $t->slug;
+			}
+		}
+		if ( ! array_intersect( $slugs, self::BANNER_CATS ) ) {
+			return;
+		}
+		$page = get_page_by_path( self::PAGE );
+		if ( ! $page ) {
+			return;
+		}
+		$done  = true;
+		$args  = array();
+		$olcu  = preg_match( '/^(\d)x(\d)(\d)?-/', $term->slug, $m ) ? $m[1] . 'x' . $m[2] . ( isset( $m[3] ) && '' !== $m[3] ? ',' . $m[3] : '' ) : '';
+		$baski = in_array( self::BASKILI, $slugs, true ) ? 'baskili' : ( in_array( self::BASKISIZ, $slugs, true ) ? 'baskisiz' : '' );
+		if ( $olcu ) {
+			$args['olcu'] = $olcu;
+		}
+		if ( $baski ) {
+			$args['baski'] = $baski;
+		}
+		$url   = add_query_arg( $args, get_permalink( $page ) );
+		$title = 'baskili' === $baski ? ( $olcu ? "Baskılı {$olcu} gazebonu kendin tasarla" : 'Baskılı gazebonu kendin tasarla' ) : ( $olcu ? "{$olcu} gazebonu kendin tasarla" : 'Kendi gazebonu tasarla' );
+		$text  = 'baskili' === $baski
+			? 'İskeleti ve duvarları seç, fiyatını anında gör. Tasarımını siparişten sonra iletirsin, baskıdan önce onayına sunulur.'
+			: 'Ölçüyü, tavan ve duvar rengini, iskeleti, kapı ve pencereleri seç; 3D önizle, fiyatını anında gör.';
+		$img   = self::PANEL . '/konfigurator/' . ( 'baskili' === $baski ? 'tip-baskili.webp' : 'tip-baskisiz.webp' );
+		?>
+<style>
+.sky-konf-banner{display:flex;align-items:center;gap:20px;margin:0 0 24px;padding:18px 22px;border-radius:8px;background:#024B90;color:#fff;text-decoration:none!important;overflow:hidden;position:relative}
+.sky-konf-banner:hover{background:#013d75}
+.sky-konf-banner img{width:150px;height:112px;object-fit:cover;border-radius:6px;flex:none;background:#fff}
+.sky-konf-banner .skb-t{flex:1;min-width:0}
+.sky-konf-banner .skb-k{display:inline-block;margin-bottom:6px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,.14);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.sky-konf-banner .skb-h{display:block;margin:0 0 4px;color:#fff;font-size:22px;font-weight:700;line-height:1.25}
+.sky-konf-banner .skb-p{display:block;margin:0;color:rgba(255,255,255,.85);font-size:14px;line-height:1.5}
+.sky-konf-banner .skb-b{flex:none;display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:8px;background:#F15A24;color:#fff;font-size:15px;font-weight:600;white-space:nowrap}
+@media (max-width:767px){
+.sky-konf-banner{flex-wrap:wrap;gap:12px;padding:14px}
+.sky-konf-banner img{width:96px;height:72px}
+.sky-konf-banner .skb-h{font-size:17px}
+.sky-konf-banner .skb-p{font-size:13px}
+.sky-konf-banner .skb-b{width:100%;justify-content:center}
+}
+</style>
+<a class="sky-konf-banner" href="<?php echo esc_url( $url ); ?>">
+	<img src="<?php echo esc_url( $img ); ?>" alt="" width="150" height="112" loading="lazy">
+	<span class="skb-t">
+		<span class="skb-k">Yeni · Gazebo tasarla</span>
+		<span class="skb-h"><?php echo esc_html( $title ); ?></span>
+		<span class="skb-p"><?php echo esc_html( $text ); ?></span>
+	</span>
+	<span class="skb-b">Hemen tasarla <span aria-hidden="true">→</span></span>
+</a>
+		<?php
 	}
 
 	/** Mesajı alıp bileti sepete gönderen betik (tam ekran sayfa ve kısa kod aynı betiği kullanır) */
