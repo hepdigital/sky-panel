@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SKY Konfigüratör
  * Description: SKY panelindeki gazebo konfigüratörünü siteye yerleştirir ve panelin imzaladığı tasarımı WooCommerce sepetine ekler. Fiyat panelde hesaplanır; site yalnızca imzayı doğrular.
- * Version: 1.3.0
+ * Version: 1.3.3
  * Author: SKY Görsel Çözümler
  * Requires Plugins: woocommerce
  * Text Domain: sky-konfigurator
@@ -48,6 +48,10 @@ final class Sky_Konfigurator {
 		add_filter( 'woocommerce_order_item_thumbnail', array( __CLASS__, 'order_thumb' ), 10, 2 );
 		add_filter( 'woocommerce_hidden_order_itemmeta', array( __CLASS__, 'hidden_meta' ) );
 		add_action( 'woocommerce_before_shop_loop', array( __CLASS__, 'category_banner' ), 1 );
+		// WoodMart yerleşim oluşturucusu (Elementor, öğe önbellekli) kategori sayfasında woocommerce_before_shop_loop'u çağırmaz:
+		// ana içerik tamponlanır, banner sıralama ve ürünleri tutan "list-section" sınıflı kapsayıcının hemen önüne konur
+		add_action( 'woocommerce_before_main_content', array( __CLASS__, 'buffer_start' ), 999 );
+		add_action( 'woocommerce_after_main_content', array( __CLASS__, 'buffer_end' ), 0 );
 		add_action( 'woocommerce_no_products_found', array( __CLASS__, 'category_banner' ), 1 );
 	}
 
@@ -104,6 +108,32 @@ final class Sky_Konfigurator {
 	}
 
 	/* ───────────── kategori banner'ı ───────────── */
+
+	private static $buffering = false;
+
+	public static function buffer_start() {
+		if ( is_product_category() && ! self::$buffering ) {
+			self::$buffering = true;
+			ob_start();
+		}
+	}
+
+	public static function buffer_end() {
+		if ( ! self::$buffering ) {
+			return;
+		}
+		self::$buffering = false;
+		$html = (string) ob_get_clean();
+		ob_start();
+		self::category_banner();
+		$banner = (string) ob_get_clean();
+		if ( '' !== $banner && preg_match( '/<div\b[^>]*class="[^"]*\blist-section\b[^"]*"[^>]*>/', $html, $m, PREG_OFFSET_CAPTURE ) ) {
+			$html = substr_replace( $html, $banner, $m[0][1], 0 );
+		} elseif ( '' !== $banner ) {
+			$html = $banner . $html;
+		}
+		echo $html; // phpcs:ignore WordPress.Security.EscapeOutput -- temanın kendi çıktısı
+	}
 
 	/** Gazebo kategorilerinin üstünde konfigüratör çağrısı; ölçü kategorisinde ölçü, baskısız/baskılı dalında baskı seçili gelir */
 	public static function category_banner() {
