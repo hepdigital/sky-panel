@@ -22,12 +22,12 @@ async function Konfigurator({ params, searchParams }: { params: Promise<{ marka:
   const { marka } = await params;
   const sp = await searchParams;
   const gomulu = sp.gomulu === "1";
-  // Ek ürünler ve ödemeye geçiş sitedeki eklentinin 1.1 sürümüyle gelir (?s=2); eski eklenti ekleri sepete eklemez
+  // Ek ürünler sitedeki eklentinin 1.1 sürümüyle gelir (?s=2); eski eklenti ekleri sepete eklemez
   const odeme = !gomulu || Number(sp.s) >= 2;
   const [brand] = await db().select({ id: schema.markalar.id }).from(schema.markalar).where(eq(schema.markalar.kod, marka));
   if (!brand) notFound();
   const [tables, colors, ekler] = await Promise.all([gazeboTables([brand.id]), listColors(), konfExtras(brand.id)]);
-  return <GazeboKonfigurator marka={marka} gomulu={gomulu} table={tables[brand.id]} colors={colors.filter((c) => c.aktif).map((c) => ({ hex: c.hex, ad: c.ad }))} ekler={odeme ? ekler : []} odeme={odeme} />;
+  return <GazeboKonfigurator marka={marka} gomulu={gomulu} table={tables[brand.id]} colors={colors.filter((c) => c.aktif).map((c) => ({ hex: c.hex, ad: c.ad }))} ekler={odeme ? ekler : []} />;
 }
 
 export default function KonfiguratorPage({

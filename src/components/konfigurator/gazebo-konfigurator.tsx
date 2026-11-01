@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { Check, ChevronLeft, ChevronRight, CreditCard, Loader2, Minus, PhoneCall, Plus, Rotate3d, ShoppingCart } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, CreditCard, Loader2, Minus, PhoneCall, Plus, Rotate3d, X } from "lucide-react";
 import { FRAME_MAT, FRAME_NAME, SIDE_NAMES, fitWall, framesOf, type KonfEk } from "@/lib/konfigurator";
 import { FABRICS, SIZES, SZ, cfgKey, gzRows, gzTotal, imgSrc, plan, slotPrice, slots, val, type Gazebo } from "@/lib/terminal/calc";
 import { priceTable, setPriceTable, type PriceTable } from "@/lib/terminal/price-table";
@@ -30,7 +30,7 @@ const MODE = 1 as const; // perakende
 const VAT = 1.2;
 const tl = (n: number) => `${Math.round(n * VAT).toLocaleString("tr-TR")} ₺`;
 
-const STEPS = ["Ölçü", "İskelet", "Kumaş", "Renk", "Duvarlar", "Özet"] as const;
+const STEPS = ["Ölçü", "Baskı", "Kumaş", "İskelet", "Duvarlar", "Özet"] as const;
 /** Duvarlar adımı (kamera kenara döner, zeminde kenar adı vurgulanır) */
 const WALL_STEP = 4;
 /** Sepet bileti siteye gönderildikten sonra sitenin ödemeye yönlendirmesi beklenir; olmazsa uyarı */
@@ -43,9 +43,7 @@ type Color = { hex: string; ad: string };
  * Ödemeye geç: tasarım ve ek ürünler sunucuda fiyatlanıp imzalanır, bilet siteye (üst pencere) iletilir; site doğrulayıp
  * sepete ekler ve ödeme sayfasına geçer. ekler: son adımda önerilen ürünler (panelin teklif ürünleri, markanın fiyatı).
  */
-export function GazeboKonfigurator({
-  marka, gomulu, table, colors, ekler, odeme,
-}: { marka: string; gomulu: boolean; table: PriceTable; colors: Color[]; ekler: KonfEk[]; odeme: boolean }) {
+export function GazeboKonfigurator({ marka, gomulu, table, colors, ekler }: { marka: string; gomulu: boolean; table: PriceTable; colors: Color[]; ekler: KonfEk[] }) {
   // Hesaplar etkin fiyat tablosunu okur: markanın tablosu her çizimde etkin
   setPriceTable(table);
   const { FRAMES, ROOF } = table;
@@ -56,6 +54,8 @@ export function GazeboKonfigurator({
   /** Ek ürün adetleri (kod → adet) */
   const [ek, setEk] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
+  /** Ödemeye geç: önce telefon penceresi (isteğe bağlı) */
+  const [ask, setAsk] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const capture = useRef<Capture | null>(null);
   const waiting = useRef<number | null>(null);
@@ -155,7 +155,32 @@ export function GazeboKonfigurator({
               <p className="mt-0.5 text-[13px] text-[#777]">{STEP_HINT[step]}</p>
               <div className="mt-4">
                 {step === 0 && <SizeStep g={g} framesOf={framesOf} onPick={setSize} />}
-                {step === 1 && (
+                {step === 1 && <PrintStep g={g} onPick={(baskili) => update({ roofFab: baskili ? 2 : fab === 2 ? 0 : fab })} />}
+                {step === 2 &&
+                  (fab === 2 ? (
+                    <div className="space-y-3">
+                      <OptionCard active onClick={() => undefined} title="Dijital baskılı Oxford" hint="Su itici · tavan ve duvarlar aynı kumaştan" price={`tavan ${tl(val(ROOF[g.size]?.[2] ?? null, MODE) ?? 0)}`} />
+                      <p className="rounded-[8px] px-3 py-2.5 text-[13px]" style={{ background: "#fff4ef", color: "#9a3412" }}>
+                        Baskılı gazebolarda renk seçimi yoktur: renkler tasarımınızdan gelir. Tasarımınızı siparişten sonra iletirsiniz, baskıdan önce onayınıza sunulur.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      <ColorPicker title="Tavan rengi" colors={colors} value={g.color ?? "#ffffff"} onPick={(hex) => update({ color: hex })} />
+                      <div>
+                        <p className="mb-2 text-[13px] font-semibold">Kumaş</p>
+                        <div className="grid gap-2.5">
+                          {FABRICS.map((f, i) => {
+                            const p = val(ROOF[g.size]?.[i] ?? null, MODE);
+                            if (i === 2 || p === null) return null;
+                            return <OptionCard key={f.n} active={fab === i} onClick={() => update({ roofFab: i })} title={f.n} hint={f.d} price={`tavan ${tl(p)}`} />;
+                          })}
+                        </div>
+                        <p className="mt-2.5 rounded-[8px] bg-[#f5f6f8] px-3 py-2.5 text-[12px] text-[#555]">Tavan ve duvarlar aynı kumaştan dikilir; duvar rengini duvarları seçerken belirlersiniz.</p>
+                      </div>
+                    </div>
+                  ))}
+                {step === 3 && (
                   <div className="grid gap-2.5">
                     {framesOf(g.size).map((id) => (
                       <OptionCard
@@ -170,35 +195,10 @@ export function GazeboKonfigurator({
                     ))}
                   </div>
                 )}
-                {step === 2 && (
+                {step === WALL_STEP && (
                   <div className="space-y-5">
-                    <div className="grid gap-2.5">
-                      {FABRICS.map((f, i) => {
-                        const p = val(ROOF[g.size]?.[i] ?? null, MODE);
-                        if (p === null) return null;
-                        return (
-                          <OptionCard
-                            key={f.n}
-                            active={fab === i}
-                            onClick={() => update({ roofFab: i })}
-                            title={i === 2 ? "Dijital baskılı kumaş" : f.n}
-                            hint={i === 2 ? "Logonuz ve tasarımınız tüm yüzeylere basılır" : f.d}
-                            price={`tavan ${tl(p)}`}
-                          />
-                        );
-                      })}
-                    </div>
-                    <p className="rounded-[8px] bg-[#f5f6f8] px-3 py-2.5 text-[12px] text-[#555]">Tavan ve duvarlar aynı kumaştan dikilir; duvar fiyatları da bu kumaşa göre hesaplanır.</p>
-                  </div>
-                )}
-                {step === 3 &&
-                  (fab === 2 ? (
-                    <p className="rounded-[8px] px-3 py-2.5 text-[13px]" style={{ background: "#fff4ef", color: "#9a3412" }}>
-                      Baskılı kumaşta renk seçimi yoktur: renkler tasarımınızdan gelir. Tasarımınızı siparişten sonra iletirsiniz, baskıdan önce onayınıza sunulur.
-                    </p>
-                  ) : (
-                    <div className="space-y-6">
-                      <ColorPicker title="Tavan rengi" colors={colors} value={g.color ?? "#ffffff"} onPick={(hex) => update({ color: hex })} />
+                    <WallsStep g={g} side={side} setSide={setSide} onWall={setWall} />
+                    {fab !== 2 && g.sides.some((x) => x.walls[0].kind !== "yok") && (
                       <div>
                         <ColorPicker
                           title="Duvar rengi"
@@ -210,14 +210,13 @@ export function GazeboKonfigurator({
                         />
                         <p className="mt-2 text-[11px] text-[#777]">Dört duvar aynı renktedir; tavandan farklı seçerek renk kombinleyebilirsiniz.</p>
                       </div>
-                    </div>
-                  ))}
-                {step === WALL_STEP && <WallsStep g={g} side={side} setSide={setSide} onWall={setWall} />}
+                    )}
+                  </div>
+                )}
                 {step === 5 && (
                   <div className="space-y-6">
                     <Summary g={g} colors={colors} qty={qty} setQty={setQty} />
                     <Extras list={extras} ek={chosen} setEk={(kod, n) => setEk((x) => ({ ...x, [kod]: n }))} />
-                    <SaveDesign marka={marka} g={g} qty={qty} ekler={chosen} capture={() => capture.current} />
                   </div>
                 )}
               </div>
@@ -227,28 +226,43 @@ export function GazeboKonfigurator({
                 </p>
               )}
               <div className="mt-6 hidden border-t border-[#eef0f3] pt-4 lg:block">
-                <NavBar step={step} total={grand} qty={qty} busy={busy} odeme={odeme} onBack={() => go(step - 1)} onNext={() => (step === STEPS.length - 1 ? void addToCart() : go(step + 1))} />
+                <NavBar step={step} total={grand} qty={qty} busy={busy} onBack={() => go(step - 1)} onNext={() => (step === STEPS.length - 1 ? setAsk(true) : go(step + 1))} />
               </div>
             </section>
           </div>
         </div>
       </div>
 
+      {ask && (
+        <PhoneModal
+          marka={marka}
+          g={g}
+          qty={qty}
+          ekler={chosen}
+          capture={() => capture.current}
+          onClose={() => setAsk(false)}
+          onDone={() => {
+            setAsk(false);
+            void addToCart();
+          }}
+        />
+      )}
+
       {/* Alt çubuk: mobilde ekrana sabit (masaüstünde adım kartının altında) */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/10 bg-white/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur lg:hidden">
-        <NavBar step={step} total={grand} qty={qty} busy={busy} odeme={odeme} onBack={() => go(step - 1)} onNext={() => (step === STEPS.length - 1 ? void addToCart() : go(step + 1))} />
+        <NavBar step={step} total={grand} qty={qty} busy={busy} onBack={() => go(step - 1)} onNext={() => (step === STEPS.length - 1 ? setAsk(true) : go(step + 1))} />
       </div>
     </div>
   );
 }
 
-const STEP_TITLE = ["Çadır ölçüsü", "İskelet", "Kumaş", "Renk", "Duvarlar", "Özet ve ek ürünler"];
+const STEP_TITLE = ["Çadır ölçüsü", "Baskısız mı, baskılı mı?", "Tavan rengi ve kumaş", "İskelet", "Duvarlar", "Özet ve ek ürünler"];
 const STEP_HINT = [
   "Kurulacak alanın ölçüsünü seçin.",
+  "Tek renk kumaş mı, logonuzun basıldığı kumaş mı?",
+  "Tavan ve duvarlar aynı kumaştan dikilir.",
   "Kullanım sıklığına göre iskelet serisini seçin.",
-  "Kumaş tipi tüm çadırda aynıdır.",
-  "Tavan ve duvar rengini seçin.",
-  "Kenarı seçip duvar tipini belirleyin; duvar istemediğiniz kenar boş kalır.",
+  "Kenarı seçip duvar tipini belirleyin; duvar istemediğiniz kenar boş kalır. Duvar rengi altta.",
   "Seçimlerinizi kontrol edin, isterseniz sabitleme ve taşıma ürünleri ekleyip ödemeye geçin.",
 ];
 
@@ -328,8 +342,7 @@ function Stepper({ step, onGo }: { step: number; onGo: (n: number) => void }) {
   );
 }
 
-/** odeme: site ödeme sayfasına geçer (eklenti 1.1); değilse sepete ekler */
-function NavBar({ step, total, qty, busy, odeme, onBack, onNext }: { step: number; total: number; qty: number; busy: boolean; odeme: boolean; onBack: () => void; onNext: () => void }) {
+function NavBar({ step, total, qty, busy, onBack, onNext }: { step: number; total: number; qty: number; busy: boolean; onBack: () => void; onNext: () => void }) {
   const last = step === STEPS.length - 1;
   return (
     <div className="flex items-center gap-2.5">
@@ -355,8 +368,7 @@ function NavBar({ step, total, qty, busy, odeme, onBack, onNext }: { step: numbe
       >
         {last ? (
           <>
-            {busy ? <Loader2 className="size-4 animate-spin" /> : odeme ? <CreditCard className="size-4" /> : <ShoppingCart className="size-4" />}{" "}
-            {busy ? "Yönlendiriliyor…" : odeme ? "Ödemeye geç" : "Sepete ekle"}
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <CreditCard className="size-4" />} {busy ? "Yönlendiriliyor…" : "Ödemeye geç"}
           </>
         ) : (
           <>
@@ -393,6 +405,51 @@ function OptionCard({ active, onClick, img, title, hint, price }: { active: bool
         {active && <Check className="size-3" strokeWidth={3} />}
       </span>
     </button>
+  );
+}
+
+/** Baskısız (tek renk) ya da baskılı (dijital baskı) gazebo: yan yana görselli iki kart */
+function PrintStep({ g, onPick }: { g: Gazebo; onPick: (baskili: boolean) => void }) {
+  const roof = priceTable().ROOF[g.size] ?? [];
+  const from = (i: number) => val(roof[i] ?? null, MODE);
+  const plain = [from(0), from(1)].filter((x): x is number => x !== null);
+  const cards = [
+    { baskili: false, img: "/konfigurator/tip-baskisiz.webp", title: "Baskısız gazebo", hint: "Tek renk kumaş. Tavan ve duvar rengini paletimizden seçersiniz; tavan ve duvarlar farklı renk olabilir.", price: plain.length ? Math.min(...plain) : null },
+    { baskili: true, img: "/konfigurator/tip-baskili.webp", title: "Baskılı gazebo", hint: "Logonuz ve tasarımınız tavana ve duvarlara dijital baskıyla basılır. Tasarım baskıdan önce onayınıza sunulur.", price: from(2) },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-2.5">
+      {cards.map((c) => {
+        if (c.price === null) return null;
+        const active = (g.roofFab === 2) === c.baskili;
+        return (
+          <button
+            key={c.title}
+            type="button"
+            onClick={() => onPick(c.baskili)}
+            aria-pressed={active}
+            className={cn("flex flex-col overflow-hidden rounded-[8px] border-2 bg-white text-left transition-colors", active ? "" : "border-[#e6e9ee] hover:border-[#c9ced6]")}
+            style={active ? { borderColor: NAVY, background: "#f3f7fb" } : undefined}
+          >
+            <span className="relative aspect-[4/3] w-full bg-white">
+              <Image src={c.img} alt={c.title} fill sizes="(min-width: 1024px) 260px, 50vw" className="object-contain" />
+              {active && (
+                <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-full text-white" style={{ background: NAVY }}>
+                  <Check className="size-3.5" strokeWidth={3} />
+                </span>
+              )}
+            </span>
+            <span className="flex flex-1 flex-col p-2.5 sm:p-3">
+              <span className="text-[14px] font-semibold">{c.title}</span>
+              <span className="mt-1 text-[11px] leading-snug text-[#666] sm:text-[12px]">{c.hint}</span>
+              <span className="mt-auto pt-2 text-[12px] font-semibold" style={{ color: NAVY }}>
+                tavan {tl(c.price)}&apos;den
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -517,6 +574,28 @@ function WallsStep({ g, side, setSide, onWall }: { g: Gazebo; side: number; setS
         <p className="mb-2.5 text-[13px] font-semibold">
           {SIDE_NAMES[side]} duvar <span className="font-normal text-[#777]">· {pl[side].h} × {pl[side].cm} cm</span>
         </p>
+        {hasWindow(w.kind) && w.p && (
+          <div className="mb-3 rounded-[8px] bg-white p-2.5 ring-1 ring-[#e6e9ee]">
+            <p className="mb-1.5 text-[12px] font-semibold">Pencere</p>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["pvc", "Şeffaf PVC"],
+                  ["sineklik", "Sineklik"],
+                  ["perde", "Perde (kapatılabilir)"],
+                ] as const
+              ).map(([key, label]) => (
+                <Toggle key={key} on={w.p![key]} label={label} onClick={() => onWall(side, { ...w, p: { ...w.p!, [key]: !w.p![key] } })} />
+              ))}
+            </div>
+          </div>
+        )}
+        {hasDoor(w.kind) && (
+          <div className="mb-3 rounded-[8px] bg-white p-2.5 ring-1 ring-[#e6e9ee]">
+            <p className="mb-1.5 text-[12px] font-semibold">Kapı</p>
+            <Toggle on={!!w.k?.sineklik} label="Sineklikli kapı" onClick={() => onWall(side, { ...w, k: { sineklik: !w.k?.sineklik } })} />
+          </div>
+        )}
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {kindsFor(grup, f).map((k) => {
             const active = w.kind === k.kind;
@@ -540,28 +619,6 @@ function WallsStep({ g, side, setSide, onWall }: { g: Gazebo; side: number; setS
           })}
         </div>
 
-        {hasWindow(w.kind) && w.p && (
-          <div className="mt-3">
-            <p className="mb-1.5 text-[12px] font-semibold">Pencere</p>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  ["pvc", "Şeffaf PVC"],
-                  ["sineklik", "Sineklik"],
-                  ["perde", "Perde (kapatılabilir)"],
-                ] as const
-              ).map(([key, label]) => (
-                <Toggle key={key} on={w.p![key]} label={label} onClick={() => onWall(side, { ...w, p: { ...w.p!, [key]: !w.p![key] } })} />
-              ))}
-            </div>
-          </div>
-        )}
-        {hasDoor(w.kind) && (
-          <div className="mt-3">
-            <p className="mb-1.5 text-[12px] font-semibold">Kapı</p>
-            <Toggle on={!!w.k?.sineklik} label="Sineklikli kapı" onClick={() => onWall(side, { ...w, k: { sineklik: !w.k?.sineklik } })} />
-          </div>
-        )}
       </div>
     </div>
   );
@@ -691,23 +748,31 @@ function Extras({ list, ek, setEk }: { list: KonfEk[]; ek: Record<string, number
   );
 }
 
-/* ───────────── tasarımı kaydet (telefon) ───────────── */
+/* ───────────── ödemeye geç: telefon ───────────── */
 
 /**
- * Satın almadan ayrılacak ziyaretçi için: telefonunu bırakırsa tasarım ve fiyatıyla panelde Talepler'e düşer, satış ekibi
- * arar. Zorunlu değildir; ödemeye geçişi engellemez.
+ * Ödemeye geçerken açılan pencere: telefon bırakılırsa tasarım ve fiyatıyla panelde Talepler'e düşer (ödeme
+ * tamamlanmazsa satış ekibi arar). Zorunlu değildir: "Numara vermeden devam et" ile de ödemeye geçilir.
  */
-function SaveDesign({ marka, g, qty, ekler, capture }: { marka: string; g: Gazebo; qty: number; ekler: Record<string, number>; capture: () => Capture | null }) {
+function PhoneModal({
+  marka, g, qty, ekler, capture, onClose, onDone,
+}: { marka: string; g: Gazebo; qty: number; ekler: Record<string, number>; capture: () => Capture | null; onClose: () => void; onDone: () => void }) {
   const [tel, setTel] = useState("");
-  const [ad, setAd] = useState("");
   const [trap, setTrap] = useState("");
-  const [state, setState] = useState<"bos" | "gonder" | "tamam">("bos");
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    input.current?.focus();
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [onClose]);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (tel.replace(/\D/g, "").length < 10) return setErr("Telefon numaranızı yazın (ör. 0532 123 45 67).");
-    setState("gonder");
+    setBusy(true);
     setErr(null);
     let gorsel: string | null = null;
     try {
@@ -719,72 +784,64 @@ function SaveDesign({ marka, g, qty, ekler, capture }: { marka: string; g: Gazeb
     const r = (await fetch("/api/konfigurator/kayit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ marka, g, adet: qty, ekler, gorsel, telefon: tel, ad, site: trap }),
+      body: JSON.stringify({ marka, g, adet: qty, ekler, gorsel, telefon: tel, site: trap }),
     })
       .then((x) => x.json())
-      .catch(() => ({ ok: false, hata: "Bağlantı kurulamadı, lütfen tekrar deneyin." }))) as { ok: boolean; hata?: string };
-    if (!r.ok) {
-      setState("bos");
-      return setErr(r.hata ?? "Kaydedilemedi.");
+      .catch(() => ({ ok: true }))) as { ok: boolean; hata?: string };
+    // Numara hatalıysa düzeltilsin; kayıt başka bir nedenle alınamazsa ödeme engellenmez
+    if (!r.ok && /telefon/i.test(r.hata ?? "")) {
+      setBusy(false);
+      return setErr(r.hata!);
     }
-    setState("tamam");
+    onDone();
   }
 
-  if (state === "tamam")
-    return (
-      <div className="flex items-start gap-3 rounded-[8px] p-4" style={{ background: "#eef6ee", color: "#1e6b34" }}>
-        <Check className="mt-0.5 size-5 shrink-0" strokeWidth={3} />
-        <div>
-          <p className="text-[14px] font-semibold">Tasarımınız kaydedildi</p>
-          <p className="mt-0.5 text-[12px]">Ekibimiz en kısa sürede {tel} numarasından size ulaşacak. Dilerseniz şimdi ödemeye de geçebilirsiniz.</p>
-        </div>
-      </div>
-    );
-
   return (
-    <form onSubmit={save} className="rounded-[8px] border-2 border-dashed p-4" style={{ borderColor: ORANGE, background: "#fff8f4" }}>
-      <div className="flex items-start gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-full text-white" style={{ background: ORANGE }}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <form
+        onSubmit={save}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal
+        aria-labelledby="konf-tel-baslik"
+        className="relative w-full max-w-[440px] rounded-t-[12px] bg-white p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-xl sm:rounded-[12px] sm:p-6"
+      >
+        <button type="button" onClick={onClose} className="absolute right-3 top-3 grid size-9 place-items-center rounded-full text-[#777] hover:bg-[#f5f6f8]" aria-label="Kapat">
+          <X className="size-5" />
+        </button>
+        <span className="grid size-11 place-items-center rounded-full text-white" style={{ background: ORANGE }}>
           <PhoneCall className="size-5" />
         </span>
-        <div className="min-w-0">
-          <p className="text-[15px] font-semibold">Siparişinizi kaydedin</p>
-          <p className="mt-0.5 text-[12px] text-[#555]">Şimdi almayacak mısınız? Numaranızı bırakın; tasarımınızı ve fiyatını saklayalım, sorularınız için sizi arayalım.</p>
-        </div>
-      </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+        <h3 id="konf-tel-baslik" className="mt-3 text-[18px] font-semibold">
+          Gazebonuzu kaydedin
+        </h3>
+        <p className="mt-1 text-[13px] text-[#555]">Gazebonuzu kaydetmek için telefon numaranızı yazın.</p>
         <input
+          ref={input}
           type="tel"
           inputMode="tel"
           autoComplete="tel"
           value={tel}
           onChange={(e) => setTel(e.target.value)}
-          placeholder="Telefon (05xx xxx xx xx)"
+          placeholder="05xx xxx xx xx"
           aria-label="Telefon"
-          className="h-11 w-full rounded-[8px] border border-[#dfe3e8] bg-white px-3 text-[14px] outline-none focus:border-[#024B90]"
-        />
-        <input
-          value={ad}
-          onChange={(e) => setAd(e.target.value)}
-          autoComplete="name"
-          maxLength={120}
-          placeholder="Adınız (isteğe bağlı)"
-          aria-label="Adınız"
-          className="h-11 w-full rounded-[8px] border border-[#dfe3e8] bg-white px-3 text-[14px] outline-none focus:border-[#024B90]"
+          className="mt-4 h-12 w-full rounded-[8px] border border-[#dfe3e8] bg-white px-3 text-[16px] outline-none focus:border-[#024B90]"
         />
         {/* Bot tuzağı: kullanıcı görmez */}
         <input value={trap} onChange={(e) => setTrap(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden className="hidden" name="site" />
+        {err && <p className="mt-2 text-[12px]" style={{ color: "#b42318" }}>{err}</p>}
         <button
           type="submit"
-          disabled={state === "gonder"}
-          className="flex h-11 items-center justify-center gap-1.5 rounded-[8px] px-5 text-[14px] font-semibold text-white hover:brightness-95 disabled:opacity-70"
-          style={{ background: NAVY }}
+          disabled={busy}
+          className="mt-4 flex h-12 w-full items-center justify-center gap-1.5 rounded-[8px] text-[15px] font-semibold text-white hover:brightness-95 disabled:opacity-70"
+          style={{ background: ORANGE }}
         >
-          {state === "gonder" && <Loader2 className="size-4 animate-spin" />} Kaydet
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <CreditCard className="size-4" />} Kaydet ve ödemeye geç
         </button>
-      </div>
-      {err && <p className="mt-2 text-[12px]" style={{ color: "#b42318" }}>{err}</p>}
-      <p className="mt-2 text-[11px] text-[#777]">İsteğe bağlıdır. Numaranız yalnızca bu tasarımla ilgili sizinle iletişim için kullanılır.</p>
-    </form>
+        <button type="button" onClick={onDone} disabled={busy} className="mt-2 h-10 w-full text-[13px] font-medium text-[#777] hover:text-[#242424]">
+          Numara vermeden devam et
+        </button>
+      </form>
+    </div>
   );
 }

@@ -143,7 +143,7 @@ export function cleanPhone(raw: unknown) {
 }
 
 /**
- * Son adımda bırakılan telefon: tasarım ve fiyatıyla panelde Talepler'e düşer (tür "konfigurator"). Talep markanın
+ * Ödemeye geçerken bırakılan telefon (ödeme tamamlanmazsa aranır): tasarım ve fiyatıyla panelde Talepler'e düşer (tür "konfigurator"). Talep markanın
  * WooCommerce bağlantısına yazılır; o sitenin talep eşitlemesi olmadığı için kimlik (dis_id) panelde sıralanır.
  */
 export async function saveLead(input: { marka: string; g: unknown; adet: unknown; ekler?: unknown; gorsel?: unknown; telefon: unknown; ad?: unknown; ip: string }) {
@@ -178,7 +178,7 @@ export async function saveLead(input: { marka: string; g: unknown; adet: unknown
   for (let i = 0; ; i++) {
     const [last] = await db().select({ m: sql<number>`COALESCE(MAX(${t.disId}), 0)`.mapWith(Number) }).from(t).where(eq(t.siteId, site.id));
     try {
-      await db().insert(t).values({ siteId: site.id, markaId: brand.id, disId: (last?.m ?? 0) + 1, tur: "konfigurator", turAd: "Gazebo tasarımı (kaydedildi)", ad, eposta: "", telefon, mesaj, disTarih: new Date() });
+      await db().insert(t).values({ siteId: site.id, markaId: brand.id, disId: (last?.m ?? 0) + 1, tur: "konfigurator", turAd: "Gazebo tasarımı (ödemeye geçerken)", ad, eposta: "", telefon, mesaj, disTarih: new Date() });
       return;
     } catch (e) {
       // Aynı anda gelen iki kayıt aynı kimliği almışsa yeniden dene
