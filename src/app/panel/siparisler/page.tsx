@@ -6,6 +6,7 @@ import { isAdmin, requireSeller } from "@/server/auth";
 import { listSites, syncStale, type Vocabulary } from "@/server/sites";
 import { brandFilter } from "@/server/brands";
 import { listOrders } from "@/server/orders";
+import { listOpenDesigns } from "@/server/site-requests";
 
 export const metadata: Metadata = { title: "Siparişler" };
 
@@ -18,7 +19,12 @@ async function Orders({ searchParams }: { searchParams: Promise<{ q?: string | s
   // Siteler arka planda yoklanır (son deneme 90 sn'den eskiyse); sayfa beklemez, yeni siparişler bir sonraki açılışta görünür
   after(() => syncStale(90).catch((e) => console.error("syncStale", e)));
   const brands = await brandFilter(me, sp.marka);
-  const [rows, sites] = await Promise.all([listOrders(me, q, brands.active?.id ?? null, kaynak), listSites()]);
+  // Ödemesi tamamlanmamış konfigüratör tasarımları (telefon bırakanlar) site siparişlerinin üstünde; aramada ve "Tekliften"de gösterilmez
+  const [rows, sites, designs] = await Promise.all([
+    listOrders(me, q, brands.active?.id ?? null, kaynak),
+    listSites(),
+    q || kaynak === "teklif" ? [] : listOpenDesigns(me, brands.active?.id ?? null),
+  ]);
   const myBrands = new Set(brands.options.map((b) => b.kod));
   const visibleSites = sites.filter((s) => s.aktif && (isAdmin(me) || brands.options.some((b) => b.ad === s.marka)));
   const vocab = new Map(sites.map((s) => [s.id, s.sozluk ? (JSON.parse(s.sozluk) as Vocabulary) : null]));
@@ -35,6 +41,7 @@ async function Orders({ searchParams }: { searchParams: Promise<{ q?: string | s
       kaynak={kaynak}
       sites={visibleSites.map((s) => ({ id: s.id, ad: s.ad, sonBasari: s.sonBasari?.toISOString() ?? null, sonHata: s.sonHata }))}
       showSiteFilter={myBrands.size > 0 && visibleSites.length > 0}
+      designs={designs.map((d) => ({ id: d.t.id, telefon: d.t.telefon, ad: d.t.ad, mesaj: d.t.mesaj, durum: d.t.durum, not: d.t.not, tarih: d.t.disTarih.toISOString(), marka: d.marka, markaRenk: d.markaRenk }))}
     />
   );
 }

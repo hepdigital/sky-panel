@@ -98,6 +98,30 @@ export async function listRequests(me: Me, acik: boolean) {
     .limit(300);
 }
 
+/**
+ * Siparişler ekranı: konfigüratörde ödemeye geçerken telefon bırakıp siparişi tamamlanmamış tasarımlar
+ * (tür "konfigurator", sonuçlanmamış). Sipariş sayılmaz (ciro/kâr etkilenmez); takibi talep durumuyla yapılır.
+ */
+export async function listOpenDesigns(me: Me, markaId: number | null) {
+  await ensureTable();
+  const brands = await visibleBrands(me);
+  if (brands && !brands.length) return [];
+  return db()
+    .select({ t: talepler, marka: schema.markalar.ad, markaRenk: schema.markalar.renk })
+    .from(talepler)
+    .leftJoin(schema.markalar, eq(schema.markalar.id, talepler.markaId))
+    .where(
+      and(
+        eq(talepler.tur, "konfigurator"),
+        inArray(talepler.durum, ["yeni", "arandi", "teklif"]),
+        brands ? inArray(talepler.markaId, brands) : undefined,
+        markaId ? eq(talepler.markaId, markaId) : undefined,
+      ),
+    )
+    .orderBy(desc(talepler.disTarih))
+    .limit(50);
+}
+
 /** Menü sayacı: görülebilen yeni talepler (tablo henüz yoksa 0) */
 export async function newRequestCount(me: Me) {
   try {

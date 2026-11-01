@@ -13,6 +13,7 @@ import { QuoteItems } from "@/components/terminal/quote-items";
 import type { PdfData } from "@/lib/terminal/calc";
 import { downloadPdf } from "@/lib/terminal/pdf";
 import { cn, formatDate, formatTRY } from "@/lib/utils";
+import { OpenDesigns, type OpenDesign } from "./open-designs";
 
 export type OrderStatus = "alindi" | "uretimde" | "hazir" | "kargoda" | "teslim" | "iptal";
 export const ORDER_STATUS: Record<OrderStatus, { label: string; tone: BadgeTone; icon: LucideIcon; hint: string }> = {
@@ -64,6 +65,7 @@ export function OrderTable({
   kaynak,
   sites,
   showSiteFilter,
+  designs,
 }: {
   rows: OrderRow[];
   q: string;
@@ -72,6 +74,7 @@ export function OrderTable({
   kaynak: "teklif" | "site" | null;
   sites: SiteStatus[];
   showSiteFilter: boolean;
+  designs: OpenDesign[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -151,6 +154,7 @@ export function OrderTable({
           {syncMsg && <span>{syncMsg}</span>}
         </div>
       )}
+      {designs.length > 0 && <OpenDesigns rows={designs} showBrand={brands.length > 1} />}
       <Card className="mt-4 overflow-hidden">
         {!rows.length ? (
           <p className="px-5 py-12 text-center text-sm text-muted-foreground">Henüz sipariş yok.</p>

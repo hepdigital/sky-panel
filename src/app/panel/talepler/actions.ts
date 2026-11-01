@@ -12,6 +12,7 @@ export async function talepGuncelle(id: number, change: { durum?: string; not?: 
   if (!me) return { ok: false, hata: "Oturum kapanmış." };
   const r = await updateRequest(me, Number(id), change);
   revalidatePath("/panel/talepler");
+  revalidatePath("/panel/siparisler");
   revalidatePath("/panel", "layout");
   return r;
 }
