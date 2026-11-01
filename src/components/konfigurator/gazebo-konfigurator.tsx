@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { Check, ChevronLeft, ChevronRight, Loader2, Minus, Plus, Rotate3d, ShoppingCart } from "lucide-react";
-import { FRAME_MAT, FRAME_NAME, SIDE_NAMES, fitWall, framesOf } from "@/lib/konfigurator";
+import { Check, ChevronLeft, ChevronRight, CreditCard, Loader2, Minus, PhoneCall, Plus, Rotate3d, ShoppingCart } from "lucide-react";
+import { FRAME_MAT, FRAME_NAME, SIDE_NAMES, fitWall, framesOf, type KonfEk } from "@/lib/konfigurator";
 import { FABRICS, SIZES, SZ, cfgKey, gzRows, gzTotal, imgSrc, plan, slotPrice, slots, val, type Gazebo } from "@/lib/terminal/calc";
 import { priceTable, setPriceTable, type PriceTable } from "@/lib/terminal/price-table";
 import { cn } from "@/lib/utils";
@@ -33,16 +33,19 @@ const tl = (n: number) => `${Math.round(n * VAT).toLocaleString("tr-TR")} ₺`;
 const STEPS = ["Ölçü", "İskelet", "Kumaş", "Renk", "Duvarlar", "Özet"] as const;
 /** Duvarlar adımı (kamera kenara döner, zeminde kenar adı vurgulanır) */
 const WALL_STEP = 4;
-/** Sepet bileti siteye gönderildikten sonra sitenin sepete yönlendirmesi beklenir; olmazsa uyarı */
+/** Sepet bileti siteye gönderildikten sonra sitenin ödemeye yönlendirmesi beklenir; olmazsa uyarı */
 const PARENT_WAIT = 10_000;
 
 type Color = { hex: string; ad: string };
 
 /**
  * marka: fiyat tablosu ve sepet bileti bu markanındır. gomulu: sitenin sayfasında (iframe) açıldı; başlığı site gösterir.
- * Sepete ekle: tasarım sunucuda fiyatlanıp imzalanır, bilet siteye (üst pencere) iletilir; site doğrulayıp sepete ekler.
+ * Ödemeye geç: tasarım ve ek ürünler sunucuda fiyatlanıp imzalanır, bilet siteye (üst pencere) iletilir; site doğrulayıp
+ * sepete ekler ve ödeme sayfasına geçer. ekler: son adımda önerilen ürünler (panelin teklif ürünleri, markanın fiyatı).
  */
-export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: string; gomulu: boolean; table: PriceTable; colors: Color[] }) {
+export function GazeboKonfigurator({
+  marka, gomulu, table, colors, ekler, odeme,
+}: { marka: string; gomulu: boolean; table: PriceTable; colors: Color[]; ekler: KonfEk[]; odeme: boolean }) {
   // Hesaplar etkin fiyat tablosunu okur: markanın tablosu her çizimde etkin
   setPriceTable(table);
   const { FRAMES, ROOF } = table;
@@ -50,6 +53,8 @@ export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: st
   const [step, setStep] = useState(0);
   const [side, setSide] = useState(0);
   const [qty, setQty] = useState(1);
+  /** Ek ürün adetleri (kod → adet) */
+  const [ek, setEk] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const capture = useRef<Capture | null>(null);
@@ -65,6 +70,10 @@ export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: st
   const fab = g.roofFab ?? 0;
   const pl = plan(g.size);
   const total = gzTotal(g, MODE);
+  // Ölçüye uymayan ek ürün (ör. başka ölçünün çantası) seçimden düşer
+  const extras = ekler.filter((e) => !e.olculer || e.olculer.includes(g.size));
+  const chosen = Object.fromEntries(extras.filter((e) => (ek[e.kod] ?? 0) > 0).map((e) => [e.kod, ek[e.kod]]));
+  const grand = total * qty + extras.reduce((t, e) => t + e.fiyat * (chosen[e.kod] ?? 0), 0);
 
   /** Duvarları ölçüye ve kumaşa göre satılabilir en yakın bileşime çeker */
   const fit = (next: Gazebo): Gazebo => {
@@ -90,16 +99,16 @@ export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: st
     } catch {
       // görüntü alınamazsa sepete görselsiz eklenir
     }
-    const r = (await fetch("/api/konfigurator/sepet", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ marka, g, adet: qty, gorsel }) })
+    const r = (await fetch("/api/konfigurator/sepet", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ marka, g, adet: qty, ekler: chosen, gorsel }) })
       .then((x) => x.json())
       .catch(() => ({ ok: false, hata: "Bağlantı kurulamadı, lütfen tekrar deneyin." }))) as { ok: boolean; token?: string; hata?: string };
     if (!r.ok || !r.token) {
       setBusy(false);
-      return setErr(r.hata ?? "Tasarım sepete eklenemedi.");
+      return setErr(r.hata ?? "Ödemeye geçilemedi.");
     }
     if (window.parent === window) {
       setBusy(false);
-      return setErr("Sepete ekleme, konfigüratör sitenin sayfasında açıldığında çalışır.");
+      return setErr("Ödemeye geçiş, konfigüratör sitenin sayfasında açıldığında çalışır.");
     }
     let origin = "*";
     try {
@@ -108,7 +117,7 @@ export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: st
       // referrer yoksa bilet herkese açık gönderilir: imzalı olduğu için yalnızca anahtarı bilen site kullanabilir
     }
     window.parent.postMessage({ tip: "sky-konfigurator:sepet", token: r.token }, origin);
-    // Site sepete yönlendirir; yönlendirmezse kullanıcı beklemede kalmasın
+    // Site ödemeye yönlendirir; yönlendirmezse kullanıcı beklemede kalmasın
     waiting.current = window.setTimeout(() => {
       setBusy(false);
       setErr("Site yanıt vermedi. Sayfayı yenileyip tekrar deneyin.");
@@ -204,7 +213,13 @@ export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: st
                     </div>
                   ))}
                 {step === WALL_STEP && <WallsStep g={g} side={side} setSide={setSide} onWall={setWall} />}
-                {step === 5 && <Summary g={g} colors={colors} qty={qty} setQty={setQty} />}
+                {step === 5 && (
+                  <div className="space-y-6">
+                    <Summary g={g} colors={colors} qty={qty} setQty={setQty} />
+                    <Extras list={extras} ek={chosen} setEk={(kod, n) => setEk((x) => ({ ...x, [kod]: n }))} />
+                    <SaveDesign marka={marka} g={g} qty={qty} ekler={chosen} capture={() => capture.current} />
+                  </div>
+                )}
               </div>
               {err && (
                 <p className="mt-4 rounded-[8px] px-3 py-2.5 text-[13px]" style={{ background: "#fdecec", color: "#b42318" }}>
@@ -212,7 +227,7 @@ export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: st
                 </p>
               )}
               <div className="mt-6 hidden border-t border-[#eef0f3] pt-4 lg:block">
-                <NavBar step={step} total={total * qty} qty={qty} busy={busy} onBack={() => go(step - 1)} onNext={() => (step === STEPS.length - 1 ? void addToCart() : go(step + 1))} />
+                <NavBar step={step} total={grand} qty={qty} busy={busy} odeme={odeme} onBack={() => go(step - 1)} onNext={() => (step === STEPS.length - 1 ? void addToCart() : go(step + 1))} />
               </div>
             </section>
           </div>
@@ -221,20 +236,20 @@ export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: st
 
       {/* Alt çubuk: mobilde ekrana sabit (masaüstünde adım kartının altında) */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/10 bg-white/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur lg:hidden">
-        <NavBar step={step} total={total * qty} qty={qty} busy={busy} onBack={() => go(step - 1)} onNext={() => (step === STEPS.length - 1 ? void addToCart() : go(step + 1))} />
+        <NavBar step={step} total={grand} qty={qty} busy={busy} odeme={odeme} onBack={() => go(step - 1)} onNext={() => (step === STEPS.length - 1 ? void addToCart() : go(step + 1))} />
       </div>
     </div>
   );
 }
 
-const STEP_TITLE = ["Çadır ölçüsü", "İskelet", "Kumaş", "Renk", "Duvarlar", "Özet"];
+const STEP_TITLE = ["Çadır ölçüsü", "İskelet", "Kumaş", "Renk", "Duvarlar", "Özet ve ek ürünler"];
 const STEP_HINT = [
   "Kurulacak alanın ölçüsünü seçin.",
   "Kullanım sıklığına göre iskelet serisini seçin.",
   "Kumaş tipi tüm çadırda aynıdır.",
   "Tavan ve duvar rengini seçin.",
   "Kenarı seçip duvar tipini belirleyin; duvar istemediğiniz kenar boş kalır.",
-  "Seçimlerinizi kontrol edip sepete ekleyin.",
+  "Seçimlerinizi kontrol edin, isterseniz sabitleme ve taşıma ürünleri ekleyip ödemeye geçin.",
 ];
 
 /** Kenarda gösterilecek duvar tipleri: fiyatı olanlar */
@@ -313,7 +328,8 @@ function Stepper({ step, onGo }: { step: number; onGo: (n: number) => void }) {
   );
 }
 
-function NavBar({ step, total, qty, busy, onBack, onNext }: { step: number; total: number; qty: number; busy: boolean; onBack: () => void; onNext: () => void }) {
+/** odeme: site ödeme sayfasına geçer (eklenti 1.1); değilse sepete ekler */
+function NavBar({ step, total, qty, busy, odeme, onBack, onNext }: { step: number; total: number; qty: number; busy: boolean; odeme: boolean; onBack: () => void; onNext: () => void }) {
   const last = step === STEPS.length - 1;
   return (
     <div className="flex items-center gap-2.5">
@@ -339,7 +355,8 @@ function NavBar({ step, total, qty, busy, onBack, onNext }: { step: number; tota
       >
         {last ? (
           <>
-            {busy ? <Loader2 className="size-4 animate-spin" /> : <ShoppingCart className="size-4" />} {busy ? "Ekleniyor…" : "Sepete ekle"}
+            {busy ? <Loader2 className="size-4 animate-spin" /> : odeme ? <CreditCard className="size-4" /> : <ShoppingCart className="size-4" />}{" "}
+            {busy ? "Yönlendiriliyor…" : odeme ? "Ödemeye geç" : "Sepete ekle"}
           </>
         ) : (
           <>
@@ -599,17 +616,175 @@ function Summary({ g, colors, qty, setQty }: { g: Gazebo; colors: Color[]; qty: 
         <dd className="text-right font-medium">{plan(g.size)[0].h} cm</dd>
       </dl>
       <div className="mt-4 flex items-center justify-between rounded-[8px] bg-[#f5f6f8] px-3 py-2.5">
-        <span className="text-[13px] font-semibold">Adet</span>
-        <div className="flex items-center rounded-[8px] bg-white ring-1 ring-[#dfe3e8]">
-          <button type="button" onClick={() => setQty(Math.max(1, qty - 1))} className="grid size-10 place-items-center" aria-label="Azalt">
-            <Minus className="size-4" />
-          </button>
-          <span className="w-8 text-center text-[14px] font-semibold">{qty}</span>
-          <button type="button" onClick={() => setQty(Math.min(99, qty + 1))} className="grid size-10 place-items-center" aria-label="Artır">
-            <Plus className="size-4" />
-          </button>
-        </div>
+        <span className="text-[13px] font-semibold">Çadır adedi</span>
+        <Stepper2 value={qty} min={1} max={99} onChange={setQty} />
       </div>
     </div>
+  );
+}
+
+function Stepper2({ value, min, max, onChange }: { value: number; min: number; max: number; onChange: (n: number) => void }) {
+  return (
+    <div className="flex items-center rounded-[8px] bg-white ring-1 ring-[#dfe3e8]">
+      <button type="button" onClick={() => onChange(Math.max(min, value - 1))} className="grid size-10 place-items-center" aria-label="Azalt">
+        <Minus className="size-4" />
+      </button>
+      <span className="w-8 text-center text-[14px] font-semibold">{value}</span>
+      <button type="button" onClick={() => onChange(Math.min(max, value + 1))} className="grid size-10 place-items-center" aria-label="Artır">
+        <Plus className="size-4" />
+      </button>
+    </div>
+  );
+}
+
+/* ───────────── ek ürünler ───────────── */
+
+/** Panelin teklif ürünlerinden sabitleme ve taşıma ürünleri; gruplar paneldeki kategori sırasıyla */
+function Extras({ list, ek, setEk }: { list: KonfEk[]; ek: Record<string, number>; setEk: (kod: string, n: number) => void }) {
+  if (!list.length) return null;
+  const groups = [...new Set(list.map((e) => e.grup))];
+  return (
+    <div className="space-y-5">
+      {groups.map((grup) => (
+        <div key={grup}>
+          <h3 className="text-[15px] font-semibold">{grup}</h3>
+          {/sabit/i.test(grup) && <p className="mt-0.5 text-[12px] text-[#777]">Rüzgârlı havada çadırın kalkmaması için her ayağa bir ağırlık önerilir.</p>}
+          <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+            {list
+              .filter((e) => e.grup === grup)
+              .map((e) => {
+                const n = ek[e.kod] ?? 0;
+                return (
+                  <div key={e.kod} className={cn("flex gap-3 rounded-[8px] border-2 bg-white p-2.5", n ? "" : "border-[#e6e9ee]")} style={n ? { borderColor: NAVY, background: "#f3f7fb" } : undefined}>
+                    <span className="relative size-[72px] shrink-0 overflow-hidden rounded-[6px] bg-white ring-1 ring-black/5">
+                      {e.gorsel && <Image src={e.gorsel} alt="" fill sizes="72px" className="object-contain p-1" unoptimized={e.gorsel.startsWith("/dosya/")} />}
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <p className="text-[13px] font-semibold leading-tight">{e.ad}</p>
+                      {e.aciklama && <p className="mt-0.5 text-[11px] text-[#777]">{e.aciklama.toLocaleLowerCase("tr-TR") === "adet" ? "Adet fiyatı" : e.aciklama}</p>}
+                      {e.uyari && <p className="mt-0.5 text-[11px]" style={{ color: "#9a3412" }}>{e.uyari}</p>}
+                      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2">
+                        <span className="whitespace-nowrap text-[13px] font-semibold" style={{ color: NAVY }}>
+                          {tl(e.fiyat)}
+                        </span>
+                        {n ? (
+                          <Stepper2 value={n} min={0} max={999} onChange={(v) => setEk(e.kod, v)} />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setEk(e.kod, 1)}
+                            className="inline-flex h-9 items-center gap-1 rounded-[8px] border px-3 text-[13px] font-semibold"
+                            style={{ borderColor: NAVY, color: NAVY }}
+                          >
+                            <Plus className="size-4" /> Ekle
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ───────────── tasarımı kaydet (telefon) ───────────── */
+
+/**
+ * Satın almadan ayrılacak ziyaretçi için: telefonunu bırakırsa tasarım ve fiyatıyla panelde Talepler'e düşer, satış ekibi
+ * arar. Zorunlu değildir; ödemeye geçişi engellemez.
+ */
+function SaveDesign({ marka, g, qty, ekler, capture }: { marka: string; g: Gazebo; qty: number; ekler: Record<string, number>; capture: () => Capture | null }) {
+  const [tel, setTel] = useState("");
+  const [ad, setAd] = useState("");
+  const [trap, setTrap] = useState("");
+  const [state, setState] = useState<"bos" | "gonder" | "tamam">("bos");
+  const [err, setErr] = useState<string | null>(null);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (tel.replace(/\D/g, "").length < 10) return setErr("Telefon numaranızı yazın (ör. 0532 123 45 67).");
+    setState("gonder");
+    setErr(null);
+    let gorsel: string | null = null;
+    try {
+      const url = capture()?.().url;
+      if (url?.startsWith("data:image/webp")) gorsel = url;
+    } catch {
+      // görselsiz kaydedilir
+    }
+    const r = (await fetch("/api/konfigurator/kayit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ marka, g, adet: qty, ekler, gorsel, telefon: tel, ad, site: trap }),
+    })
+      .then((x) => x.json())
+      .catch(() => ({ ok: false, hata: "Bağlantı kurulamadı, lütfen tekrar deneyin." }))) as { ok: boolean; hata?: string };
+    if (!r.ok) {
+      setState("bos");
+      return setErr(r.hata ?? "Kaydedilemedi.");
+    }
+    setState("tamam");
+  }
+
+  if (state === "tamam")
+    return (
+      <div className="flex items-start gap-3 rounded-[8px] p-4" style={{ background: "#eef6ee", color: "#1e6b34" }}>
+        <Check className="mt-0.5 size-5 shrink-0" strokeWidth={3} />
+        <div>
+          <p className="text-[14px] font-semibold">Tasarımınız kaydedildi</p>
+          <p className="mt-0.5 text-[12px]">Ekibimiz en kısa sürede {tel} numarasından size ulaşacak. Dilerseniz şimdi ödemeye de geçebilirsiniz.</p>
+        </div>
+      </div>
+    );
+
+  return (
+    <form onSubmit={save} className="rounded-[8px] border-2 border-dashed p-4" style={{ borderColor: ORANGE, background: "#fff8f4" }}>
+      <div className="flex items-start gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-full text-white" style={{ background: ORANGE }}>
+          <PhoneCall className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[15px] font-semibold">Siparişinizi kaydedin</p>
+          <p className="mt-0.5 text-[12px] text-[#555]">Şimdi almayacak mısınız? Numaranızı bırakın; tasarımınızı ve fiyatını saklayalım, sorularınız için sizi arayalım.</p>
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+        <input
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          value={tel}
+          onChange={(e) => setTel(e.target.value)}
+          placeholder="Telefon (05xx xxx xx xx)"
+          aria-label="Telefon"
+          className="h-11 w-full rounded-[8px] border border-[#dfe3e8] bg-white px-3 text-[14px] outline-none focus:border-[#024B90]"
+        />
+        <input
+          value={ad}
+          onChange={(e) => setAd(e.target.value)}
+          autoComplete="name"
+          maxLength={120}
+          placeholder="Adınız (isteğe bağlı)"
+          aria-label="Adınız"
+          className="h-11 w-full rounded-[8px] border border-[#dfe3e8] bg-white px-3 text-[14px] outline-none focus:border-[#024B90]"
+        />
+        {/* Bot tuzağı: kullanıcı görmez */}
+        <input value={trap} onChange={(e) => setTrap(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden className="hidden" name="site" />
+        <button
+          type="submit"
+          disabled={state === "gonder"}
+          className="flex h-11 items-center justify-center gap-1.5 rounded-[8px] px-5 text-[14px] font-semibold text-white hover:brightness-95 disabled:opacity-70"
+          style={{ background: NAVY }}
+        >
+          {state === "gonder" && <Loader2 className="size-4 animate-spin" />} Kaydet
+        </button>
+      </div>
+      {err && <p className="mt-2 text-[12px]" style={{ color: "#b42318" }}>{err}</p>}
+      <p className="mt-2 text-[11px] text-[#777]">İsteğe bağlıdır. Numaranız yalnızca bu tasarımla ilgili sizinle iletişim için kullanılır.</p>
+    </form>
   );
 }

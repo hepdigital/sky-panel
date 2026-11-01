@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SKY Konfigüratör
  * Description: SKY panelindeki gazebo konfigüratörünü siteye yerleştirir ve panelin imzaladığı tasarımı WooCommerce sepetine ekler. Fiyat panelde hesaplanır; site yalnızca imzayı doğrular.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: SKY Görsel Çözümler
  * Requires Plugins: woocommerce
  * Text Domain: sky-konfigurator
@@ -80,7 +80,8 @@ final class Sky_Konfigurator {
 	/* ───────────── sayfa ───────────── */
 
 	private static function frame_src() {
-		return self::PANEL . '/konfigurator/' . self::MARKA . '?gomulu=1';
+		// s=2: bu sürüm ek ürünleri sepete ekler ve ödemeye geçer (panel ekleri ve "Ödemeye geç"i buna göre gösterir)
+		return self::PANEL . '/konfigurator/' . self::MARKA . '?gomulu=1&s=2';
 	}
 
 	/** Mesajı alıp bileti sepete gönderen betik (tam ekran sayfa ve kısa kod aynı betiği kullanır) */
@@ -123,7 +124,10 @@ final class Sky_Konfigurator {
 
 	/* ───────────── sepet ───────────── */
 
-	/** Bilet sepet sayfasına POST edilir: doğrulanır, ürün imzalı tasarımla eklenir, sepete yönlendirilir */
+	/**
+	 * Bilet sepet sayfasına POST edilir: doğrulanır, ürün imzalı tasarımla eklenir; seçilen ek ürünler (sabitleme, çanta)
+	 * aynı gizli ürünün ayrı satırları olarak eklenir (fiyatları panelden, imzalı). Ardından ödeme sayfasına geçilir.
+	 */
 	public static function handle_post() {
 		if ( empty( $_POST[ self::FIELD ] ) || ! function_exists( 'WC' ) ) {
 			return;
@@ -140,11 +144,36 @@ final class Sky_Konfigurator {
 		}
 		self::$adding = true;
 		$added        = WC()->cart->add_to_cart( $pid, max( 1, min( 99, (int) ( $p['adet'] ?? 1 ) ) ), 0, array(), array( self::KEY => $p ) );
-		self::$adding = false;
 		if ( $added ) {
-			wc_add_notice( esc_html( $p['baslik'] ) . ' sepetinize eklendi.', 'success' );
+			foreach ( (array) ( $p['ekler'] ?? array() ) as $ek ) {
+				$adet = (int) ( $ek['adet'] ?? 0 );
+				if ( $adet < 1 || ! is_numeric( $ek['fiyat'] ?? null ) || $ek['fiyat'] <= 0 ) {
+					continue;
+				}
+				// Ek satır: kendi başlığı, görseli ve fiyatıyla; "ek" alanı ana tasarımın kimliğini taşır
+				$line = array(
+					'v'        => 1,
+					'n'        => $p['n'] . '-' . $ek['kod'],
+					'marka'    => $p['marka'],
+					'baslik'   => (string) $ek['baslik'],
+					'fiyat'    => (float) $ek['fiyat'],
+					'kdv'      => $p['kdv'] ?? 20,
+					'satirlar' => array(),
+					'gorsel'   => $ek['gorsel'] ?? '',
+					'ek'       => array(
+						'kod'     => (string) $ek['kod'],
+						'tasarim' => $p['n'],
+					),
+				);
+				WC()->cart->add_to_cart( $pid, min( 999, $adet ), 0, array(), array( self::KEY => $line ) );
+			}
 		}
-		wp_safe_redirect( wc_get_cart_url() );
+		self::$adding = false;
+		if ( ! $added ) {
+			wp_safe_redirect( wc_get_cart_url() );
+			exit;
+		}
+		wp_safe_redirect( wc_get_checkout_url() );
 		exit;
 	}
 
@@ -216,6 +245,13 @@ final class Sky_Konfigurator {
 		}
 		$p = $values[ self::KEY ];
 		$order_item->set_name( $p['baslik'] );
+		if ( ! empty( $p['ek'] ) ) {
+			$order_item->add_meta_data( '_sky_konfigurator', wp_json_encode( array( 'n' => $p['n'], 'marka' => $p['marka'], 'fiyat' => $p['fiyat'], 'ek' => $p['ek'] ), JSON_UNESCAPED_UNICODE ), true );
+			if ( ! empty( $p['gorsel'] ) ) {
+				$order_item->add_meta_data( '_sky_gorsel', $p['gorsel'], true );
+			}
+			return;
+		}
 		foreach ( (array) $p['satirlar'] as $row ) {
 			$order_item->add_meta_data( $row['ad'], $row['deger'], true );
 		}

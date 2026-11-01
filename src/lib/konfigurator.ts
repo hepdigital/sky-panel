@@ -85,3 +85,40 @@ export function summaryLines(g: Gazebo, colorOf: (hex?: string) => string) {
     { ad: "Duvar yüksekliği", deger: `${plan(g.size)[0].h} cm` },
   ];
 }
+
+/* ───────────── ek ürünler ───────────── */
+
+/** Son adımda önerilen ek ürünler: teklif ürünlerinde bu kategorilerdeki ürünler (fiyat ve görsel markanınki) */
+export const KONF_EK_KATEGORI = ["Sabitleme", "Taşıma Çantası", "Gazebo Aksesuarları"];
+
+export type KonfEk = { kod: string; grup: string; ad: string; aciklama: string; gorsel: string | null; uyari?: string; fiyat: number; olculer: string[] | null };
+
+/**
+ * Ürünün uyduğu gazebo ölçüleri: adında ya da açıklamasında ölçü geçiyorsa (ör. taşıma çantası "2x2, 2x3, 3x3")
+ * yalnızca o ölçülerde önerilir; ölçü geçmiyorsa her ölçüde. "3x4,5" ve "300x450" de tanınır.
+ */
+export function ekSizes(text: string): string[] | null {
+  const found = new Set<string>();
+  for (const m of text.matchAll(/(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)/g)) {
+    const n = (v: string) => {
+      const x = Number(v.replace(",", "."));
+      return x >= 100 ? x / 100 : x;
+    };
+    const key = `${n(m[1])}x${n(m[2])}`;
+    if (SIZES.includes(key)) found.add(key);
+  }
+  return found.size ? [...found] : null;
+}
+
+/** Sepete giden ek ürün seçimi: kod → adet; ölçüye uymayan, fiyatı olmayan ya da bilinmeyen ürün hata verir */
+export function cleanExtras(raw: unknown, ekler: KonfEk[], size: string): { ok: true; list: { ek: KonfEk; adet: number }[] } | { ok: false; hata: string } {
+  const list: { ek: KonfEk; adet: number }[] = [];
+  for (const [kod, n] of Object.entries((raw ?? {}) as Record<string, unknown>)) {
+    const adet = Math.round(Number(n));
+    if (!adet) continue;
+    const ek = ekler.find((e) => e.kod === kod);
+    if (!ek || adet < 0 || adet > 999 || (ek.olculer && !ek.olculer.includes(size))) return { ok: false, hata: "Ek ürün seçimi geçersiz; sayfayı yenileyip tekrar deneyin." };
+    list.push({ ek, adet });
+  }
+  return { ok: true, list };
+}

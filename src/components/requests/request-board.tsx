@@ -135,9 +135,11 @@ function RequestCard({ r }: { r: RequestRow }) {
             <a href={`https://wa.me/${waNumber(r.telefon)}`} target="_blank" rel="noopener" className="inline-flex items-center gap-1 font-semibold text-success hover:underline">
               <MessageCircle className="size-3.5" /> WhatsApp
             </a>
-            <a href={`mailto:${r.eposta}`} className="inline-flex items-center gap-1 text-muted-foreground hover:underline">
-              <Mail className="size-3.5" /> {r.eposta}
-            </a>
+            {r.eposta && (
+              <a href={`mailto:${r.eposta}`} className="inline-flex items-center gap-1 text-muted-foreground hover:underline">
+                <Mail className="size-3.5" /> {r.eposta}
+              </a>
+            )}
             {r.il && (
               <span className="inline-flex items-center gap-1 text-muted-foreground">
                 <MapPin className="size-3.5" /> {r.il}
@@ -151,7 +153,7 @@ function RequestCard({ r }: { r: RequestRow }) {
         </p>
       </div>
 
-      {r.mesaj && <p className="mt-3 rounded-xl bg-muted/60 p-3 text-sm whitespace-pre-line">{r.mesaj}</p>}
+      {r.mesaj && <Message text={r.mesaj} />}
 
       <div className="mt-4 flex flex-wrap gap-1.5">
         {DURUMLAR.map((d) => (
@@ -183,5 +185,21 @@ function RequestCard({ r }: { r: RequestRow }) {
       </div>
       {hata && <p className="mt-2 text-xs font-semibold text-danger">{hata}</p>}
     </Card>
+  );
+}
+
+/** Talep metni; "Görsel: https://…" satırı (konfigüratör tasarımı) resim olarak gösterilir */
+function Message({ text }: { text: string }) {
+  const img = text.match(/^Görsel: (https?:\/\/\S+\.webp)$/m)?.[1];
+  return (
+    <div className="mt-3 flex flex-col gap-3 rounded-xl bg-muted/60 p-3 sm:flex-row">
+      {img && (
+        <a href={img} target="_blank" rel="noopener" className="shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element -- panelin kendi dosyası, boyutu sabit */}
+          <img src={img} alt="Tasarım" className="h-36 w-48 rounded-lg bg-white object-contain ring-1 ring-border" />
+        </a>
+      )}
+      <p className="text-sm whitespace-pre-line">{img ? text.replace(/^Görsel: .*$/m, "").trim() : text}</p>
+    </div>
   );
 }

@@ -14,7 +14,8 @@ export type TalepDurum = (typeof schema.TALEP_DURUMLARI)[number];
 export const TALEP_DURUM_AD: Record<TalepDurum, string> = { yeni: "Yeni", arandi: "Arandı", teklif: "Teklif verildi", kazanildi: "Satışa döndü", kaybedildi: "Olumsuz" };
 
 let ready: Promise<unknown> | null = null;
-const ensureTable = () =>
+export const ensureRequestTable = () => ensureTable();
+const ensureTable = (): Promise<unknown> =>
   (ready ??= db()
     .execute(
       sql.raw(`CREATE TABLE IF NOT EXISTS site_talepleri (
