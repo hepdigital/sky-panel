@@ -5,11 +5,11 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { Check, ChevronLeft, ChevronRight, Loader2, Minus, Plus, Rotate3d, ShoppingCart } from "lucide-react";
 import { FRAME_MAT, SIDE_NAMES, fitWall, framesOf } from "@/lib/konfigurator";
-import { FABRICS, PRESETS, SIZES, SZ, cfgKey, gzRows, gzTotal, imgSrc, plan, slotPrice, slots, val, type Gazebo } from "@/lib/terminal/calc";
+import { FABRICS, SIZES, SZ, cfgKey, gzRows, gzTotal, imgSrc, plan, slotPrice, slots, val, type Gazebo } from "@/lib/terminal/calc";
 import { priceTable, setPriceTable, type PriceTable } from "@/lib/terminal/price-table";
 import { cn } from "@/lib/utils";
 import { viewerInput } from "@/modules/gazebo/viewer-map";
-import { WALL_KINDS, hasDoor, hasWindow, kindAvailable, kindImage, wallName, wallPrice, type Wall, type WallKind } from "@/modules/gazebo/walls";
+import { WALL_KINDS, hasDoor, hasWindow, kindAvailable, kindImage, wallPrice, type Wall } from "@/modules/gazebo/walls";
 import type { Capture } from "@/modules/gazebo3d/mastertent/viewer";
 import { ViewerBoundary } from "@/modules/gazebo3d/mastertent/viewer-boundary";
 
@@ -187,7 +187,7 @@ export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: st
                     )}
                   </div>
                 )}
-                {step === 3 && <WallsStep g={g} side={side} setSide={setSide} onPreset={(sides) => setG((x) => fit({ ...x, sides }))} onWall={setWall} />}
+                {step === 3 && <WallsStep g={g} side={side} setSide={setSide} onWall={setWall} />}
                 {step === 4 && <Summary g={g} colors={colors} qty={qty} setQty={setQty} />}
               </div>
               {err && (
@@ -216,7 +216,7 @@ const STEP_HINT = [
   "Kurulacak alanın ölçüsünü seçin.",
   "Kullanım sıklığına göre iskelet serisini seçin.",
   "Kumaş tipi ve renk tüm çadırda aynıdır.",
-  "Hazır düzenlerden birini seçin ya da kenarları tek tek düzenleyin.",
+  "Kenarı seçip duvar tipini belirleyin; duvar istemediğiniz kenar boş kalır.",
   "Seçimlerinizi kontrol edip sepete ekleyin.",
 ];
 
@@ -419,65 +419,39 @@ const isLight = (hex: string) => {
 
 /* ───────────── duvarlar ───────────── */
 
-function WallsStep({
-  g, side, setSide, onPreset, onWall,
-}: { g: Gazebo; side: number; setSide: (i: number) => void; onPreset: (sides: Gazebo["sides"]) => void; onWall: (i: number, w: Wall) => void }) {
+function WallsStep({ g, side, setSide, onWall }: { g: Gazebo; side: number; setSide: (i: number) => void; onWall: (i: number, w: Wall) => void }) {
   const f = g.roofFab ?? 0;
   const pl = plan(g.size);
   const cur = g.sides.map((s) => s.walls[0]);
-  const presets = PRESETS.map((p) => ({ ...p, sides: p.v.map((kind, i) => ({ walls: [fitWall(pl[i].grup, { kind, f, ...(hasDoor(kind) ? { k: { sineklik: false } } : {}) })] })) }))
-    // Bu ölçü ve kumaşta kurulamayan hazır düzen gösterilmez
-    .filter((p) => p.sides.every((s, i) => s.walls[0].kind === p.v[i]));
   const w = cur[side];
   const grup = pl[side].grup;
   const sidePrice = (i: number) => (cur[i].kind === "yok" ? null : slotPrice(slots(g).find((s) => s.side === i)!, MODE));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="mb-2 text-[13px] font-semibold">Hazır düzenler</p>
-        <div className="-mx-4 flex snap-x gap-2.5 overflow-x-auto px-4 pb-1 lg:mx-0 lg:grid lg:grid-cols-5 lg:overflow-visible lg:px-0">
-          {presets.map((p) => {
-            const active = p.sides.every((s, i) => s.walls[0].kind === cur[i].kind);
+    <div className="space-y-3">
+      {/* Kenar sekmeleri: kaydırırken üstte (mobilde 3D'nin altında) sabit */}
+      <div className="sticky top-[calc(max(32vh,220px)+16px)] z-10 -mx-4 bg-white px-4 py-2 lg:top-4 lg:mx-0 lg:px-0">
+        <div className="grid grid-cols-4 gap-1.5">
+          {pl.map((p, i) => {
+            const active = side === i;
+            const kind = WALL_KINDS.find((k) => k.kind === cur[i].kind);
             return (
-              <button
-                key={p.n}
-                type="button"
-                onClick={() => onPreset(p.sides)}
-                className={cn("flex w-[118px] shrink-0 snap-start flex-col items-center gap-1.5 rounded-[8px] border-2 bg-white p-2.5 text-center lg:w-auto", active ? "" : "border-[#e6e9ee] hover:border-[#c9ced6]")}
-                style={active ? { borderColor: NAVY, background: "#f3f7fb" } : undefined}
-              >
-                <MiniPlan kinds={p.v} />
-                <span className="text-[11px] font-medium leading-tight">{p.n}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div>
-        <p className="mb-2 text-[13px] font-semibold">Kenarları düzenle</p>
-        <div className="grid gap-3 sm:grid-cols-[150px_1fr] sm:items-center">
-          <SidePlan g={g} side={side} onPick={setSide} />
-          <div className="grid grid-cols-2 gap-2">
-            {pl.map((p, i) => (
               <button
                 key={p.label}
                 type="button"
                 onClick={() => setSide(i)}
-                className={cn("rounded-[8px] border-2 bg-white px-3 py-2 text-left", side === i ? "" : "border-[#e6e9ee] hover:border-[#c9ced6]")}
-                style={side === i ? { borderColor: ORANGE } : undefined}
+                aria-pressed={active}
+                className={cn("min-w-0 rounded-[8px] border-2 px-1.5 py-2 text-center", active ? "text-white" : "border-[#e6e9ee] bg-white hover:border-[#c9ced6]")}
+                style={active ? { background: NAVY, borderColor: NAVY } : undefined}
               >
-                <span className="block text-[12px] font-semibold">
-                  {SIDE_NAMES[i]} <span className="font-normal text-[#999]">· {p.cm / 100} m</span>
-                </span>
-                <span className="block truncate text-[11px] text-[#777]">{cur[i].kind === "yok" ? "Duvar yok" : wallName(cur[i])}</span>
-                <span className="block text-[11px] font-semibold" style={{ color: NAVY }}>
-                  {sidePrice(i) !== null ? `+${tl(sidePrice(i)!)}` : "—"}
+                <span className="block text-[13px] font-semibold leading-tight">{SIDE_NAMES[i]}</span>
+                <span className={cn("block truncate text-[10px] leading-tight", active ? "text-white/80" : "text-[#777]")}>{cur[i].kind === "yok" ? "Duvar yok" : kind?.short}</span>
+                <span className={cn("block text-[10px] font-semibold leading-tight", active ? "text-white" : "")} style={active ? undefined : { color: NAVY }}>
+                  {sidePrice(i) !== null ? tl(sidePrice(i)!) : "—"}
                 </span>
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
       </div>
 
@@ -546,63 +520,6 @@ function Toggle({ on, label, onClick }: { on: boolean; label: string; onClick: (
     >
       {on ? <Check className="size-3.5" strokeWidth={3} /> : <Plus className="size-3.5" />} {label}
     </button>
-  );
-}
-
-/** Kuşbakışı küçük plan: kenarlarda duvar varsa kalın çizgi, kapıda boşluk */
-function MiniPlan({ kinds }: { kinds: WallKind[] }) {
-  const line = (i: number) => {
-    const k = kinds[i];
-    const seg: Record<number, [number, number, number, number]> = { 0: [8, 52, 52, 52], 1: [8, 8, 52, 8], 2: [8, 8, 8, 52], 3: [52, 8, 52, 52] };
-    const [x1, y1, x2, y2] = seg[i];
-    if (k === "yok") return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#c9ced6" strokeWidth={2} strokeDasharray="3 3" />;
-    return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={NAVY} strokeWidth={k === "yarim" ? 3 : 5} strokeDasharray={hasDoor(k) ? "14 8 22" : undefined} strokeLinecap="round" />;
-  };
-  return (
-    <svg viewBox="0 0 60 60" className="size-14">
-      <rect x="8" y="8" width="44" height="44" fill="#f3f7fb" />
-      {[0, 1, 2, 3].map(line)}
-    </svg>
-  );
-}
-
-/** Seçilebilir kuşbakışı plan: kenara dokununca o kenar düzenlenir */
-function SidePlan({ g, side, onPick }: { g: Gazebo; side: number; onPick: (i: number) => void }) {
-  const [a, b] = g.size.split("x").map(Number);
-  // Ön/arka kenar uzun kenardır (b), sol/sağ kısa (a)
-  const W = 120;
-  const H = Math.max(56, Math.round((W * a) / b));
-  const x0 = 15;
-  const y0 = 12;
-  const segs: [number, number, number, number][] = [
-    [x0, y0 + H, x0 + W, y0 + H],
-    [x0, y0, x0 + W, y0],
-    [x0, y0, x0, y0 + H],
-    [x0 + W, y0, x0 + W, y0 + H],
-  ];
-  return (
-    <svg viewBox={`0 0 ${W + 30} ${H + 40}`} className="mx-auto w-full max-w-[150px]">
-      <rect x={x0} y={y0} width={W} height={H} fill="#f3f7fb" />
-      {segs.map(([x1, y1, x2, y2], i) => {
-        const k = g.sides[i].walls[0].kind;
-        const sel = side === i;
-        return (
-          <g key={i} onClick={() => onPick(i)} className="cursor-pointer">
-            <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth={18} />
-            <line
-              x1={x1} y1={y1} x2={x2} y2={y2}
-              stroke={sel ? ORANGE : k === "yok" ? "#c9ced6" : NAVY}
-              strokeWidth={sel ? 6 : k === "yok" ? 2 : 5}
-              strokeDasharray={k === "yok" && !sel ? "4 4" : undefined}
-              strokeLinecap="round"
-            />
-          </g>
-        );
-      })}
-      <text x={x0 + W / 2} y={y0 + H + 22} textAnchor="middle" fontSize="11" fontWeight="600" fill={side === 0 ? ORANGE : "#555"}>
-        ÖN
-      </text>
-    </svg>
   );
 }
 
