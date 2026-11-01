@@ -9,6 +9,7 @@ import { listColors } from "./colors";
 import { db, schema } from "./db";
 import { saveWebp } from "./files";
 import { gazeboTables } from "./gazebo-prices";
+import { wcRequest, wcVariations } from "./marketplaces/woocommerce";
 import { ensureRequestTable } from "./site-requests";
 
 // Site konfigüratörünün sepeti: tarayıcıdan gelen tasarım sunucuda yeniden doğrulanıp fiyatlanır ve imzalanır.
@@ -60,7 +61,7 @@ export async function konfExtras(markaId: number): Promise<KonfEk[]> {
 
 /**
  * Sitede satılan ürünler (ör. taşıma çantası): sepete sitedeki asıl ürün (varyasyon) eklenir, fiyat ve stok sitenin.
- * Fiyat sitenin herkese açık Store API'sinden okunur (KDV dahil gösterilen fiyat); 10 dakika bellekte tutulur.
+ * Fiyat sipariş eşitlemesinin WooCommerce bağlantısından okunur (KDV dahil); 10 dakika bellekte tutulur.
  */
 const WOO_EK: Record<string, { urun: number; grup: string }[]> = {
   sky: [{ urun: 16206, grup: "Taşıma Çantası" }],
@@ -72,7 +73,7 @@ async function wooExtras(markaId: number): Promise<KonfEk[]> {
   if (hit && Date.now() - hit.at < 600_000) return hit.list;
   const sites = schema.siteBaglantilari;
   const [row] = await db()
-    .select({ kod: schema.markalar.kod, adres: sites.adres })
+    .select({ kod: schema.markalar.kod, site: sites })
     .from(schema.markalar)
     .innerJoin(sites, and(eq(sites.markaId, schema.markalar.id), eq(sites.tur, "woocommerce")))
     .where(eq(schema.markalar.id, markaId))
@@ -81,18 +82,18 @@ async function wooExtras(markaId: number): Promise<KonfEk[]> {
   const urunler = row ? (WOO_EK[row.kod] ?? []) : [];
   if (!urunler.length) return [];
   try {
-    const base = row!.adres.replace(/\/+$/, "");
     const lists = await Promise.all(
       urunler.map(async ({ urun, grup }) => {
-        const res = await fetch(`${base}/wp-json/wc/store/v1/products?type=variation&parent=${urun}&per_page=50`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
-        if (!res.ok) throw new Error(`Store API ${res.status}`);
-        const items = (await res.json()) as { id: number; name: string; variation?: string; prices: { price: string; currency_minor_unit: number }; is_purchasable: boolean; is_in_stock: boolean; images?: { src: string }[] }[];
-        return items.flatMap((x) => {
-          const dahil = Number(x.prices.price) / 10 ** x.prices.currency_minor_unit;
-          const olculer = ekSizes((x.variation ?? "").replace(/&#215;/g, "x"));
-          if (!x.is_purchasable || !x.is_in_stock || !(dahil > 0) || !olculer) return [];
-          const ad = x.name.replace(/&#\d+;/g, "");
-          return [{ kod: `woo-${x.id}`, grup, ad, aciklama: `${olculer[0].replace(".", ",")} m gazeboya uygun`, gorsel: x.images?.[0]?.src ?? null, fiyat: Math.round((dahil / (1 + KONF_KDV / 100)) * 100) / 100, olculer, woo: { urun, varyasyon: x.id } } as KonfEk];
+        const [parent, vars] = await Promise.all([
+          wcRequest(row!.site, `/products/${urun}`) as Promise<{ name: string; images: { src: string }[] }>,
+          wcVariations(row!.site, urun),
+        ]);
+        const ad = parent.name.replace(/&#\d+;/g, "").trim();
+        return vars.flatMap((v) => {
+          const olculer = ekSizes(v.ad);
+          if (!olculer || !(v.fiyat && v.fiyat > 0)) return [];
+          const fiyat = Math.round((v.fiyat / (1 + KONF_KDV / 100)) * 100) / 100;
+          return [{ kod: `woo-${v.id}`, grup, ad, aciklama: `${olculer[0].replace(".", ",")} m gazeboya uygun`, gorsel: parent.images[0]?.src ?? null, fiyat, olculer, woo: { urun, varyasyon: v.id } } as KonfEk];
         });
       }),
     );
