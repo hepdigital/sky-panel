@@ -1,0 +1,612 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import Image from "next/image";
+import { Check, ChevronLeft, ChevronRight, Minus, Plus, Rotate3d, ShoppingCart } from "lucide-react";
+import { FABRICS, PRESETS, SIZES, SZ, cfgKey, gzRows, gzTotal, imgSrc, plan, slotPrice, slots, val, type Gazebo } from "@/lib/terminal/calc";
+import { priceTable, setPriceTable, type PriceTable } from "@/lib/terminal/price-table";
+import { cn } from "@/lib/utils";
+import { viewerInput } from "@/modules/gazebo/viewer-map";
+import { WALL_KINDS, closestAvailable, hasDoor, hasWindow, kindAvailable, kindImage, normalizeWall, wallName, wallPrice, type Wall, type WallKind } from "@/modules/gazebo/walls";
+import { ViewerBoundary } from "@/modules/gazebo3d/mastertent/viewer-boundary";
+
+// Sitelere gömülen gazebo konfigüratörü: panelin modüler gazebo motoru (calc.ts, walls.ts) ve markanın fiyat tablosu,
+// sitenin görünümüyle. Teklif ekranından sadeleştirilmiş: tavan ve duvarlar aynı kumaştan ve aynı renkte, kenarlar bölünmez,
+// fiyat perakende ve KDV dahil gösterilir; fiyatı olmayan seçenek (ör. fiyatı girilmemiş tam PVC) hiç gösterilmez.
+
+const Viewer = dynamic(() => import("@/modules/gazebo3d/mastertent/viewer"), {
+  ssr: false,
+  loading: () => <div className="grid h-full place-items-center text-sm text-[#777]">3D model yükleniyor…</div>,
+});
+
+/** skygorselmarket.com renkleri (Woodmart tema ayarları): lacivert ana renk, turuncu satın alma düğmeleri */
+const NAVY = "#024B90";
+const ORANGE = "#F15A24";
+
+const MODE = 1 as const; // perakende
+const VAT = 1.2;
+const tl = (n: number) => `${Math.round(n * VAT).toLocaleString("tr-TR")} ₺`;
+
+/** İskelet serileri: tablodaki açıklama + malzeme (3D'deki iskelet rengiyle aynı) */
+const FRAME_MAT: Record<string, string> = { SQ3: "Beyaz boyalı çelik", SH4: "Siyah boyalı çelik", SQ4: "Siyah boyalı çelik", AH4: "Alüminyum", AH5: "Alüminyum" };
+const FRAME_IDS = ["SQ3", "SH4", "AH4", "SQ4", "AH5"];
+
+const STEPS = ["Ölçü", "İskelet", "Kumaş", "Duvarlar", "Özet"] as const;
+const SIDE_NAMES = ["Ön", "Arka", "Sol", "Sağ"];
+
+type Color = { hex: string; ad: string };
+
+export function GazeboKonfigurator({ table, colors }: { table: PriceTable; colors: Color[] }) {
+  // Hesaplar etkin fiyat tablosunu okur: markanın tablosu her çizimde etkin
+  setPriceTable(table);
+  const { FRAMES, ROOF } = table;
+  const framesOf = (size: string) => FRAME_IDS.filter((id) => val(FRAMES[id]?.p[size] ?? null, MODE) !== null);
+
+  const [step, setStep] = useState(0);
+  const [side, setSide] = useState(0);
+  const [qty, setQty] = useState(1);
+  const [sent, setSent] = useState(false);
+  const [g, setG] = useState<Gazebo>(() => ({
+    size: "3x3",
+    frame: framesOf("3x3")[0] ?? null,
+    roofFab: 0,
+    color: colors.find((c) => c.hex === "#ffffff")?.hex ?? colors[0]?.hex ?? "#ffffff",
+    sides: [0, 1, 2, 3].map(() => ({ walls: [{ kind: "yok", f: 0 } as Wall] })),
+  }));
+  const fab = g.roofFab ?? 0;
+  const pl = plan(g.size);
+  const total = gzTotal(g, MODE);
+
+  /** Duvarları ölçüye ve kumaşa göre satılabilir en yakın bileşime çeker */
+  const fit = (next: Gazebo): Gazebo => {
+    const p = plan(next.size);
+    const f = next.roofFab ?? 0;
+    return { ...next, sides: next.sides.map((s, i) => ({ walls: [fitWall(p[i].grup, { ...s.walls[0], f })] })) };
+  };
+  const update = (patch: Partial<Gazebo>) => setG((x) => fit({ ...x, ...patch }));
+
+  const setSize = (size: string) => {
+    const frames = framesOf(size);
+    update({ size, frame: g.frame && frames.includes(g.frame) ? g.frame : (frames[0] ?? null) });
+  };
+  const setWall = (i: number, w: Wall) => setG((x) => ({ ...x, sides: x.sides.map((s, j) => (j === i ? { walls: [fitWall(pl[i].grup, { ...w, f: fab })] } : s)) }));
+
+  const go = (n: number) => {
+    setStep(Math.max(0, Math.min(STEPS.length - 1, n)));
+    setSent(false);
+    if (typeof window !== "undefined" && window.innerWidth < 1024) window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  return (
+    <div className="min-h-dvh bg-[#f5f6f8] pb-28 text-[#242424] lg:pb-10" style={{ fontFamily: "var(--font-poppins), Arial, sans-serif" }}>
+      <div className="mx-auto max-w-[1240px] px-4 pt-4 lg:px-6 lg:pt-8">
+        <header className="mb-4 lg:mb-6">
+          <h1 className="text-[22px] font-semibold tracking-tight lg:text-[28px]">Gazebo Çadırınızı Tasarlayın</h1>
+          <p className="mt-1 text-[13px] text-[#777] lg:text-sm">Ölçüyü, iskeleti, kumaşı ve duvarları seçin; fiyat her adımda güncellenir.</p>
+        </header>
+
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-6">
+          {/* 3D: mobilde üstte yapışkan, masaüstünde solda */}
+          <div className="sticky top-0 z-20 -mx-4 bg-[#f5f6f8] px-4 pb-2 pt-2 lg:top-6 lg:mx-0 lg:self-start lg:p-0">
+            <Preview g={g} />
+          </div>
+
+          <div className="min-w-0">
+            <Stepper step={step} onGo={go} />
+            <section className="mt-3 rounded-[8px] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] ring-1 ring-black/5 lg:p-6">
+              <h2 className="text-[17px] font-semibold">
+                <span style={{ color: NAVY }}>{step + 1}.</span> {STEP_TITLE[step]}
+              </h2>
+              <p className="mt-0.5 text-[13px] text-[#777]">{STEP_HINT[step]}</p>
+              <div className="mt-4">
+                {step === 0 && <SizeStep g={g} framesOf={framesOf} onPick={setSize} />}
+                {step === 1 && (
+                  <div className="grid gap-2.5">
+                    {framesOf(g.size).map((id) => (
+                      <OptionCard
+                        key={id}
+                        active={g.frame === id}
+                        onClick={() => update({ frame: id })}
+                        img={imgSrc(`f:${id}`)}
+                        title={FRAMES[id].desc}
+                        hint={`${FRAME_MAT[id] ?? ""} · ${SZ[g.size]} m`}
+                        price={tl(val(FRAMES[id].p[g.size], MODE)!)}
+                      />
+                    ))}
+                  </div>
+                )}
+                {step === 2 && (
+                  <div className="space-y-5">
+                    <div className="grid gap-2.5">
+                      {FABRICS.map((f, i) => {
+                        const p = val(ROOF[g.size]?.[i] ?? null, MODE);
+                        if (p === null) return null;
+                        return (
+                          <OptionCard
+                            key={f.n}
+                            active={fab === i}
+                            onClick={() => update({ roofFab: i })}
+                            title={i === 2 ? "Dijital baskılı kumaş" : f.n}
+                            hint={i === 2 ? "Logonuz ve tasarımınız tüm yüzeylere basılır" : f.d}
+                            price={`tavan ${tl(p)}`}
+                          />
+                        );
+                      })}
+                    </div>
+                    <p className="rounded-[8px] bg-[#f5f6f8] px-3 py-2.5 text-[12px] text-[#555]">Tavan ve duvarlar aynı kumaştan dikilir; duvar fiyatları da bu kumaşa göre hesaplanır.</p>
+                    {fab === 2 ? (
+                      <p className="rounded-[8px] px-3 py-2.5 text-[13px]" style={{ background: "#fff4ef", color: "#9a3412" }}>
+                        Baskılı kumaşta renk seçimi yoktur: tasarımınızı siparişten sonra iletirsiniz, baskıdan önce onayınıza sunulur.
+                      </p>
+                    ) : (
+                      <ColorPicker colors={colors} value={g.color ?? "#ffffff"} onPick={(hex) => update({ color: hex })} />
+                    )}
+                  </div>
+                )}
+                {step === 3 && <WallsStep g={g} side={side} setSide={setSide} onPreset={(sides) => setG((x) => fit({ ...x, sides }))} onWall={setWall} />}
+                {step === 4 && <Summary g={g} colors={colors} qty={qty} setQty={setQty} />}
+              </div>
+              {sent && (
+                <p className="mt-4 rounded-[8px] px-3 py-2.5 text-[13px]" style={{ background: "#eef4fb", color: NAVY }}>
+                  Önizleme: sepete ekleme WooCommerce bağlantısıyla birlikte açılacak.
+                </p>
+              )}
+              <div className="mt-6 hidden border-t border-[#eef0f3] pt-4 lg:block">
+                <NavBar step={step} total={total * qty} qty={qty} onBack={() => go(step - 1)} onNext={() => (step === STEPS.length - 1 ? setSent(true) : go(step + 1))} />
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      {/* Alt çubuk: mobilde ekrana sabit (masaüstünde adım kartının altında) */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/10 bg-white/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur lg:hidden">
+        <NavBar step={step} total={total * qty} qty={qty} onBack={() => go(step - 1)} onNext={() => (step === STEPS.length - 1 ? setSent(true) : go(step + 1))} />
+      </div>
+    </div>
+  );
+}
+
+const STEP_TITLE = ["Çadır ölçüsü", "İskelet", "Kumaş ve renk", "Duvarlar", "Özet"];
+const STEP_HINT = [
+  "Kurulacak alanın ölçüsünü seçin.",
+  "Kullanım sıklığına göre iskelet serisini seçin.",
+  "Kumaş tipi ve renk tüm çadırda aynıdır.",
+  "Hazır düzenlerden birini seçin ya da kenarları tek tek düzenleyin.",
+  "Seçimlerinizi kontrol edip sepete ekleyin.",
+];
+
+/** Duvarı o kenarın ölçü grubunda satılabilir hale getirir; satılamıyorsa duvar kalkar */
+function fitWall(grup: string, w: Wall): Wall {
+  if (w.kind === "yok") return { kind: "yok", f: w.f };
+  const c = closestAvailable(grup, normalizeWall(w), MODE);
+  return wallPrice(grup, c, MODE) === null ? { kind: "yok", f: w.f } : c;
+}
+
+/** Kenarda gösterilecek duvar tipleri: fiyatı olanlar */
+const kindsFor = (grup: string, f: number) =>
+  WALL_KINDS.filter((k) => k.kind === "yok" || (kindAvailable(grup, k.kind, f, MODE) && wallPrice(grup, fitWall(grup, { kind: k.kind, f }), MODE) !== null));
+
+/* ───────────── parçalar ───────────── */
+
+function Preview({ g }: { g: Gazebo }) {
+  const key = cfgKey(g);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const input = useMemo(() => viewerInput(g), [key]);
+  return (
+    <div className="relative h-[32vh] min-h-[220px] overflow-hidden rounded-[8px] bg-white ring-1 ring-black/5 lg:h-[min(72vh,600px)]">
+      <ViewerBoundary
+        fallback={
+          <div className="relative size-full">
+            <Image src={imgSrc(`r:${g.size}`)} alt="" fill sizes="600px" className="object-contain p-6" />
+          </div>
+        }
+      >
+        <Viewer {...input} curtainsOpen />
+      </ViewerBoundary>
+      <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-[#555] shadow-sm ring-1 ring-black/5">
+        <Rotate3d className="size-3.5" /> Sürükleyerek çevirin
+      </span>
+      <span className="pointer-events-none absolute bottom-3 left-3 rounded-full px-2.5 py-1 text-[11px] font-semibold text-white" style={{ background: NAVY }}>
+        {SZ[g.size]} m
+      </span>
+    </div>
+  );
+}
+
+function Stepper({ step, onGo }: { step: number; onGo: (n: number) => void }) {
+  return (
+    <>
+      {/* Mobil: adım n / 5 ve ilerleme çubuğu */}
+      <div className="lg:hidden">
+        <div className="flex items-center justify-between text-[12px]">
+          <span className="font-semibold">
+            Adım {step + 1}/{STEPS.length} · {STEPS[step]}
+          </span>
+          {step < STEPS.length - 1 && <span className="text-[#777]">Sonraki: {STEPS[step + 1]}</span>}
+        </div>
+        <div className="mt-2 grid grid-cols-5 gap-1">
+          {STEPS.map((s, i) => (
+            <button key={s} type="button" onClick={() => onGo(i)} aria-label={s} className="h-1.5 rounded-full" style={{ background: i <= step ? NAVY : "#dfe3e8" }} />
+          ))}
+        </div>
+      </div>
+      {/* Masaüstü: numaralı adımlar */}
+      <ol className="hidden items-center gap-1 lg:flex">
+        {STEPS.map((s, i) => (
+          <li key={s} className="flex min-w-0 flex-1 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onGo(i)}
+              className={cn("flex min-w-0 items-center gap-2 rounded-full py-1 pl-1 pr-3 text-[12px] font-medium", i === step ? "bg-white shadow-sm ring-1 ring-black/5" : "text-[#777] hover:text-[#242424]")}
+            >
+              <span className="grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold text-white" style={{ background: i <= step ? NAVY : "#c9ced6" }}>
+                {i < step ? <Check className="size-3.5" /> : i + 1}
+              </span>
+              <span className="truncate">{s}</span>
+            </button>
+            {i < STEPS.length - 1 && <span className="h-px flex-1 bg-[#dfe3e8]" />}
+          </li>
+        ))}
+      </ol>
+    </>
+  );
+}
+
+function NavBar({ step, total, qty, onBack, onNext }: { step: number; total: number; qty: number; onBack: () => void; onNext: () => void }) {
+  const last = step === STEPS.length - 1;
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="mr-auto min-w-0">
+        <p className="text-[11px] text-[#777]">{qty > 1 ? `${qty} adet · ` : ""}KDV dahil</p>
+        <p className="text-[19px] font-semibold leading-tight tracking-tight lg:text-[22px]" style={{ color: NAVY }}>
+          {tl(total)}
+        </p>
+      </div>
+      {step > 0 && (
+        <button type="button" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-[8px] border border-[#dfe3e8] bg-white text-[#333] hover:bg-[#f5f6f8] sm:w-auto sm:px-4" aria-label="Geri">
+          <span className="flex items-center gap-1 text-[14px] font-medium">
+            <ChevronLeft className="size-4" /> <span className="hidden sm:inline">Geri</span>
+          </span>
+        </button>
+      )}
+      <button type="button" onClick={onNext} className="flex h-11 shrink-0 items-center gap-1.5 rounded-[8px] px-5 text-[14px] font-semibold text-white hover:brightness-95" style={{ background: ORANGE }}>
+        {last ? (
+          <>
+            <ShoppingCart className="size-4" /> Sepete ekle
+          </>
+        ) : (
+          <>
+            Devam <ChevronRight className="size-4" />
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
+function OptionCard({ active, onClick, img, title, hint, price }: { active: boolean; onClick: () => void; img?: string; title: string; hint: string; price: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn("flex items-center gap-3 rounded-[8px] border-2 bg-white p-3 text-left transition-colors", active ? "" : "border-[#e6e9ee] hover:border-[#c9ced6]")}
+      style={active ? { borderColor: NAVY, background: "#f3f7fb" } : undefined}
+    >
+      {img && (
+        <span className="relative size-12 shrink-0 overflow-hidden rounded-[6px] bg-white ring-1 ring-black/5">
+          <Image src={img} alt="" fill sizes="48px" className="object-contain" />
+        </span>
+      )}
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-semibold">{title}</span>
+        <span className="block text-[12px] text-[#777]">{hint}</span>
+      </span>
+      <span className="shrink-0 text-right text-[13px] font-semibold" style={{ color: NAVY }}>
+        {price}
+      </span>
+      <span className={cn("grid size-5 shrink-0 place-items-center rounded-full border-2", active ? "text-white" : "border-[#c9ced6]")} style={active ? { background: NAVY, borderColor: NAVY } : undefined}>
+        {active && <Check className="size-3" strokeWidth={3} />}
+      </span>
+    </button>
+  );
+}
+
+function SizeStep({ g, framesOf, onPick }: { g: Gazebo; framesOf: (s: string) => string[]; onPick: (s: string) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+      {SIZES.map((s) => {
+        const frames = framesOf(s);
+        if (!frames.length) return null;
+        // Başlangıç fiyatı: en uygun iskelet + 690D tavan
+        const from = Math.min(...frames.map((id) => val(priceTable().FRAMES[id]?.p[s] ?? null, MODE) ?? Infinity)) + (val(priceTable().ROOF[s]?.[0] ?? null, MODE) ?? 0);
+        const active = g.size === s;
+        return (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onPick(s)}
+            aria-pressed={active}
+            className={cn("flex flex-col items-center rounded-[8px] border-2 bg-white p-2 pb-2.5 transition-colors", active ? "" : "border-[#e6e9ee] hover:border-[#c9ced6]")}
+            style={active ? { borderColor: NAVY, background: "#f3f7fb" } : undefined}
+          >
+            <span className="relative aspect-[4/3] w-full">
+              <Image src={imgSrc(`r:${s}`)} alt="" fill sizes="160px" className="object-contain" />
+            </span>
+            <span className="mt-1 text-[15px] font-semibold">{SZ[s]} m</span>
+            <span className="text-[11px] text-[#777]">{Number.isFinite(from) ? `${tl(from)}'den` : ""}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ColorPicker({ colors, value, onPick }: { colors: Color[]; value: string; onPick: (hex: string) => void }) {
+  const name = colors.find((c) => c.hex === value)?.ad ?? "";
+  return (
+    <div>
+      <p className="text-[13px] font-semibold">
+        Kumaş rengi <span className="font-normal text-[#777]">· {name}</span>
+      </p>
+      <div className="mt-2.5 grid grid-cols-6 gap-2.5 sm:grid-cols-9">
+        {colors.map((c) => (
+          <button
+            key={c.hex}
+            type="button"
+            title={c.ad}
+            aria-label={c.ad}
+            aria-pressed={value === c.hex}
+            onClick={() => onPick(c.hex)}
+            className="relative aspect-square w-full rounded-full ring-1 ring-black/15 transition-transform hover:scale-105"
+            style={{ background: c.hex, boxShadow: value === c.hex ? `0 0 0 2px #fff, 0 0 0 4px ${NAVY}` : undefined }}
+          >
+            {value === c.hex && <Check className="absolute inset-0 m-auto size-4" style={{ color: isLight(c.hex) ? "#242424" : "#fff" }} strokeWidth={3} />}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+const isLight = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16);
+  return ((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114 > 160;
+};
+
+/* ───────────── duvarlar ───────────── */
+
+function WallsStep({
+  g, side, setSide, onPreset, onWall,
+}: { g: Gazebo; side: number; setSide: (i: number) => void; onPreset: (sides: Gazebo["sides"]) => void; onWall: (i: number, w: Wall) => void }) {
+  const f = g.roofFab ?? 0;
+  const pl = plan(g.size);
+  const cur = g.sides.map((s) => s.walls[0]);
+  const presets = PRESETS.map((p) => ({ ...p, sides: p.v.map((kind, i) => ({ walls: [fitWall(pl[i].grup, { kind, f, ...(hasDoor(kind) ? { k: { sineklik: false } } : {}) })] })) }))
+    // Bu ölçü ve kumaşta kurulamayan hazır düzen gösterilmez
+    .filter((p) => p.sides.every((s, i) => s.walls[0].kind === p.v[i]));
+  const w = cur[side];
+  const grup = pl[side].grup;
+  const sidePrice = (i: number) => (cur[i].kind === "yok" ? null : slotPrice(slots(g).find((s) => s.side === i)!, MODE));
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="mb-2 text-[13px] font-semibold">Hazır düzenler</p>
+        <div className="-mx-4 flex snap-x gap-2.5 overflow-x-auto px-4 pb-1 lg:mx-0 lg:grid lg:grid-cols-5 lg:overflow-visible lg:px-0">
+          {presets.map((p) => {
+            const active = p.sides.every((s, i) => s.walls[0].kind === cur[i].kind);
+            return (
+              <button
+                key={p.n}
+                type="button"
+                onClick={() => onPreset(p.sides)}
+                className={cn("flex w-[118px] shrink-0 snap-start flex-col items-center gap-1.5 rounded-[8px] border-2 bg-white p-2.5 text-center lg:w-auto", active ? "" : "border-[#e6e9ee] hover:border-[#c9ced6]")}
+                style={active ? { borderColor: NAVY, background: "#f3f7fb" } : undefined}
+              >
+                <MiniPlan kinds={p.v} />
+                <span className="text-[11px] font-medium leading-tight">{p.n}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-2 text-[13px] font-semibold">Kenarları düzenle</p>
+        <div className="grid gap-3 sm:grid-cols-[150px_1fr] sm:items-center">
+          <SidePlan g={g} side={side} onPick={setSide} />
+          <div className="grid grid-cols-2 gap-2">
+            {pl.map((p, i) => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => setSide(i)}
+                className={cn("rounded-[8px] border-2 bg-white px-3 py-2 text-left", side === i ? "" : "border-[#e6e9ee] hover:border-[#c9ced6]")}
+                style={side === i ? { borderColor: ORANGE } : undefined}
+              >
+                <span className="block text-[12px] font-semibold">
+                  {SIDE_NAMES[i]} <span className="font-normal text-[#999]">· {p.cm / 100} m</span>
+                </span>
+                <span className="block truncate text-[11px] text-[#777]">{cur[i].kind === "yok" ? "Duvar yok" : wallName(cur[i])}</span>
+                <span className="block text-[11px] font-semibold" style={{ color: NAVY }}>
+                  {sidePrice(i) !== null ? `+${tl(sidePrice(i)!)}` : "—"}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[8px] bg-[#f5f6f8] p-3 lg:p-4">
+        <p className="mb-2.5 text-[13px] font-semibold">
+          {SIDE_NAMES[side]} duvar <span className="font-normal text-[#777]">· {pl[side].h} × {pl[side].cm} cm</span>
+        </p>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {kindsFor(grup, f).map((k) => {
+            const active = w.kind === k.kind;
+            const cand = k.kind === "yok" ? null : fitWall(grup, active ? w : { kind: k.kind, f });
+            const img = kindImage(k.kind);
+            return (
+              <button
+                key={k.kind}
+                type="button"
+                onClick={() => onWall(side, active ? w : { kind: k.kind, f, ...(hasDoor(k.kind) ? { k: { sineklik: false } } : {}) })}
+                className={cn("flex flex-col items-center rounded-[8px] border-2 bg-white p-2 text-center", active ? "" : "border-transparent hover:border-[#c9ced6]")}
+                style={active ? { borderColor: NAVY } : undefined}
+              >
+                <span className="relative grid aspect-square w-full max-w-[72px] place-items-center">
+                  {img ? <Image src={imgSrc(img)} alt="" fill sizes="72px" className="object-contain" /> : <span className="text-[22px] text-[#c9ced6]">∅</span>}
+                </span>
+                <span className="mt-1 text-[11px] font-medium leading-tight">{k.short}</span>
+                <span className="text-[10px] text-[#777]">{cand ? tl(wallPrice(grup, cand, MODE)!) : "ücretsiz"}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {hasWindow(w.kind) && w.p && (
+          <div className="mt-3">
+            <p className="mb-1.5 text-[12px] font-semibold">Pencere</p>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["pvc", "Şeffaf PVC"],
+                  ["sineklik", "Sineklik"],
+                  ["perde", "Perde (kapatılabilir)"],
+                ] as const
+              ).map(([key, label]) => (
+                <Toggle key={key} on={w.p![key]} label={label} onClick={() => onWall(side, { ...w, p: { ...w.p!, [key]: !w.p![key] } })} />
+              ))}
+            </div>
+          </div>
+        )}
+        {hasDoor(w.kind) && (
+          <div className="mt-3">
+            <p className="mb-1.5 text-[12px] font-semibold">Kapı</p>
+            <Toggle on={!!w.k?.sineklik} label="Sineklikli kapı" onClick={() => onWall(side, { ...w, k: { sineklik: !w.k?.sineklik } })} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Toggle({ on, label, onClick }: { on: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={on}
+      className={cn("inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium", on ? "text-white" : "border-[#dfe3e8] bg-white text-[#333]")}
+      style={on ? { background: NAVY, borderColor: NAVY } : undefined}
+    >
+      {on ? <Check className="size-3.5" strokeWidth={3} /> : <Plus className="size-3.5" />} {label}
+    </button>
+  );
+}
+
+/** Kuşbakışı küçük plan: kenarlarda duvar varsa kalın çizgi, kapıda boşluk */
+function MiniPlan({ kinds }: { kinds: WallKind[] }) {
+  const line = (i: number) => {
+    const k = kinds[i];
+    const seg: Record<number, [number, number, number, number]> = { 0: [8, 52, 52, 52], 1: [8, 8, 52, 8], 2: [8, 8, 8, 52], 3: [52, 8, 52, 52] };
+    const [x1, y1, x2, y2] = seg[i];
+    if (k === "yok") return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#c9ced6" strokeWidth={2} strokeDasharray="3 3" />;
+    return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={NAVY} strokeWidth={k === "yarim" ? 3 : 5} strokeDasharray={hasDoor(k) ? "14 8 22" : undefined} strokeLinecap="round" />;
+  };
+  return (
+    <svg viewBox="0 0 60 60" className="size-14">
+      <rect x="8" y="8" width="44" height="44" fill="#f3f7fb" />
+      {[0, 1, 2, 3].map(line)}
+    </svg>
+  );
+}
+
+/** Seçilebilir kuşbakışı plan: kenara dokununca o kenar düzenlenir */
+function SidePlan({ g, side, onPick }: { g: Gazebo; side: number; onPick: (i: number) => void }) {
+  const [a, b] = g.size.split("x").map(Number);
+  // Ön/arka kenar uzun kenardır (b), sol/sağ kısa (a)
+  const W = 120;
+  const H = Math.max(56, Math.round((W * a) / b));
+  const x0 = 15;
+  const y0 = 12;
+  const segs: [number, number, number, number][] = [
+    [x0, y0 + H, x0 + W, y0 + H],
+    [x0, y0, x0 + W, y0],
+    [x0, y0, x0, y0 + H],
+    [x0 + W, y0, x0 + W, y0 + H],
+  ];
+  return (
+    <svg viewBox={`0 0 ${W + 30} ${H + 40}`} className="mx-auto w-full max-w-[150px]">
+      <rect x={x0} y={y0} width={W} height={H} fill="#f3f7fb" />
+      {segs.map(([x1, y1, x2, y2], i) => {
+        const k = g.sides[i].walls[0].kind;
+        const sel = side === i;
+        return (
+          <g key={i} onClick={() => onPick(i)} className="cursor-pointer">
+            <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth={18} />
+            <line
+              x1={x1} y1={y1} x2={x2} y2={y2}
+              stroke={sel ? ORANGE : k === "yok" ? "#c9ced6" : NAVY}
+              strokeWidth={sel ? 6 : k === "yok" ? 2 : 5}
+              strokeDasharray={k === "yok" && !sel ? "4 4" : undefined}
+              strokeLinecap="round"
+            />
+          </g>
+        );
+      })}
+      <text x={x0 + W / 2} y={y0 + H + 22} textAnchor="middle" fontSize="11" fontWeight="600" fill={side === 0 ? ORANGE : "#555"}>
+        ÖN
+      </text>
+    </svg>
+  );
+}
+
+/* ───────────── özet ───────────── */
+
+function Summary({ g, colors, qty, setQty }: { g: Gazebo; colors: Color[]; qty: number; setQty: (n: number) => void }) {
+  const rows = gzRows(g, MODE);
+  const fab = g.roofFab ?? 0;
+  return (
+    <div>
+      <ul className="divide-y divide-[#eef0f3] rounded-[8px] ring-1 ring-[#e6e9ee]">
+        {rows.map((r) => (
+          <li key={r.c} className="flex items-center gap-3 px-3 py-2.5">
+            <span className="relative size-10 shrink-0 overflow-hidden rounded-[6px] bg-[#f5f6f8]">{r.img && <Image src={imgSrc(r.img)} alt="" fill sizes="40px" className="object-contain" />}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-semibold">{r.t}</span>
+              <span className="block truncate text-[11px] text-[#777]">{r.s}</span>
+            </span>
+            <span className="shrink-0 text-[13px] font-semibold">{tl(r.v)}</span>
+          </li>
+        ))}
+      </ul>
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[12px]">
+        <dt className="text-[#777]">Kumaş</dt>
+        <dd className="text-right font-medium">{fab === 2 ? "Dijital baskılı" : FABRICS[fab].n}</dd>
+        {fab !== 2 && (
+          <>
+            <dt className="text-[#777]">Renk</dt>
+            <dd className="text-right font-medium">{colors.find((c) => c.hex === g.color)?.ad ?? "Beyaz"}</dd>
+          </>
+        )}
+        <dt className="text-[#777]">Duvar yüksekliği</dt>
+        <dd className="text-right font-medium">{plan(g.size)[0].h} cm</dd>
+      </dl>
+      <div className="mt-4 flex items-center justify-between rounded-[8px] bg-[#f5f6f8] px-3 py-2.5">
+        <span className="text-[13px] font-semibold">Adet</span>
+        <div className="flex items-center rounded-[8px] bg-white ring-1 ring-[#dfe3e8]">
+          <button type="button" onClick={() => setQty(Math.max(1, qty - 1))} className="grid size-10 place-items-center" aria-label="Azalt">
+            <Minus className="size-4" />
+          </button>
+          <span className="w-8 text-center text-[14px] font-semibold">{qty}</span>
+          <button type="button" onClick={() => setQty(Math.min(99, qty + 1))} className="grid size-10 place-items-center" aria-label="Artır">
+            <Plus className="size-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
