@@ -1,4 +1,5 @@
 import "server-only";
+import { createHmac } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { isAdmin, type Me } from "./auth";
 import { brandsFor } from "./brands";
@@ -169,4 +170,29 @@ export async function cancelPaymentLink(me: Me, id: number) {
   }
   await db().execute(sql`UPDATE odeme_linkleri SET iptal = 1 WHERE id = ${id}`);
   return { ok: true as const };
+}
+
+export type Taksit = { n: number; aylik: number; toplam: number };
+export type TaksitTablosu = { tutar: number; aileler: { aile: string; banka: string; taksitler: Taksit[] }[] };
+
+/**
+ * iyzico taksit tutarları (vade farkı dahil, müşterinin ödeme formunda göreceği): sitedeki SKY Konfigüratör eklentisi
+ * iyzico'ya sitenin anahtarlarıyla sorar; panel isteği ortak anahtarla (KONFIGURATOR_SECRET) imzalar.
+ */
+export async function installmentTable(me: Me, siteId: number, tutar: number): Promise<{ ok: true; tablo: TaksitTablosu } | { ok: false; hata: string }> {
+  const site = (await paymentSites(me)).find((s) => s.id === Number(siteId));
+  const secret = process.env.KONFIGURATOR_SECRET;
+  const t = round2(tutar);
+  if (!site || !secret || !(t >= 1 && t <= 2_000_000)) return { ok: false, hata: "Taksit bilgisi alınamadı." };
+  const tutarStr = t.toFixed(2);
+  const ts = Math.floor(Date.now() / 1000);
+  const sig = createHmac("sha256", secret).update(`taksit|${tutarStr}|${ts}`).digest("base64url");
+  try {
+    const res = await fetch(`${site.adres.replace(/\/+$/, "")}/wp-json/sky/v1/taksit?tutar=${tutarStr}&ts=${ts}&sig=${sig}`, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+    const data = (await res.json().catch(() => null)) as (TaksitTablosu & { hata?: string }) | null;
+    if (!res.ok || !data?.aileler) return { ok: false, hata: data?.hata ?? `Taksit bilgisi alınamadı (HTTP ${res.status}).` };
+    return { ok: true, tablo: data };
+  } catch {
+    return { ok: false, hata: "Taksit bilgisi alınamadı." };
+  }
 }

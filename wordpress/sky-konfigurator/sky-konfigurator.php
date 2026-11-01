@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SKY Konfigüratör
  * Description: SKY panelindeki gazebo konfigüratörünü siteye yerleştirir ve panelin imzaladığı tasarımı WooCommerce sepetine ekler. Fiyat panelde hesaplanır; site yalnızca imzayı doğrular.
- * Version: 1.4.0
+ * Version: 1.5.0
  * Author: SKY Görsel Çözümler
  * Requires Plugins: woocommerce
  * Text Domain: sky-konfigurator
@@ -12,6 +12,7 @@
  * Sayfa: içeriği [sky_konfigurator] olan sayfa tam ekran konfigüratör olarak açılır (tema başlığı ve altbilgisi olmadan).
  * Kategori banner'ı: gazebo kategorilerinin üstünde "Kendi gazebonu tasarla"; ölçü ve baskı kategoriden seçili gelir (?olcu=3x3&baski=baskisiz).
  * Ödeme linki: panelin açtığı ürünsüz siparişlerde (_sky_odeme_linki) misafir ödeme sayfası e-posta doğrulaması istemez.
+ * Taksit: GET /wp-json/sky/v1/taksit?tutar=&ts=&sig= (panelin imzası) → iyzico'nun kart ailesi bazında taksit tutarları (sitedeki iyzico anahtarlarıyla).
  * Ürün: stok kodu SKY-GAZEBO-TASARLA olan, katalogda gizli bir WooCommerce ürünü; yalnızca konfigüratörden sepete düşer.
  */
 
@@ -49,6 +50,7 @@ final class Sky_Konfigurator {
 		add_filter( 'woocommerce_order_item_thumbnail', array( __CLASS__, 'order_thumb' ), 10, 2 );
 		add_filter( 'woocommerce_hidden_order_itemmeta', array( __CLASS__, 'hidden_meta' ) );
 		add_filter( 'woocommerce_order_email_verification_grace_period', array( __CLASS__, 'payment_link_grace' ), 10, 2 );
+		add_action( 'rest_api_init', array( __CLASS__, 'rest_routes' ) );
 		add_action( 'woocommerce_before_shop_loop', array( __CLASS__, 'category_banner' ), 1 );
 		// WoodMart yerleşim oluşturucusu (Elementor, öğe önbellekli) kategori sayfasında woocommerce_before_shop_loop'u çağırmaz:
 		// ana içerik tamponlanır, banner sıralama ve ürünleri tutan "list-section" sınıflı kapsayıcının hemen önüne konur
@@ -117,6 +119,75 @@ final class Sky_Konfigurator {
 	 */
 	public static function payment_link_grace( $grace, $order ) {
 		return $order instanceof WC_Order && '1' === (string) $order->get_meta( '_sky_odeme_linki' ) ? 30 * DAY_IN_SECONDS : $grace;
+	}
+
+	/* ───────────── taksit tablosu (panel) ───────────── */
+
+	public static function rest_routes() {
+		register_rest_route(
+			'sky/v1',
+			'/taksit',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( __CLASS__, 'installments' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+	}
+
+	/**
+	 * Panelin ödeme linki ekranı için iyzico taksit sorgusu. İmza: base64url(HMAC-SHA256("taksit|tutar|ts")), 5 dakika geçerli.
+	 * Tutarlar iyzico'nun ödeme formunda gördüğü gibidir (vade farkı dahil); sonuç 10 dakika önbellekte.
+	 */
+	public static function installments( WP_REST_Request $req ) {
+		$tutar  = (string) $req->get_param( 'tutar' );
+		$ts     = (int) $req->get_param( 'ts' );
+		$secret = self::secret();
+		$sig    = self::b64d( (string) $req->get_param( 'sig' ) );
+		if ( '' === $secret || ! preg_match( '/^\d{1,7}(\.\d{1,2})?$/', $tutar ) || abs( time() - $ts ) > 300 || false === $sig
+			|| ! hash_equals( hash_hmac( 'sha256', "taksit|{$tutar}|{$ts}", $secret, true ), $sig ) ) {
+			return new WP_REST_Response( array( 'hata' => 'İmza geçersiz.' ), 403 );
+		}
+		$key = 'sky_taksit_' . md5( $tutar );
+		$hit = get_transient( $key );
+		if ( is_array( $hit ) ) {
+			return new WP_REST_Response( $hit );
+		}
+		$set = get_option( 'woocommerce_iyzico_settings' );
+		if ( ! class_exists( '\Iyzipay\Options' ) || ! is_array( $set ) || empty( $set['api_key'] ) ) {
+			return new WP_REST_Response( array( 'hata' => 'iyzico ayarları bulunamadı.' ), 500 );
+		}
+		$o = new \Iyzipay\Options();
+		$o->setApiKey( $set['api_key'] );
+		$o->setSecretKey( $set['secret_key'] );
+		$o->setBaseUrl( $set['api_type'] );
+		$r = new \Iyzipay\Request\RetrieveInstallmentInfoRequest();
+		$r->setLocale( 'tr' );
+		$r->setConversationId( 'sky-taksit-' . time() );
+		$r->setPrice( $tutar );
+		$info = \Iyzipay\Model\InstallmentInfo::retrieve( $r, $o );
+		if ( 'success' !== $info->getStatus() ) {
+			return new WP_REST_Response( array( 'hata' => (string) $info->getErrorMessage() ), 502 );
+		}
+		$aileler = array();
+		foreach ( (array) $info->getInstallmentDetails() as $d ) {
+			$taksitler = array();
+			foreach ( (array) $d->getInstallmentPrices() as $p ) {
+				$taksitler[] = array(
+					'n'      => (int) $p->getInstallmentNumber(),
+					'aylik'  => (float) $p->getInstallmentPrice(),
+					'toplam' => (float) $p->getTotalPrice(),
+				);
+			}
+			$aileler[] = array(
+				'aile'      => (string) $d->getCardFamilyName(),
+				'banka'     => (string) $d->getBankName(),
+				'taksitler' => $taksitler,
+			);
+		}
+		$out = array( 'tutar' => (float) $tutar, 'aileler' => $aileler );
+		set_transient( $key, $out, 10 * MINUTE_IN_SECONDS );
+		return new WP_REST_Response( $out );
 	}
 
 	/* ───────────── kategori banner'ı ───────────── */

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Copy, CreditCard, ExternalLink, MessageCircle, XCircle } from "lucide-react";
-import { odemeLinkiIptal, odemeLinkiOlustur } from "@/app/panel/odeme-linkleri/actions";
+import { odemeLinkiIptal, odemeLinkiOlustur, taksitTablosu } from "@/app/panel/odeme-linkleri/actions";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -129,6 +129,7 @@ export function PaymentLinks({ sites, rows, komisyonOrani }: { sites: Site[]; ro
                 <span className="text-sm font-semibold">Müşterinin ödeyeceği</span>
                 <span className="tabular text-lg font-bold">{formatTRY(total)}</span>
               </div>
+              <InstallmentTable siteId={siteId} tutar={total} />
               <p className="text-xs text-muted-foreground">Taksit farkı ödeme ekranında iyzico tarafından müşteriye ayrıca yansıtılır.</p>
               {err && <p className="text-sm text-danger">{err}</p>}
               <Button type="submit" size="lg" className="w-full" disabled={pending || !sites.length || amount <= 0}>
@@ -235,6 +236,108 @@ function LinkActions({ link, telefon, musteri, toplam, big }: { link: string; te
       <a href={link} target="_blank" rel="noopener" className="inline-flex h-8 items-center gap-1 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground">
         <ExternalLink className="size-3.5" /> Aç
       </a>
+    </div>
+  );
+}
+
+type Tablo = { tutar: number; aileler: { aile: string; banka: string; taksitler: { n: number; aylik: number; toplam: number }[] }[] };
+
+/** Aynı taksit tutarlarına sahip kart aileleri tek sütunda (çoğu zaman hepsi aynıdır) */
+function groupFamilies(t: Tablo) {
+  const groups: { aileler: string[]; taksitler: Tablo["aileler"][number]["taksitler"] }[] = [];
+  for (const a of t.aileler) {
+    const key = JSON.stringify(a.taksitler);
+    const g = groups.find((x) => JSON.stringify(x.taksitler) === key);
+    if (g) g.aileler.push(a.aile);
+    else groups.push({ aileler: [a.aile], taksitler: a.taksitler });
+  }
+  return groups;
+}
+
+const taksitText = (tutar: number, taksitler: { n: number; aylik: number; toplam: number }[]) =>
+  [
+    `Kredi kartına taksit seçenekleri (${formatTRY(tutar)}):`,
+    ...taksitler.map((x) => (x.n === 1 ? `Peşin: ${formatTRY(x.toplam)}` : `${x.n} taksit: ${x.n} × ${formatTRY(x.aylik)} = ${formatTRY(x.toplam)}`)),
+  ].join("\n");
+
+/** Girilen tutarın iyzico taksit tablosu: satışçı müşteriye ön bilgi verir (tutar yazıldıkça yenilenir) */
+export function InstallmentTable({ siteId, tutar }: { siteId: number; tutar: number }) {
+  const [state, setState] = useState<{ key: string; tablo?: Tablo; hata?: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const key = `${siteId}:${tutar.toFixed(2)}`;
+  useEffect(() => {
+    if (!siteId || tutar < 1) return;
+    let live = true;
+    const t = setTimeout(() => {
+      taksitTablosu(siteId, tutar).then((r) => live && setState(r.ok ? { key, tablo: r.tablo } : { key, hata: r.hata }));
+    }, 600);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [key, siteId, tutar]);
+  if (tutar < 1) return null;
+  const cur = state?.key === key ? state : null;
+  if (!cur) return <p className="text-xs text-muted-foreground">Taksit seçenekleri hesaplanıyor…</p>;
+  if (cur.hata || !cur.tablo) return <p className="text-xs text-muted-foreground">{cur.hata ?? "Taksit bilgisi alınamadı."}</p>;
+  const groups = groupFamilies(cur.tablo);
+  const counts = [...new Set(groups.flatMap((g) => g.taksitler.map((x) => x.n)))].sort((a, b) => a - b);
+  return (
+    <div className="rounded-xl border border-border">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+        <span className="text-xs font-bold">Taksit seçenekleri</span>
+        <button
+          type="button"
+          onClick={() =>
+            navigator.clipboard.writeText(taksitText(tutar, groups[0]?.taksitler ?? [])).then(() => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            })
+          }
+          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+        >
+          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />} {copied ? "Kopyalandı" : "Müşteriye metin olarak kopyala"}
+        </button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          {groups.length > 1 && (
+            <thead>
+              <tr className="text-muted-foreground">
+                <th />
+                {groups.map((g) => (
+                  <th key={g.aileler.join()} className="px-3 py-1.5 text-right font-semibold">
+                    {g.aileler.join(", ")}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+          )}
+          <tbody className="divide-y divide-border">
+            {counts.map((n) => (
+              <tr key={n}>
+                <td className="px-3 py-1.5 font-semibold whitespace-nowrap">{n === 1 ? "Peşin" : `${n} taksit`}</td>
+                {groups.map((g) => {
+                  const x = g.taksitler.find((y) => y.n === n);
+                  return (
+                    <td key={g.aileler.join()} className="tabular px-3 py-1.5 text-right whitespace-nowrap">
+                      {x ? (
+                        <>
+                          {n > 1 && <span className="text-muted-foreground">{n} × {formatTRY(x.aylik)} = </span>}
+                          <span className="font-semibold">{formatTRY(x.toplam)}</span>
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {groups.length === 1 && <p className="border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">Tüm kartlarda aynı: {groups[0].aileler.join(", ")}</p>}
     </div>
   );
 }
