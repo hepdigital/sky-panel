@@ -36,7 +36,7 @@ const ensureTable = (): Promise<unknown> =>
         UNIQUE KEY odeme_linki_site_dis (site_id, dis_id),
         KEY odeme_linki_kullanici (kullanici_id),
         CONSTRAINT odeme_linkleri_site_fk FOREIGN KEY (site_id) REFERENCES site_baglantilari (id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`),
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`),
     )
     .catch((e) => {
       ready = null;
@@ -131,7 +131,7 @@ export async function listPaymentLinks(me: Me) {
     FROM odeme_linkleri l
     LEFT JOIN kullanicilar k ON k.id = l.kullanici_id
     LEFT JOIN site_baglantilari s ON s.id = l.site_id
-    LEFT JOIN siparisler sp ON sp.site_id = l.site_id AND sp.dis_no = l.dis_no
+    LEFT JOIN siparisler sp ON sp.site_id = l.site_id AND BINARY sp.dis_no = BINARY l.dis_no
     ${own}
     ORDER BY l.id DESC LIMIT 200`)) as unknown as [(Row & { satisci: string | null; site: string | null; siparis_id: number | null; odeme_durumu: string | null; dis_durum: string | null; durum: string | null })[]];
   return rows.map((r) => ({
