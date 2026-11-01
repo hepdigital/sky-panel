@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { Check, ChevronLeft, ChevronRight, Minus, Plus, Rotate3d, ShoppingCart } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Loader2, Minus, Plus, Rotate3d, ShoppingCart } from "lucide-react";
+import { FRAME_MAT, SIDE_NAMES, fitWall, framesOf } from "@/lib/konfigurator";
 import { FABRICS, PRESETS, SIZES, SZ, cfgKey, gzRows, gzTotal, imgSrc, plan, slotPrice, slots, val, type Gazebo } from "@/lib/terminal/calc";
 import { priceTable, setPriceTable, type PriceTable } from "@/lib/terminal/price-table";
 import { cn } from "@/lib/utils";
 import { viewerInput } from "@/modules/gazebo/viewer-map";
-import { WALL_KINDS, closestAvailable, hasDoor, hasWindow, kindAvailable, kindImage, normalizeWall, wallName, wallPrice, type Wall, type WallKind } from "@/modules/gazebo/walls";
+import { WALL_KINDS, hasDoor, hasWindow, kindAvailable, kindImage, wallName, wallPrice, type Wall, type WallKind } from "@/modules/gazebo/walls";
+import type { Capture } from "@/modules/gazebo3d/mastertent/viewer";
 import { ViewerBoundary } from "@/modules/gazebo3d/mastertent/viewer-boundary";
 
 // Sitelere gömülen gazebo konfigüratörü: panelin modüler gazebo motoru (calc.ts, walls.ts) ve markanın fiyat tablosu,
@@ -28,25 +30,29 @@ const MODE = 1 as const; // perakende
 const VAT = 1.2;
 const tl = (n: number) => `${Math.round(n * VAT).toLocaleString("tr-TR")} ₺`;
 
-/** İskelet serileri: tablodaki açıklama + malzeme (3D'deki iskelet rengiyle aynı) */
-const FRAME_MAT: Record<string, string> = { SQ3: "Beyaz boyalı çelik", SH4: "Siyah boyalı çelik", SQ4: "Siyah boyalı çelik", AH4: "Alüminyum", AH5: "Alüminyum" };
-const FRAME_IDS = ["SQ3", "SH4", "AH4", "SQ4", "AH5"];
-
 const STEPS = ["Ölçü", "İskelet", "Kumaş", "Duvarlar", "Özet"] as const;
-const SIDE_NAMES = ["Ön", "Arka", "Sol", "Sağ"];
+/** Sepet bileti siteye gönderildikten sonra sitenin sepete yönlendirmesi beklenir; olmazsa uyarı */
+const PARENT_WAIT = 10_000;
 
 type Color = { hex: string; ad: string };
 
-export function GazeboKonfigurator({ table, colors }: { table: PriceTable; colors: Color[] }) {
+/**
+ * marka: fiyat tablosu ve sepet bileti bu markanındır. gomulu: sitenin sayfasında (iframe) açıldı; başlığı site gösterir.
+ * Sepete ekle: tasarım sunucuda fiyatlanıp imzalanır, bilet siteye (üst pencere) iletilir; site doğrulayıp sepete ekler.
+ */
+export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: string; gomulu: boolean; table: PriceTable; colors: Color[] }) {
   // Hesaplar etkin fiyat tablosunu okur: markanın tablosu her çizimde etkin
   setPriceTable(table);
   const { FRAMES, ROOF } = table;
-  const framesOf = (size: string) => FRAME_IDS.filter((id) => val(FRAMES[id]?.p[size] ?? null, MODE) !== null);
 
   const [step, setStep] = useState(0);
   const [side, setSide] = useState(0);
   const [qty, setQty] = useState(1);
-  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const capture = useRef<Capture | null>(null);
+  const waiting = useRef<number | null>(null);
+  useEffect(() => () => void (waiting.current && window.clearTimeout(waiting.current)), []);
   const [g, setG] = useState<Gazebo>(() => ({
     size: "3x3",
     frame: framesOf("3x3")[0] ?? null,
@@ -72,24 +78,61 @@ export function GazeboKonfigurator({ table, colors }: { table: PriceTable; color
   };
   const setWall = (i: number, w: Wall) => setG((x) => ({ ...x, sides: x.sides.map((s, j) => (j === i ? { walls: [fitWall(pl[i].grup, { ...w, f: fab })] } : s)) }));
 
+  async function addToCart() {
+    setBusy(true);
+    setErr(null);
+    let gorsel: string | null = null;
+    try {
+      const url = capture.current?.().url;
+      if (url?.startsWith("data:image/webp")) gorsel = url;
+    } catch {
+      // görüntü alınamazsa sepete görselsiz eklenir
+    }
+    const r = (await fetch("/api/konfigurator/sepet", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ marka, g, adet: qty, gorsel }) })
+      .then((x) => x.json())
+      .catch(() => ({ ok: false, hata: "Bağlantı kurulamadı, lütfen tekrar deneyin." }))) as { ok: boolean; token?: string; hata?: string };
+    if (!r.ok || !r.token) {
+      setBusy(false);
+      return setErr(r.hata ?? "Tasarım sepete eklenemedi.");
+    }
+    if (window.parent === window) {
+      setBusy(false);
+      return setErr("Sepete ekleme, konfigüratör sitenin sayfasında açıldığında çalışır.");
+    }
+    let origin = "*";
+    try {
+      origin = new URL(document.referrer).origin;
+    } catch {
+      // referrer yoksa bilet herkese açık gönderilir: imzalı olduğu için yalnızca anahtarı bilen site kullanabilir
+    }
+    window.parent.postMessage({ tip: "sky-konfigurator:sepet", token: r.token }, origin);
+    // Site sepete yönlendirir; yönlendirmezse kullanıcı beklemede kalmasın
+    waiting.current = window.setTimeout(() => {
+      setBusy(false);
+      setErr("Site yanıt vermedi. Sayfayı yenileyip tekrar deneyin.");
+    }, PARENT_WAIT);
+  }
+
   const go = (n: number) => {
     setStep(Math.max(0, Math.min(STEPS.length - 1, n)));
-    setSent(false);
+    setErr(null);
     if (typeof window !== "undefined" && window.innerWidth < 1024) window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
     <div className="min-h-dvh bg-[#f5f6f8] pb-28 text-[#242424] lg:pb-10" style={{ fontFamily: "var(--font-poppins), Arial, sans-serif" }}>
       <div className="mx-auto max-w-[1240px] px-4 pt-4 lg:px-6 lg:pt-8">
-        <header className="mb-4 lg:mb-6">
-          <h1 className="text-[22px] font-semibold tracking-tight lg:text-[28px]">Gazebo Çadırınızı Tasarlayın</h1>
-          <p className="mt-1 text-[13px] text-[#777] lg:text-sm">Ölçüyü, iskeleti, kumaşı ve duvarları seçin; fiyat her adımda güncellenir.</p>
-        </header>
+        {!gomulu && (
+          <header className="mb-4 lg:mb-6">
+            <h1 className="text-[22px] font-semibold tracking-tight lg:text-[28px]">Gazebo Çadırınızı Tasarlayın</h1>
+            <p className="mt-1 text-[13px] text-[#777] lg:text-sm">Ölçüyü, iskeleti, kumaşı ve duvarları seçin; fiyat her adımda güncellenir.</p>
+          </header>
+        )}
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-6">
           {/* 3D: mobilde üstte yapışkan, masaüstünde solda */}
           <div className="sticky top-0 z-20 -mx-4 bg-[#f5f6f8] px-4 pb-2 pt-2 lg:top-6 lg:mx-0 lg:self-start lg:p-0">
-            <Preview g={g} />
+            <Preview g={g} onCapture={(c) => (capture.current = c)} />
           </div>
 
           <div className="min-w-0">
@@ -147,13 +190,13 @@ export function GazeboKonfigurator({ table, colors }: { table: PriceTable; color
                 {step === 3 && <WallsStep g={g} side={side} setSide={setSide} onPreset={(sides) => setG((x) => fit({ ...x, sides }))} onWall={setWall} />}
                 {step === 4 && <Summary g={g} colors={colors} qty={qty} setQty={setQty} />}
               </div>
-              {sent && (
-                <p className="mt-4 rounded-[8px] px-3 py-2.5 text-[13px]" style={{ background: "#eef4fb", color: NAVY }}>
-                  Önizleme: sepete ekleme WooCommerce bağlantısıyla birlikte açılacak.
+              {err && (
+                <p className="mt-4 rounded-[8px] px-3 py-2.5 text-[13px]" style={{ background: "#fdecec", color: "#b42318" }}>
+                  {err}
                 </p>
               )}
               <div className="mt-6 hidden border-t border-[#eef0f3] pt-4 lg:block">
-                <NavBar step={step} total={total * qty} qty={qty} onBack={() => go(step - 1)} onNext={() => (step === STEPS.length - 1 ? setSent(true) : go(step + 1))} />
+                <NavBar step={step} total={total * qty} qty={qty} busy={busy} onBack={() => go(step - 1)} onNext={() => (step === STEPS.length - 1 ? void addToCart() : go(step + 1))} />
               </div>
             </section>
           </div>
@@ -162,7 +205,7 @@ export function GazeboKonfigurator({ table, colors }: { table: PriceTable; color
 
       {/* Alt çubuk: mobilde ekrana sabit (masaüstünde adım kartının altında) */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/10 bg-white/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur lg:hidden">
-        <NavBar step={step} total={total * qty} qty={qty} onBack={() => go(step - 1)} onNext={() => (step === STEPS.length - 1 ? setSent(true) : go(step + 1))} />
+        <NavBar step={step} total={total * qty} qty={qty} busy={busy} onBack={() => go(step - 1)} onNext={() => (step === STEPS.length - 1 ? void addToCart() : go(step + 1))} />
       </div>
     </div>
   );
@@ -177,20 +220,13 @@ const STEP_HINT = [
   "Seçimlerinizi kontrol edip sepete ekleyin.",
 ];
 
-/** Duvarı o kenarın ölçü grubunda satılabilir hale getirir; satılamıyorsa duvar kalkar */
-function fitWall(grup: string, w: Wall): Wall {
-  if (w.kind === "yok") return { kind: "yok", f: w.f };
-  const c = closestAvailable(grup, normalizeWall(w), MODE);
-  return wallPrice(grup, c, MODE) === null ? { kind: "yok", f: w.f } : c;
-}
-
 /** Kenarda gösterilecek duvar tipleri: fiyatı olanlar */
 const kindsFor = (grup: string, f: number) =>
   WALL_KINDS.filter((k) => k.kind === "yok" || (kindAvailable(grup, k.kind, f, MODE) && wallPrice(grup, fitWall(grup, { kind: k.kind, f }), MODE) !== null));
 
 /* ───────────── parçalar ───────────── */
 
-function Preview({ g }: { g: Gazebo }) {
+function Preview({ g, onCapture }: { g: Gazebo; onCapture: (c: Capture | null) => void }) {
   const key = cfgKey(g);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const input = useMemo(() => viewerInput(g), [key]);
@@ -203,7 +239,7 @@ function Preview({ g }: { g: Gazebo }) {
           </div>
         }
       >
-        <Viewer {...input} curtainsOpen />
+        <Viewer {...input} curtainsOpen registerCapture={onCapture} />
       </ViewerBoundary>
       <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-[#555] shadow-sm ring-1 ring-black/5">
         <Rotate3d className="size-3.5" /> Sürükleyerek çevirin
@@ -254,7 +290,7 @@ function Stepper({ step, onGo }: { step: number; onGo: (n: number) => void }) {
   );
 }
 
-function NavBar({ step, total, qty, onBack, onNext }: { step: number; total: number; qty: number; onBack: () => void; onNext: () => void }) {
+function NavBar({ step, total, qty, busy, onBack, onNext }: { step: number; total: number; qty: number; busy: boolean; onBack: () => void; onNext: () => void }) {
   const last = step === STEPS.length - 1;
   return (
     <div className="flex items-center gap-2.5">
@@ -271,10 +307,16 @@ function NavBar({ step, total, qty, onBack, onNext }: { step: number; total: num
           </span>
         </button>
       )}
-      <button type="button" onClick={onNext} className="flex h-11 shrink-0 items-center gap-1.5 rounded-[8px] px-5 text-[14px] font-semibold text-white hover:brightness-95" style={{ background: ORANGE }}>
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={busy}
+        className="flex h-11 shrink-0 items-center gap-1.5 rounded-[8px] px-5 text-[14px] font-semibold text-white hover:brightness-95 disabled:opacity-70"
+        style={{ background: ORANGE }}
+      >
         {last ? (
           <>
-            <ShoppingCart className="size-4" /> Sepete ekle
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <ShoppingCart className="size-4" />} {busy ? "Ekleniyor…" : "Sepete ekle"}
           </>
         ) : (
           <>

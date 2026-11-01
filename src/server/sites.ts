@@ -107,7 +107,7 @@ type WcOrder = {
   id: number; number: string; status: string; date_created_gmt: string; date_modified_gmt: string; date_paid_gmt: string | null;
   total: string; total_tax: string; discount_total: string; shipping_total: string; payment_method: string; payment_method_title: string;
   customer_note: string; billing: WcAddress; shipping: WcAddress;
-  line_items: { name: string; quantity: number; total: string; total_tax: string; sku: string; image?: { src: string }; meta_data: { display_key: string; display_value: unknown }[] }[];
+  line_items: { name: string; quantity: number; total: string; total_tax: string; sku: string; image?: { src: string }; meta_data: { key: string; value: unknown; display_key: string; display_value: unknown }[] }[];
   meta_data: { key: string; value: unknown }[];
 };
 
@@ -154,7 +154,9 @@ function wcToOrder(site: Site, o: WcOrder, notes: { note: string; customer_note:
       const secenekler: Record<string, string> = {};
       for (const m of li.meta_data ?? []) if (m.display_key && !m.display_key.startsWith("_") && typeof m.display_value !== "object") secenekler[m.display_key] = String(m.display_value).replace(/<[^>]+>/g, "");
       if (li.sku) secenekler["Stok kodu"] = li.sku;
-      return { ad: li.name, adet: li.quantity, birim: li.quantity ? Math.round((total / li.quantity) * 100) / 100 : total, secenekler, gorsel: li.image?.src || null };
+      // Konfigüratörden gelen kalemde görsel tasarımın 3D görüntüsüdür
+      const tasarim = li.meta_data?.find((m) => m.key === "_sky_gorsel")?.value;
+      return { ad: li.name, adet: li.quantity, birim: li.quantity ? Math.round((total / li.quantity) * 100) / 100 : total, secenekler, gorsel: (typeof tasarim === "string" && tasarim) || li.image?.src || null };
     }),
     gecmis: notes
       .slice()
