@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SKY Konfigüratör
  * Description: SKY panelindeki gazebo konfigüratörünü siteye yerleştirir ve panelin imzaladığı tasarımı WooCommerce sepetine ekler. Fiyat panelde hesaplanır; site yalnızca imzayı doğrular.
- * Version: 1.3.3
+ * Version: 1.4.0
  * Author: SKY Görsel Çözümler
  * Requires Plugins: woocommerce
  * Text Domain: sky-konfigurator
@@ -11,6 +11,7 @@
  *   define( 'SKY_KONFIGURATOR_SECRET', '...' );
  * Sayfa: içeriği [sky_konfigurator] olan sayfa tam ekran konfigüratör olarak açılır (tema başlığı ve altbilgisi olmadan).
  * Kategori banner'ı: gazebo kategorilerinin üstünde "Kendi gazebonu tasarla"; ölçü ve baskı kategoriden seçili gelir (?olcu=3x3&baski=baskisiz).
+ * Ödeme linki: panelin açtığı ürünsüz siparişlerde (_sky_odeme_linki) misafir ödeme sayfası e-posta doğrulaması istemez.
  * Ürün: stok kodu SKY-GAZEBO-TASARLA olan, katalogda gizli bir WooCommerce ürünü; yalnızca konfigüratörden sepete düşer.
  */
 
@@ -47,6 +48,7 @@ final class Sky_Konfigurator {
 		add_action( 'woocommerce_checkout_create_order_line_item', array( __CLASS__, 'order_item' ), 10, 3 );
 		add_filter( 'woocommerce_order_item_thumbnail', array( __CLASS__, 'order_thumb' ), 10, 2 );
 		add_filter( 'woocommerce_hidden_order_itemmeta', array( __CLASS__, 'hidden_meta' ) );
+		add_filter( 'woocommerce_order_email_verification_grace_period', array( __CLASS__, 'payment_link_grace' ), 10, 2 );
 		add_action( 'woocommerce_before_shop_loop', array( __CLASS__, 'category_banner' ), 1 );
 		// WoodMart yerleşim oluşturucusu (Elementor, öğe önbellekli) kategori sayfasında woocommerce_before_shop_loop'u çağırmaz:
 		// ana içerik tamponlanır, banner sıralama ve ürünleri tutan "list-section" sınıflı kapsayıcının hemen önüne konur
@@ -105,6 +107,16 @@ final class Sky_Konfigurator {
 			$args['baski'] = $baski;
 		}
 		return add_query_arg( $args, self::PANEL . '/konfigurator/' . self::MARKA );
+	}
+
+	/* ───────────── ödeme linki ───────────── */
+
+	/**
+	 * Panelden açılan ödeme linki: müşteri linki WhatsApp'tan açar, oturumu yoktur ve sipariş e-postası çoğu zaman yer tutucudur;
+	 * bu siparişlerde doğrulama 30 gün boyunca istenmez (link iptal edilen ya da ödenen siparişte zaten ödeme almaz).
+	 */
+	public static function payment_link_grace( $grace, $order ) {
+		return $order instanceof WC_Order && '1' === (string) $order->get_meta( '_sky_odeme_linki' ) ? 30 * DAY_IN_SECONDS : $grace;
 	}
 
 	/* ───────────── kategori banner'ı ───────────── */

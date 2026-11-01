@@ -7,6 +7,7 @@ import {
   FileText,
   Globe,
   Inbox,
+  Link2,
   History,
   LayoutDashboard,
   MonitorSmartphone,
@@ -41,6 +42,7 @@ export const adminNav: AdminNavGroup[] = [
       { href: "/panel/musteriler", label: "Müşteriler", icon: Users, roles: ["admin", "sales", "finance"] },
       { href: "/panel/teklifler", label: "Teklifler", icon: FileText, roles: ["admin", "sales"] },
       { href: "/panel/siparisler", label: "Siparişler", icon: Package, roles: ["admin", "sales"] },
+      { href: "/panel/odeme-linkleri", label: "Ödeme linkleri", icon: Link2, roles: ["admin", "sales"] },
       { href: "/panel/satis-urunleri", label: "Ürünler", icon: Store, roles: ["admin"] },
       { href: "/panel/urunler", label: "Teklif ürünleri", icon: Tags, roles: ["admin", "sales"] },
     ],
@@ -79,7 +81,7 @@ export const adminNav: AdminNavGroup[] = [
 ];
 
 /** 1. aşamada açık ekranlar: teklif, sipariş, cari, ürün ve kullanıcı yönetimi (diğerleri sonraki aşamalarda açılacak) */
-const PHASE1 = new Set(["/panel", "/panel/gorevler", "/panel/talepler", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/urunler", "/panel/satis-urunleri", "/panel/markalar", "/panel/siteler", "/panel/kullanicilar"]);
+const PHASE1 = new Set(["/panel", "/panel/gorevler", "/panel/talepler", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/odeme-linkleri", "/panel/urunler", "/panel/satis-urunleri", "/panel/markalar", "/panel/siteler", "/panel/kullanicilar"]);
 
 /** openTasks: Görevler'in yanında bana atanan açık görev sayısı · newRequests: Talepler'in yanında yeni talep sayısı */
 export function navFor(role: Role, openTasks = 0, newRequests = 0) {
