@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SKY Konfigüratör
  * Description: SKY panelindeki gazebo konfigüratörünü siteye yerleştirir ve panelin imzaladığı tasarımı WooCommerce sepetine ekler. Fiyat panelde hesaplanır; site yalnızca imzayı doğrular.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: SKY Görsel Çözümler
  * Requires Plugins: woocommerce
  * Text Domain: sky-konfigurator
@@ -148,6 +148,14 @@ final class Sky_Konfigurator {
 			foreach ( (array) ( $p['ekler'] ?? array() ) as $ek ) {
 				$adet = (int) ( $ek['adet'] ?? 0 );
 				if ( $adet < 1 || ! is_numeric( $ek['fiyat'] ?? null ) || $ek['fiyat'] <= 0 ) {
+					continue;
+				}
+				// Sitede satılan ürün (ör. taşıma çantası): asıl varyasyon eklenir, fiyat ve stok sitenin
+				if ( ! empty( $ek['woo']['varyasyon'] ) ) {
+					$var = wc_get_product( (int) $ek['woo']['varyasyon'] );
+					if ( $var && $var->is_type( 'variation' ) && (int) $var->get_parent_id() === (int) ( $ek['woo']['urun'] ?? 0 ) ) {
+						WC()->cart->add_to_cart( $var->get_parent_id(), min( 999, $adet ), $var->get_id(), $var->get_variation_attributes() );
+					}
 					continue;
 				}
 				// Ek satır: kendi başlığı, görseli ve fiyatıyla; "ek" alanı ana tasarımın kimliğini taşır

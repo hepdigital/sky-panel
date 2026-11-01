@@ -91,7 +91,9 @@ export function summaryLines(g: Gazebo, colorOf: (hex?: string) => string) {
 /** Son adımda önerilen ek ürünler: teklif ürünlerinde bu kategorilerdeki ürünler (fiyat ve görsel markanınki) */
 export const KONF_EK_KATEGORI = ["Sabitleme", "Taşıma Çantası", "Gazebo Aksesuarları"];
 
-export type KonfEk = { kod: string; grup: string; ad: string; aciklama: string; gorsel: string | null; uyari?: string; fiyat: number; olculer: string[] | null };
+export type KonfEk = { kod: string; grup: string; ad: string; aciklama: string; gorsel: string | null; uyari?: string; fiyat: number; olculer: string[] | null;
+  /** Sitedeki asıl ürün: sepete bu varyasyon eklenir (fiyatı sitenin) */
+  woo?: { urun: number; varyasyon: number } };
 
 /**
  * Ürünün uyduğu gazebo ölçüleri: adında ya da açıklamasında ölçü geçiyorsa (ör. taşıma çantası "2x2, 2x3, 3x3")

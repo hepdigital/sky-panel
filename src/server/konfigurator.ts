@@ -34,26 +34,75 @@ export type KonfPayload = {
   gorsel: string | null;
   cfg: unknown;
   /** Son adımda seçilen ek ürünler (teklif ürünleri): sepette ayrı satır; adet gazebo adedinden bağımsız */
-  ekler?: { kod: string; baslik: string; fiyat: number; adet: number; gorsel: string | null }[];
+  ekler?: { kod: string; baslik: string; fiyat: number; adet: number; gorsel: string | null; woo?: { urun: number; varyasyon: number } }[];
 };
 
 const publicUrl = (path: string) => (/^https?:\/\//.test(path) ? path : `${(process.env.PUBLIC_URL ?? "").replace(/\/+$/, "")}${path}`);
 
-/** Markanın ek ürünleri: teklif ürünlerinde KONF_EK_KATEGORI kategorilerindeki, perakende fiyatı olan, renk seçimsiz ürünler */
+/** Markanın ek ürünleri: teklif ürünlerinde KONF_EK_KATEGORI kategorilerindeki, perakende fiyatı olan, renk seçimsiz ürünler + sitedeki WooCommerce ürünleri */
 export async function konfExtras(markaId: number): Promise<KonfEk[]> {
-  const catalog = await getCatalog(markaId);
+  const [catalog, woo] = await Promise.all([getCatalog(markaId), wooExtras(markaId)]);
   const lower = (x: string) => x.toLocaleLowerCase("tr-TR");
-  return KONF_EK_KATEGORI.flatMap((ad) =>
+  const list = KONF_EK_KATEGORI.flatMap((ad) =>
     catalog
       .filter((g) => lower(g.nav) === lower(ad))
       .flatMap((g) =>
         g.items.flatMap((it) => {
           const fiyat = val(it.p, KONF_MODE);
           if (it.hidden || it.renk || fiyat === null || fiyat <= 0) return [];
-          return [{ kod: it.id, grup: g.nav, ad: it.n, aciklama: it.s, gorsel: it.img ? imgSrc(it.img) : null, uyari: it.warn, fiyat, olculer: ekSizes(`${it.n} ${it.s}`) }];
+          return [{ kod: it.id, grup: g.nav, ad: it.n, aciklama: it.s, gorsel: it.img ? imgSrc(it.img) : null, uyari: it.warn, fiyat, olculer: ekSizes(`${it.n} ${it.s}`) } as KonfEk];
         }),
       ),
   );
+  const rank = (grup: string) => KONF_EK_KATEGORI.findIndex((k) => lower(k) === lower(grup));
+  return [...list, ...woo].sort((a, b) => rank(a.grup) - rank(b.grup));
+}
+
+/**
+ * Sitede satılan ürünler (ör. taşıma çantası): sepete sitedeki asıl ürün (varyasyon) eklenir, fiyat ve stok sitenin.
+ * Fiyat sitenin herkese açık Store API'sinden okunur (KDV dahil gösterilen fiyat); 10 dakika bellekte tutulur.
+ */
+const WOO_EK: Record<string, { urun: number; grup: string }[]> = {
+  sky: [{ urun: 16206, grup: "Taşıma Çantası" }],
+};
+const wooCache = new Map<number, { at: number; list: KonfEk[] }>();
+
+async function wooExtras(markaId: number): Promise<KonfEk[]> {
+  const hit = wooCache.get(markaId);
+  if (hit && Date.now() - hit.at < 600_000) return hit.list;
+  const sites = schema.siteBaglantilari;
+  const [row] = await db()
+    .select({ kod: schema.markalar.kod, adres: sites.adres })
+    .from(schema.markalar)
+    .innerJoin(sites, and(eq(sites.markaId, schema.markalar.id), eq(sites.tur, "woocommerce")))
+    .where(eq(schema.markalar.id, markaId))
+    .orderBy(sql`${sites.aktif} DESC`, sites.id)
+    .limit(1);
+  const urunler = row ? (WOO_EK[row.kod] ?? []) : [];
+  if (!urunler.length) return [];
+  try {
+    const base = row!.adres.replace(/\/+$/, "");
+    const lists = await Promise.all(
+      urunler.map(async ({ urun, grup }) => {
+        const res = await fetch(`${base}/wp-json/wc/store/v1/products?type=variation&parent=${urun}&per_page=50`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+        if (!res.ok) throw new Error(`Store API ${res.status}`);
+        const items = (await res.json()) as { id: number; name: string; variation?: string; prices: { price: string; currency_minor_unit: number }; is_purchasable: boolean; is_in_stock: boolean; images?: { src: string }[] }[];
+        return items.flatMap((x) => {
+          const dahil = Number(x.prices.price) / 10 ** x.prices.currency_minor_unit;
+          const olculer = ekSizes((x.variation ?? "").replace(/&#215;/g, "x"));
+          if (!x.is_purchasable || !x.is_in_stock || !(dahil > 0) || !olculer) return [];
+          const ad = x.name.replace(/&#\d+;/g, "");
+          return [{ kod: `woo-${x.id}`, grup, ad, aciklama: `${olculer[0].replace(".", ",")} m gazeboya uygun`, gorsel: x.images?.[0]?.src ?? null, fiyat: Math.round((dahil / (1 + KONF_KDV / 100)) * 100) / 100, olculer, woo: { urun, varyasyon: x.id } } as KonfEk];
+        });
+      }),
+    );
+    const list = lists.flat();
+    wooCache.set(markaId, { at: Date.now(), list });
+    return list;
+  } catch (e) {
+    console.error("[konfigurator] site ürünleri okunamadı", e);
+    return hit?.list ?? [];
+  }
 }
 
 async function brandOf(kod: string) {
@@ -113,7 +162,7 @@ export async function signCart(input: { marka: string; g: unknown; adet: unknown
     parcalar: r.parcalar,
     gorsel,
     cfg: r.g,
-    ekler: r.ekler.map((x) => ({ kod: x.ek.kod, baslik: x.ek.ad, fiyat: Math.round(x.ek.fiyat * 100) / 100, adet: x.adet, gorsel: x.ek.gorsel ? publicUrl(x.ek.gorsel) : null })),
+    ekler: r.ekler.map((x) => ({ kod: x.ek.kod, baslik: x.ek.ad, fiyat: Math.round(x.ek.fiyat * 100) / 100, adet: x.adet, gorsel: x.ek.gorsel ? publicUrl(x.ek.gorsel) : null, ...(x.ek.woo ? { woo: x.ek.woo } : {}) })),
   };
   const body = b64(JSON.stringify(payload));
   const sig = b64(createHmac("sha256", secret).update(body).digest());

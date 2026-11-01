@@ -714,7 +714,7 @@ function Extras({ list, ek, setEk }: { list: KonfEk[]; ek: Record<string, number
                 return (
                   <div key={e.kod} className={cn("flex gap-3 rounded-[8px] border-2 bg-white p-2.5", n ? "" : "border-[#e6e9ee]")} style={n ? { borderColor: NAVY, background: "#f3f7fb" } : undefined}>
                     <span className="relative size-[72px] shrink-0 overflow-hidden rounded-[6px] bg-white ring-1 ring-black/5">
-                      {e.gorsel && <Image src={e.gorsel} alt="" fill sizes="72px" className="object-contain p-1" unoptimized={e.gorsel.startsWith("/dosya/")} />}
+                      {e.gorsel && <Image src={e.gorsel} alt="" fill sizes="72px" className="object-contain p-1" unoptimized={e.gorsel.startsWith("/dosya/") || /^https?:/.test(e.gorsel)} />}
                     </span>
                     <div className="flex min-w-0 flex-1 flex-col">
                       <p className="text-[13px] font-semibold leading-tight">{e.ad}</p>
