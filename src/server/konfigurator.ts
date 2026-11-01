@@ -46,7 +46,7 @@ export async function signCart(input: { marka: string; g: unknown; adet: unknown
     const g = c.g;
     const rows = gzRows(g, KONF_MODE);
     if (rows.some((x) => x.bad)) return { ok: false as const, hata: "Seçimde fiyatı olmayan bir parça var." };
-    return { ok: true as const, g, fiyat: gzTotal(g, KONF_MODE), parcalar: rows.map((x) => ({ ad: x.c || x.t, fiyat: x.v })), satirlar: summaryLines(g, active.find((x) => x.hex === g.color)?.ad ?? null) };
+    return { ok: true as const, g, fiyat: gzTotal(g, KONF_MODE), parcalar: rows.map((x) => ({ ad: x.c || x.t, fiyat: x.v })), satirlar: summaryLines(g, (hex) => active.find((x) => x.hex === hex)?.ad ?? "") };
   });
   if (!r.ok) throw new Error(r.hata);
 

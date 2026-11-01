@@ -48,6 +48,9 @@ export function cleanConfig(raw: unknown, colors: string[]): { ok: true; g: Gaze
   if (![0, 1, 2].includes(f) || val(priceTable().ROOF[size]?.[f] ?? null, KONF_MODE) === null) return { ok: false, hata: "Seçilen kumaş bu ölçüde satılmıyor." };
   const color = f === 2 ? undefined : String(r.color ?? "");
   if (color !== undefined && !colors.includes(color)) return { ok: false, hata: "Seçilen renk şu an stokta yok." };
+  // Duvar rengi tavandan farklı olabilir (dört duvar aynı renk)
+  const wallColor = f === 2 || !r.wallColor || r.wallColor === color ? undefined : String(r.wallColor);
+  if (wallColor !== undefined && !colors.includes(wallColor)) return { ok: false, hata: "Seçilen duvar rengi şu an stokta yok." };
   if (!Array.isArray(r.sides) || r.sides.length !== 4) return { ok: false, hata: "Duvar bilgisi eksik." };
   const p = plan(size);
   const sides: Gazebo["sides"] = [];
@@ -59,18 +62,25 @@ export function cleanConfig(raw: unknown, colors: string[]): { ok: true; g: Gaze
     if (wallKey(got) !== wallKey(want)) return { ok: false, hata: `${SIDE_NAMES[i]} duvar seçimi bu ölçüde satılmıyor.` };
     sides.push({ walls: [got] });
   }
-  return { ok: true, g: { size, frame: r.frame, roofFab: f, sides, ...(color ? { color } : {}) } };
+  return { ok: true, g: { size, frame: r.frame, roofFab: f, sides, ...(color ? { color } : {}), ...(wallColor ? { wallColor } : {}) } };
 }
 
-/** Sepette ve siparişte görünen özet satırları */
-export function summaryLines(g: Gazebo, colorAd: string | null) {
+/** Sepette ve siparişte görünen özet satırları (colorOf: renk kodu → adı) */
+export function summaryLines(g: Gazebo, colorOf: (hex?: string) => string) {
   const f = g.roofFab ?? 0;
   const walls = g.sides.map((s, i) => (s.walls[0].kind === "yok" ? null : `${SIDE_NAMES[i]}: ${wallName(s.walls[0])}`)).filter(Boolean);
   return [
     { ad: "Ölçü", deger: `${SZ[g.size]} m` },
     { ad: "İskelet", deger: FRAME_NAME[g.frame!] ?? priceTable().FRAMES[g.frame!]?.desc ?? g.frame ?? "" },
     { ad: "Kumaş", deger: fabricName(f) },
-    ...(f === 2 ? [] : [{ ad: "Renk", deger: colorAd ?? "" }]),
+    ...(f === 2
+      ? []
+      : g.wallColor
+        ? [
+            { ad: "Tavan rengi", deger: colorOf(g.color) },
+            { ad: "Duvar rengi", deger: colorOf(g.wallColor) },
+          ]
+        : [{ ad: "Renk", deger: colorOf(g.color) }]),
     { ad: "Duvarlar", deger: walls.join(" · ") || "Duvarsız" },
     { ad: "Duvar yüksekliği", deger: `${plan(g.size)[0].h} cm` },
   ];

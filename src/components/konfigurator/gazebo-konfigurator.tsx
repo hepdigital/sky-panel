@@ -30,7 +30,9 @@ const MODE = 1 as const; // perakende
 const VAT = 1.2;
 const tl = (n: number) => `${Math.round(n * VAT).toLocaleString("tr-TR")} ₺`;
 
-const STEPS = ["Ölçü", "İskelet", "Kumaş", "Duvarlar", "Özet"] as const;
+const STEPS = ["Ölçü", "İskelet", "Kumaş", "Renk", "Duvarlar", "Özet"] as const;
+/** Duvarlar adımı (kamera kenara döner, zeminde kenar adı vurgulanır) */
+const WALL_STEP = 4;
 /** Sepet bileti siteye gönderildikten sonra sitenin sepete yönlendirmesi beklenir; olmazsa uyarı */
 const PARENT_WAIT = 10_000;
 
@@ -132,7 +134,7 @@ export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: st
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-6">
           {/* 3D: mobilde üstte yapışkan, masaüstünde solda */}
           <div className="sticky top-0 z-20 -mx-4 bg-[#f5f6f8] px-4 pb-2 pt-2 lg:top-6 lg:mx-0 lg:self-start lg:p-0">
-            <Preview g={g} focus={step === 3 ? GROUND_SIDES[side] : null} onCapture={(c) => (capture.current = c)} />
+            <Preview g={g} focus={step === WALL_STEP ? GROUND_SIDES[side] : null} onCapture={(c) => (capture.current = c)} />
           </div>
 
           <div className="min-w-0">
@@ -178,17 +180,31 @@ export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: st
                       })}
                     </div>
                     <p className="rounded-[8px] bg-[#f5f6f8] px-3 py-2.5 text-[12px] text-[#555]">Tavan ve duvarlar aynı kumaştan dikilir; duvar fiyatları da bu kumaşa göre hesaplanır.</p>
-                    {fab === 2 ? (
-                      <p className="rounded-[8px] px-3 py-2.5 text-[13px]" style={{ background: "#fff4ef", color: "#9a3412" }}>
-                        Baskılı kumaşta renk seçimi yoktur: tasarımınızı siparişten sonra iletirsiniz, baskıdan önce onayınıza sunulur.
-                      </p>
-                    ) : (
-                      <ColorPicker colors={colors} value={g.color ?? "#ffffff"} onPick={(hex) => update({ color: hex })} />
-                    )}
                   </div>
                 )}
-                {step === 3 && <WallsStep g={g} side={side} setSide={setSide} onWall={setWall} />}
-                {step === 4 && <Summary g={g} colors={colors} qty={qty} setQty={setQty} />}
+                {step === 3 &&
+                  (fab === 2 ? (
+                    <p className="rounded-[8px] px-3 py-2.5 text-[13px]" style={{ background: "#fff4ef", color: "#9a3412" }}>
+                      Baskılı kumaşta renk seçimi yoktur: renkler tasarımınızdan gelir. Tasarımınızı siparişten sonra iletirsiniz, baskıdan önce onayınıza sunulur.
+                    </p>
+                  ) : (
+                    <div className="space-y-6">
+                      <ColorPicker title="Tavan rengi" colors={colors} value={g.color ?? "#ffffff"} onPick={(hex) => update({ color: hex })} />
+                      <div>
+                        <ColorPicker
+                          title="Duvar rengi"
+                          colors={colors}
+                          value={g.wallColor ?? g.color ?? "#ffffff"}
+                          same={!g.wallColor}
+                          onSame={() => update({ wallColor: undefined })}
+                          onPick={(hex) => update({ wallColor: hex === g.color ? undefined : hex })}
+                        />
+                        <p className="mt-2 text-[11px] text-[#777]">Dört duvar aynı renktedir; tavandan farklı seçerek renk kombinleyebilirsiniz.</p>
+                      </div>
+                    </div>
+                  ))}
+                {step === WALL_STEP && <WallsStep g={g} side={side} setSide={setSide} onWall={setWall} />}
+                {step === 5 && <Summary g={g} colors={colors} qty={qty} setQty={setQty} />}
               </div>
               {err && (
                 <p className="mt-4 rounded-[8px] px-3 py-2.5 text-[13px]" style={{ background: "#fdecec", color: "#b42318" }}>
@@ -211,11 +227,12 @@ export function GazeboKonfigurator({ marka, gomulu, table, colors }: { marka: st
   );
 }
 
-const STEP_TITLE = ["Çadır ölçüsü", "İskelet", "Kumaş ve renk", "Duvarlar", "Özet"];
+const STEP_TITLE = ["Çadır ölçüsü", "İskelet", "Kumaş", "Renk", "Duvarlar", "Özet"];
 const STEP_HINT = [
   "Kurulacak alanın ölçüsünü seçin.",
   "Kullanım sıklığına göre iskelet serisini seçin.",
-  "Kumaş tipi ve renk tüm çadırda aynıdır.",
+  "Kumaş tipi tüm çadırda aynıdır.",
+  "Tavan ve duvar rengini seçin.",
   "Kenarı seçip duvar tipini belirleyin; duvar istemediğiniz kenar boş kalır.",
   "Seçimlerinizi kontrol edip sepete ekleyin.",
 ];
@@ -267,7 +284,7 @@ function Stepper({ step, onGo }: { step: number; onGo: (n: number) => void }) {
           </span>
           {step < STEPS.length - 1 && <span className="text-[#777]">Sonraki: {STEPS[step + 1]}</span>}
         </div>
-        <div className="mt-2 grid grid-cols-5 gap-1">
+        <div className="mt-2 grid grid-cols-6 gap-1">
           {STEPS.map((s, i) => (
             <button key={s} type="button" onClick={() => onGo(i)} aria-label={s} className="h-1.5 rounded-full" style={{ background: i <= step ? NAVY : "#dfe3e8" }} />
           ))}
@@ -276,18 +293,19 @@ function Stepper({ step, onGo }: { step: number; onGo: (n: number) => void }) {
       {/* Masaüstü: numaralı adımlar */}
       <ol className="hidden items-center gap-1 lg:flex">
         {STEPS.map((s, i) => (
-          <li key={s} className="flex min-w-0 flex-1 items-center gap-1">
+          <li key={s} className={cn("flex items-center gap-1", i < STEPS.length - 1 && "flex-1")}>
             <button
               type="button"
               onClick={() => onGo(i)}
-              className={cn("flex min-w-0 items-center gap-2 rounded-full py-1 pl-1 pr-3 text-[12px] font-medium", i === step ? "bg-white shadow-sm ring-1 ring-black/5" : "text-[#777] hover:text-[#242424]")}
+              className={cn("flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full py-1 pl-1 text-[12px] font-medium", i === step ? "pr-2.5" : "pr-1 xl:pr-2.5", i === step ? "bg-white shadow-sm ring-1 ring-black/5" : "text-[#777] hover:text-[#242424]")}
             >
               <span className="grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold text-white" style={{ background: i <= step ? NAVY : "#c9ced6" }}>
                 {i < step ? <Check className="size-3.5" /> : i + 1}
               </span>
-              <span className="truncate">{s}</span>
+              {/* Dar masaüstünde yalnızca etkin adımın adı */}
+              <span className={cn(i !== step && "hidden xl:inline")}>{s}</span>
             </button>
-            {i < STEPS.length - 1 && <span className="h-px flex-1 bg-[#dfe3e8]" />}
+            {i < STEPS.length - 1 && <span className="h-px min-w-1.5 flex-1 bg-[#dfe3e8]" />}
           </li>
         ))}
       </ol>
@@ -391,13 +409,29 @@ function SizeStep({ g, framesOf, onPick }: { g: Gazebo; framesOf: (s: string) =>
   );
 }
 
-function ColorPicker({ colors, value, onPick }: { colors: Color[]; value: string; onPick: (hex: string) => void }) {
+/** Renk paleti; same/onSame verilirse başta "Tavanla aynı" seçeneği (duvar rengi) */
+function ColorPicker({
+  title, colors, value, onPick, same, onSame,
+}: { title: string; colors: Color[]; value: string; onPick: (hex: string) => void; same?: boolean; onSame?: () => void }) {
   const name = colors.find((c) => c.hex === value)?.ad ?? "";
   return (
     <div>
-      <p className="text-[13px] font-semibold">
-        Kumaş rengi <span className="font-normal text-[#777]">· {name}</span>
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[13px] font-semibold">
+          {title} <span className="font-normal text-[#777]">· {same ? `Tavanla aynı (${name})` : name}</span>
+        </p>
+        {onSame && (
+          <button
+            type="button"
+            onClick={onSame}
+            aria-pressed={same}
+            className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium", same ? "text-white" : "border-[#dfe3e8] bg-white text-[#333]")}
+            style={same ? { background: NAVY, borderColor: NAVY } : undefined}
+          >
+            {same && <Check className="size-3.5" strokeWidth={3} />} Tavanla aynı
+          </button>
+        )}
+      </div>
       <div className="mt-2.5 grid grid-cols-6 gap-2.5 sm:grid-cols-9">
         {colors.map((c) => (
           <button
@@ -408,9 +442,9 @@ function ColorPicker({ colors, value, onPick }: { colors: Color[]; value: string
             aria-pressed={value === c.hex}
             onClick={() => onPick(c.hex)}
             className="relative aspect-square w-full rounded-full ring-1 ring-black/15 transition-transform hover:scale-105"
-            style={{ background: c.hex, boxShadow: value === c.hex ? `0 0 0 2px #fff, 0 0 0 4px ${NAVY}` : undefined }}
+            style={{ background: c.hex, boxShadow: value === c.hex && !same ? `0 0 0 2px #fff, 0 0 0 4px ${NAVY}` : undefined }}
           >
-            {value === c.hex && <Check className="absolute inset-0 m-auto size-4" style={{ color: isLight(c.hex) ? "#242424" : "#fff" }} strokeWidth={3} />}
+            {value === c.hex && !same && <Check className="absolute inset-0 m-auto size-4" style={{ color: isLight(c.hex) ? "#242424" : "#fff" }} strokeWidth={3} />}
           </button>
         ))}
       </div>
@@ -554,8 +588,11 @@ function Summary({ g, colors, qty, setQty }: { g: Gazebo; colors: Color[]; qty: 
         <dd className="text-right font-medium">{fab === 2 ? "Dijital baskılı" : FABRICS[fab].n}</dd>
         {fab !== 2 && (
           <>
-            <dt className="text-[#777]">Renk</dt>
-            <dd className="text-right font-medium">{colors.find((c) => c.hex === g.color)?.ad ?? "Beyaz"}</dd>
+            <dt className="text-[#777]">{g.wallColor ? "Tavan / duvar rengi" : "Renk"}</dt>
+            <dd className="text-right font-medium">
+              {colors.find((c) => c.hex === g.color)?.ad ?? "Beyaz"}
+              {g.wallColor ? ` / ${colors.find((c) => c.hex === g.wallColor)?.ad ?? ""}` : ""}
+            </dd>
           </>
         )}
         <dt className="text-[#777]">Duvar yüksekliği</dt>
