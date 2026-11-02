@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { canSell, requireMe } from "@/server/auth";
 import { newRequestCount } from "@/server/site-requests";
+import { newWaRequestCount } from "@/server/whatsapp/requests";
 import { openTaskCount } from "@/server/tasks";
 import { waEnabled } from "@/server/whatsapp/config";
 import { unreadChatCount } from "@/server/whatsapp/store";
@@ -15,7 +16,7 @@ async function Guard({ children }: { children: React.ReactNode }) {
   return (
     <AdminShell
       me={{
-        id: me.id, adSoyad: me.adSoyad, kullaniciAdi: me.kullaniciAdi, rol: me.rol, openTasks: await openTaskCount(me), newRequests: canSell(me) ? await newRequestCount(me) : 0,
+        id: me.id, adSoyad: me.adSoyad, kullaniciAdi: me.kullaniciAdi, rol: me.rol, openTasks: await openTaskCount(me), newRequests: canSell(me) ? (await newRequestCount(me)) + (await newWaRequestCount()) : 0,
         whatsapp: canSell(me) && waEnabled() ? await unreadChatCount() : null,
       }}
     >

@@ -8,12 +8,12 @@ import { waConfig, windowOpen, type WaConfig } from "./config";
 import { downloadMedia, sendText } from "./graph";
 
 // WhatsApp gelen kutusu (şartname §4, §5): webhook kaydı, panel listesi, panelden gönderme.
-// Asistan fazına ait alanlar (urun_kodu, isleniyor_kadar, asistan_gecmis, ozet) burada yazılmaz.
+// Asistanın döngüsü ve araçları asistan.ts'de; burada yalnızca tablolar ve gelen kutusu işleri.
 
 const { waSohbetler: sohbetler, waMesajlar: mesajlar, kullanicilar } = schema;
 
 let ready: Promise<unknown> | null = null;
-const ensureTables = (): Promise<unknown> =>
+export const ensureTables = (): Promise<unknown> =>
   (ready ??= (async () => {
     await db().execute(
       sql.raw(`CREATE TABLE IF NOT EXISTS wa_sohbetler (
@@ -56,6 +56,71 @@ const ensureTables = (): Promise<unknown> =>
         UNIQUE KEY wa_mesaj_wamid (wamid),
         KEY wa_mesaj_sohbet (sohbet_id, tarih),
         CONSTRAINT wa_mesajlar_sohbet_id_wa_sohbetler_id_fk FOREIGN KEY (sohbet_id) REFERENCES wa_sohbetler (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`),
+    );
+    await db().execute(
+      sql.raw(`CREATE TABLE IF NOT EXISTS wa_urun_kartlari (
+        kod varchar(60) NOT NULL PRIMARY KEY,
+        ad varchar(160) NOT NULL,
+        site_id int unsigned NULL,
+        dis_urun_id int unsigned NULL,
+        url varchar(255) NULL,
+        anahtar_kelimeler text NULL,
+        asistan_cevaplar tinyint(1) NOT NULL DEFAULT 0,
+        bilgi longtext NULL,
+        sss longtext NULL,
+        itirazlar longtext NULL,
+        medya longtext NULL,
+        yasaklar text NULL,
+        aktif tinyint(1) NOT NULL DEFAULT 1,
+        guncelleme timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`),
+    );
+    await db().execute(
+      sql.raw(`CREATE TABLE IF NOT EXISTS wa_asistan_ayarlari (
+        id int unsigned NOT NULL PRIMARY KEY,
+        veri longtext NOT NULL,
+        guncelleme timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`),
+    );
+    await db().execute(
+      sql.raw(`CREATE TABLE IF NOT EXISTS wa_talepler (
+        id int unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        sohbet_id int unsigned NOT NULL,
+        ad varchar(120) NULL,
+        telefon varchar(32) NOT NULL,
+        il varchar(64) NULL,
+        urun varchar(160) NULL,
+        adet int unsigned NULL,
+        renk varchar(60) NULL,
+        \`not\` text NULL,
+        aranma_zamani varchar(120) NULL,
+        durum enum('yeni','arandi','teklif','kazanildi','kaybedildi') NOT NULL DEFAULT 'yeni',
+        panel_not text NULL,
+        ilgilenen_id int unsigned NULL,
+        tarih timestamp NOT NULL DEFAULT current_timestamp(),
+        guncelleme timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+        KEY wa_talep_sohbet (sohbet_id),
+        KEY wa_talep_durum (durum),
+        CONSTRAINT wa_talepler_sohbet_id_wa_sohbetler_id_fk FOREIGN KEY (sohbet_id) REFERENCES wa_sohbetler (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`),
+    );
+    await db().execute(
+      sql.raw(`CREATE TABLE IF NOT EXISTS wa_ai_kullanim (
+        id int unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        sohbet_id int unsigned NOT NULL,
+        model varchar(60) NOT NULL,
+        input_tokens int unsigned NOT NULL,
+        cache_creation_input_tokens int unsigned NOT NULL,
+        cache_read_input_tokens int unsigned NOT NULL,
+        output_tokens int unsigned NOT NULL,
+        maliyet_usd decimal(10,6) NOT NULL,
+        deneme tinyint(1) NOT NULL DEFAULT 0,
+        ilk_cagri tinyint(1) NOT NULL DEFAULT 0,
+        olusturma timestamp NOT NULL DEFAULT current_timestamp(),
+        KEY wa_ai_sohbet (sohbet_id, olusturma),
+        KEY wa_ai_tarih (olusturma),
+        CONSTRAINT wa_ai_kullanim_sohbet_id_wa_sohbetler_id_fk FOREIGN KEY (sohbet_id) REFERENCES wa_sohbetler (id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`),
     );
   })().catch((e) => {
@@ -152,7 +217,7 @@ async function chatId(telefon: string, ad: string | null, first: WaMessage | nul
 }
 
 /** Mesajı yazar; aynı wamid daha önce geldiyse false (Meta aynı webhook'u tekrar gönderebilir) */
-async function insertMessage(v: typeof mesajlar.$inferInsert) {
+export async function insertMessage(v: typeof mesajlar.$inferInsert) {
   // INSERT IGNORE: tekrar gelen kayıtta etkilenen satır 0 olur (ON DUPLICATE KEY UPDATE eşleşen satırı da sayar)
   const [r] = await db().insert(mesajlar).ignore().values(v);
   return r.affectedRows === 1;
@@ -160,10 +225,14 @@ async function insertMessage(v: typeof mesajlar.$inferInsert) {
 
 const STATUS_RANK = ["sent", "delivered", "read"];
 
-/** Webhook gövdesini kaydeder. Yalnız hızlı veritabanı işleri yapılır; görseller sonradan indirilir. */
-export async function saveWebhook(cfg: WaConfig, body: WebhookBody): Promise<PendingMedia[]> {
+/**
+ * Webhook gövdesini kaydeder. Yalnız hızlı veritabanı işleri yapılır; görseller sonradan indirilir.
+ * chats: yeni müşteri mesajı gelen sohbetler (asistan bunları birleştirme süresinden sonra işler).
+ */
+export async function saveWebhook(cfg: WaConfig, body: WebhookBody): Promise<{ media: PendingMedia[]; chats: number[] }> {
   await ensureTables();
   const media: PendingMedia[] = [];
+  const chats = new Set<number>();
   for (const entry of body.entry ?? [])
     for (const change of entry.changes ?? []) {
       const v = change.value;
@@ -190,6 +259,7 @@ export async function saveWebhook(cfg: WaConfig, body: WebhookBody): Promise<Pen
           })
           .where(eq(sohbetler.id, id));
         if (m.type === "image" && medyaId) media.push({ wamid: m.id.slice(0, 191), medyaId });
+        chats.add(id);
       }
 
       for (const m of v.message_echoes ?? []) {
@@ -200,7 +270,7 @@ export async function saveWebhook(cfg: WaConfig, body: WebhookBody): Promise<Pen
         const medyaId = clip(mediaIdOf(m), 191);
         const added = await insertMessage({ sohbetId: id, wamid: m.id.slice(0, 191), yon: "ekip", tur: (m.type ?? "unknown").slice(0, 20), metin: textOf(m), medyaId, ham: m, tarih });
         if (!added) continue;
-        // Ekip telefondan yazdı: sohbet ekipte (asistan fazında asistan susar)
+        // Ekip telefondan yazdı: sohbet ekipte, asistan susar
         await db()
           .update(sohbetler)
           .set({ sonMesaj: sql`GREATEST(${sohbetler.sonMesaj}, ${tarih})`, durum: "ekip" })
@@ -225,7 +295,7 @@ export async function saveWebhook(cfg: WaConfig, body: WebhookBody): Promise<Pen
           );
       }
     }
-  return media;
+  return { media, chats: [...chats] };
 }
 
 /** Gelen görselleri indirip UPLOAD_DIR/whatsapp/ altına yazar (webhook cevabından sonra çalışır) */
@@ -244,12 +314,18 @@ export async function fetchMedia(cfg: WaConfig, list: PendingMedia[]) {
 
 // ── Panel ──────────────────────────────────────────────────────────────────
 
+/** Asistanın araç çağrısı: gelen kutusunda katlanmış kısa satır olarak görünen kayıt (WhatsApp'a gitmez) */
+export const ARAC = "arac";
+/** Deneme alanının sohbetleri ("deneme-<kullanıcı>"): gelen kutusunda, sayaçta ve cron'da yer almaz */
+export const DENEME = "deneme-";
+const realChat = sql`${sohbetler.telefon} NOT LIKE 'deneme-%'`;
+
 export type ChatDurum = (typeof schema.WA_SOHBET_DURUMLARI)[number];
 
 /** Gelen kutusu listesi: son mesaja göre en yeni 100 sohbet, son mesajın kısa metniyle */
 export async function listChats(durum: ChatDurum | null) {
   await ensureTables();
-  const son = sql<string | null>`(SELECT COALESCE(m.metin, CONCAT('[', m.tur, ']')) FROM wa_mesajlar m WHERE m.sohbet_id = ${sohbetler.id} ORDER BY m.tarih DESC, m.id DESC LIMIT 1)`;
+  const son = sql<string | null>`(SELECT COALESCE(m.metin, CONCAT('[', m.tur, ']')) FROM wa_mesajlar m WHERE m.sohbet_id = ${sohbetler.id} AND m.tur <> ${ARAC} ORDER BY m.tarih DESC, m.id DESC LIMIT 1)`;
   return db()
     .select({
       id: sohbetler.id, telefon: sohbetler.telefon, ad: sohbetler.ad, durum: sohbetler.durum, kaynak: sohbetler.kaynak,
@@ -257,7 +333,7 @@ export async function listChats(durum: ChatDurum | null) {
     })
     .from(sohbetler)
     .leftJoin(kullanicilar, eq(kullanicilar.id, sohbetler.ilgilenenId))
-    .where(durum ? eq(sohbetler.durum, durum) : ne(sohbetler.durum, "kapali"))
+    .where(and(realChat, durum ? eq(sohbetler.durum, durum) : ne(sohbetler.durum, "kapali")))
     .orderBy(desc(sohbetler.sonMesaj))
     .limit(100);
 }
@@ -278,11 +354,14 @@ export async function getChat(me: Me, id: number) {
     .where(eq(mesajlar.sohbetId, id))
     .orderBy(desc(mesajlar.tarih), desc(mesajlar.id))
     .limit(200);
-  const musteri = await customerByPhone(me, c.s.telefon);
+  const [musteri, [talep]] = await Promise.all([
+    customerByPhone(me, c.s.telefon),
+    db().select().from(schema.waTalepler).where(eq(schema.waTalepler.sohbetId, id)).orderBy(desc(schema.waTalepler.id)).limit(1),
+  ]);
   // Telefonla eşleşen müşteri ilk bulunduğunda sohbete yazılır
   const link = musteri && c.s.musteriId === null ? { musteriId: musteri.id } : {};
   if (c.s.okunmamis || "musteriId" in link) await db().update(sohbetler).set({ okunmamis: 0, ...link }).where(eq(sohbetler.id, id));
-  return { ...c.s, ilgilenen: c.ilgilenen, mesajlar: rows.reverse(), musteri, pencereAcik: windowOpen(c.s.sonMusteriMesaji) };
+  return { ...c.s, ilgilenen: c.ilgilenen, mesajlar: rows.reverse(), musteri, talep: talep ?? null, pencereAcik: windowOpen(c.s.sonMusteriMesaji) };
 }
 
 /** Menü rozeti: okunmamış mesajı olan açık sohbet sayısı */
@@ -293,7 +372,7 @@ export async function unreadChatCount() {
     const [r] = await db()
       .select({ n: sql<number>`COUNT(*)`.mapWith(Number) })
       .from(sohbetler)
-      .where(and(gt(sohbetler.okunmamis, 0), ne(sohbetler.durum, "kapali")));
+      .where(and(realChat, gt(sohbetler.okunmamis, 0), ne(sohbetler.durum, "kapali")));
     return r?.n ?? 0;
   } catch {
     return 0;
@@ -304,6 +383,12 @@ export async function unreadChatCount() {
 export async function takeOver(me: Me, id: number) {
   await ensureTables();
   await db().update(sohbetler).set({ durum: "ekip", ilgilenenId: me.id }).where(eq(sohbetler.id, id));
+}
+
+/** Asistana bırak: sohbet yeniden asistanda; ekibin bu arada yazdıkları asistana bağlam olarak verilir */
+export async function releaseToAssistant(id: number) {
+  await ensureTables();
+  await db().update(sohbetler).set({ durum: "asistan", ilgilenenId: null }).where(eq(sohbetler.id, id));
 }
 
 export async function closeChat(id: number) {
@@ -328,7 +413,7 @@ export async function sendFromPanel(me: Me, id: number, text: string): Promise<{
   if (!r.ok) return r;
   const tarih = new Date();
   await insertMessage({ sohbetId: id, wamid: r.wamid.slice(0, 191), yon: "ekip", tur: "text", metin: body, kullaniciId: me.id, tarih });
-  // Panelden yazan sohbeti devralmış sayılır (asistan fazında asistan susar)
+  // Panelden yazan sohbeti devralmış sayılır, asistan susar
   await db()
     .update(sohbetler)
     .set({ sonMesaj: sql`GREATEST(${sohbetler.sonMesaj}, ${tarih})`, durum: "ekip", ilgilenenId: sql`COALESCE(${sohbetler.ilgilenenId}, ${me.id})` })

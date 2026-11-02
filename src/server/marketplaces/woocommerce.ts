@@ -91,6 +91,18 @@ export async function wcSearch(site: Site, q: string): Promise<WcSearchRow[]> {
     .map((p) => ({ id: p.id, ad: decode(p.name), sku: p.sku, varyantli: p.type === "variable", fiyat: gross(tax, p.price, p), link: p.permalink, gorsel: p.images[0]?.src ?? null, durum: p.status }));
 }
 
+/** WhatsApp asistanı: tek ürünün sitedeki adı, KDV dahil güncel/liste fiyatı, stok durumu ve linki */
+export async function wcProductInfo(site: Site, productId: number) {
+  const tax = await siteTax(site);
+  const p = (await wcRequest(site, `/products/${productId}`)) as WcProduct & { sale_price: string; stock_status: string };
+  const fiyat = gross(tax, p.price, p);
+  const liste = gross(tax, p.regular_price, p);
+  return {
+    ad: decode(p.name), fiyat, listeFiyati: liste !== null && fiyat !== null && liste > fiyat ? liste : null,
+    stokta: p.stock_status !== "outofstock", yayinda: p.status === "publish", varyantli: p.type === "variable", link: p.permalink,
+  };
+}
+
 export async function wcVariations(site: Site, productId: number) {
   const tax = await siteTax(site);
   const list = (await wcRequest(site, `/products/${productId}/variations?per_page=100`)) as WcVariation[];
