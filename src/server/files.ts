@@ -26,3 +26,22 @@ export async function readUpload(parts: string[]) {
   if (parts.length !== 2 || !["urun", "marka", "konfigurator"].includes(parts[0]) || !/^[a-z0-9]+\.webp$/.test(parts[1])) return null;
   return readFile(path.join(/* turbopackIgnore: true */ root(), parts[0], parts[1])).catch(() => null);
 }
+
+/** WhatsApp'tan gelen görseller: UPLOAD_DIR/whatsapp/<ad>. Herkese açık /dosya adresinden sunulmaz (kişisel veri), panelde oturumla okunur. */
+const WA_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+export const WA_TYPES: Record<string, string> = Object.fromEntries(Object.entries(WA_EXT).map(([t, e]) => [e, t]));
+
+export async function saveWhatsappMedia(mime: string, data: Buffer) {
+  const ext = WA_EXT[mime];
+  if (!ext) throw new Error("Desteklenmeyen görsel türü.");
+  const dir = path.join(/* turbopackIgnore: true */ root(), "whatsapp");
+  await mkdir(dir, { recursive: true });
+  const name = `${randomToken(12).toLowerCase().replace(/[^a-z0-9]/g, "")}${Date.now().toString(36)}.${ext}`;
+  await writeFile(path.join(/* turbopackIgnore: true */ dir, name), data);
+  return `whatsapp/${name}`;
+}
+
+export async function readWhatsappMedia(name: string) {
+  if (!/^[a-z0-9]+\.(jpg|png|webp)$/.test(name)) return null;
+  return readFile(path.join(/* turbopackIgnore: true */ root(), "whatsapp", name)).catch(() => null);
+}
