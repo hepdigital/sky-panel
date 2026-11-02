@@ -187,6 +187,11 @@ export type TaksitTablosu = { tutar: number; aileler: { aile: string; banka: str
  */
 export async function installmentTable(me: Me, siteId: number, tutar: number): Promise<{ ok: true; tablo: TaksitTablosu } | { ok: false; hata: string }> {
   const site = (await paymentSites(me)).find((s) => s.id === Number(siteId));
+  return siteInstallments(site, tutar);
+}
+
+/** Taksit tablosu, sitenin adresiyle (yetki denetimi çağıranda; WhatsApp asistanı ürün kartının sitesini verir) */
+export async function siteInstallments(site: { adres: string } | undefined, tutar: number): Promise<{ ok: true; tablo: TaksitTablosu } | { ok: false; hata: string }> {
   const secret = process.env.KONFIGURATOR_SECRET;
   const t = round2(tutar);
   if (!site || !secret || !(t >= 1 && t <= 2_000_000)) return { ok: false, hata: "Taksit bilgisi alınamadı." };

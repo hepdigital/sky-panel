@@ -131,11 +131,11 @@ export async function getCustomer(me: Me, id: number) {
 }
 
 /** Telefonun son 10 hanesi (eşleştirme için; 10 haneden kısaysa eşleştirilmez) */
-const phoneKey = (v: string | null | undefined) => {
+export const phoneKey = (v: string | null | undefined) => {
   const d = (v ?? "").replace(/\D/g, "");
   return d.length >= 10 ? d.slice(-10) : null;
 };
-const phoneMatch = (col: string, key: string) => sql`RIGHT(REGEXP_REPLACE(${sql.raw(col)}, '[^0-9]', ''), 10) = ${key}`;
+export const phoneMatch = (col: string, key: string) => sql`RIGHT(REGEXP_REPLACE(${sql.raw(col)}, '[^0-9]', ''), 10) = ${key}`;
 
 /** Telefonu (son 10 hane) eşleşen, kullanıcının görebildiği ilk müşteri ve açık siparişleri (WhatsApp müşteri kartı) */
 export async function customerByPhone(me: Me, telefon: string) {

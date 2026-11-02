@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, CheckCheck, Clock, Lock, MessageCircle, Send, UserCheck, X } from "lucide-react";
-import { waDevral, waGonder, waKapat } from "@/app/panel/whatsapp/actions";
+import { ArrowLeft, Bot, Clock, Lock, MessageCircle, Package, Send, Settings2, UserCheck, X } from "lucide-react";
+import { waAsistanaBirak, waDevral, waGonder, waKapat } from "@/app/panel/whatsapp/actions";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { cn, formatDate, formatTRY } from "@/lib/utils";
+import { cn, formatTRY } from "@/lib/utils";
+import { MessageBubble, timeText, type Bubble } from "./bubbles";
 
 type Durum = "asistan" | "ekip" | "kapali";
 type Kaynak = "reklam" | "site" | "dogrudan";
@@ -34,25 +35,26 @@ export type ChatDetail = {
   kaynak: Kaynak;
   reklamId: string | null;
   ctwaClid: string | null;
+  urunKodu: string | null;
+  ozet: string | null;
   ilgilenen: string | null;
   pencereAcik: boolean;
   sonMusteriMesaji: string | null;
   olusturma: string;
   musteri: { id: number; firma: string; yetkili: string | null; il: string | null; siparisler: { id: number; no: string; durum: string; dahil: number; tarih: string }[] } | null;
-  mesajlar: { id: number; yon: "gelen" | "asistan" | "ekip"; tur: string; metin: string | null; medyaYol: string | null; durum: string | null; tarih: string; yazan: string | null }[];
+  talep: { ad: string | null; il: string | null; urun: string | null; adet: number | null; renk: string | null; not: string | null; aranmaZamani: string | null; durum: string } | null;
+  mesajlar: Bubble[];
 };
 
-const DURUM: Record<Durum, { label: string; tone: BadgeTone }> = {
-  asistan: { label: "Atanmadı", tone: "warning" },
-  ekip: { label: "Ekipte", tone: "info" },
-  kapali: { label: "Kapalı", tone: "neutral" },
-};
+/** Asistan çalışmıyorsa "asistan" durumundaki sohbet kimseye atanmamış demektir */
+const durumOf = (d: Durum, asistan: boolean): { label: string; tone: BadgeTone } =>
+  d === "asistan" ? { label: asistan ? "Asistanda" : "Atanmadı", tone: "warning" } : d === "ekip" ? { label: "Ekipte", tone: "info" } : { label: "Kapalı", tone: "neutral" };
 const KAYNAK: Record<Kaynak, string> = { reklam: "Reklam", site: "Site", dogrudan: "Doğrudan" };
 const SIPARIS: Record<string, string> = { alindi: "Alındı", uretimde: "Üretimde", hazir: "Hazır", kargoda: "Kargoda", teslim: "Teslim edildi", iptal: "İptal" };
-const TUR: Record<string, string> = { image: "Görsel", video: "Video", audio: "Sesli mesaj", document: "Belge", sticker: "Çıkartma", location: "Konum", contacts: "Kişi", reaction: "Tepki", unsupported: "Desteklenmeyen mesaj" };
-const FILTRELER: { key: Durum | null; label: string }[] = [
+const TALEP: Record<string, string> = { yeni: "Yeni", arandi: "Arandı", teklif: "Teklif verildi", kazanildi: "Satışa döndü", kaybedildi: "Olumsuz" };
+const filtreler = (asistan: boolean): { key: Durum | null; label: string }[] => [
   { key: null, label: "Açık" },
-  { key: "asistan", label: "Atanmadı" },
+  { key: "asistan", label: asistan ? "Asistanda" : "Atanmadı" },
   { key: "ekip", label: "Ekipte" },
   { key: "kapali", label: "Kapalı" },
 ];
@@ -61,13 +63,6 @@ const MAX_TEXT = 4096;
 
 /** 905321234567 → +90 532 123 45 67 */
 const phoneText = (t: string) => (/^90\d{10}$/.test(t) ? `+90 ${t.slice(2, 5)} ${t.slice(5, 8)} ${t.slice(8, 10)} ${t.slice(10)}` : `+${t}`);
-const timeText = (iso: string) => formatDate(iso, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-/** Görsel yalnızca bilinen biçimdeki dosya adıyla, oturumlu adresten açılır */
-const mediaUrl = (yol: string | null) => {
-  const ad = yol?.match(/^whatsapp\/([a-z0-9]+\.(?:jpg|png|webp))$/)?.[1];
-  return ad ? `/panel/whatsapp/medya/${ad}` : null;
-};
-
 function windowLeft(son: string | null) {
   if (!son) return null;
   const ms = new Date(son).getTime() + WINDOW_MS - Date.now();
@@ -77,8 +72,8 @@ function windowLeft(son: string | null) {
   return h ? `${h} sa ${m} dk` : `${m} dk`;
 }
 
-/** WhatsApp gelen kutusu: sohbetler, mesajlar, devral/kapat, panelden cevap ve müşteri kartı */
-export function Inbox({ chats, chat, durum }: { chats: ChatRow[]; chat: ChatDetail | null; durum: Durum | null }) {
+/** WhatsApp gelen kutusu: sohbetler, mesajlar, devral/asistana bırak/kapat, panelden cevap ve müşteri kartı */
+export function Inbox({ chats, chat, durum, asistan, yonetici }: { chats: ChatRow[]; chat: ChatDetail | null; durum: Durum | null; asistan: boolean; yonetici: boolean }) {
   const router = useRouter();
 
   // Yeni mesajlar için sayfa açık ve görünürken 20 saniyede bir yenilenir
@@ -102,10 +97,23 @@ export function Inbox({ chats, chat, durum }: { chats: ChatRow[]; chat: ChatDeta
       <div className="flex flex-wrap items-end justify-between gap-3 pt-1">
         <div>
           <h1 className="text-2xl font-bold tracking-tight md:text-[28px]">WhatsApp</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Müşteri mesajları. Ekibin telefondan yazdıkları da burada görünür.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Müşteri mesajları. Ekibin telefondan yazdıkları da burada görünür.{" "}
+            <span className={cn("font-semibold", asistan ? "text-success" : "text-muted-foreground")}>{asistan ? "Asistan şu an cevaplıyor." : "Asistan şu an kapalı."}</span>
+          </p>
+          {yonetici && (
+            <p className="mt-2 flex flex-wrap gap-3 text-xs font-semibold">
+              <Link href="/panel/whatsapp/asistan" className="inline-flex items-center gap-1 text-primary hover:underline">
+                <Settings2 className="size-3.5" /> Asistan ayarları ve deneme
+              </Link>
+              <Link href="/panel/whatsapp/urunler" className="inline-flex items-center gap-1 text-primary hover:underline">
+                <Package className="size-3.5" /> Ürün kartları
+              </Link>
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {FILTRELER.map((f) => (
+          {filtreler(asistan).map((f) => (
             <Link
               key={f.label}
               href={href(chat?.id ?? null, f.key)}
@@ -136,7 +144,7 @@ export function Inbox({ chats, chat, durum }: { chats: ChatRow[]; chat: ChatDeta
                       {c.okunmamis > 0 && <span className="rounded-full bg-success px-1.5 text-[10px] font-bold leading-4 text-white">{c.okunmamis}</span>}
                     </span>
                     <span className="mt-1 flex flex-wrap gap-1">
-                      <Badge tone={DURUM[c.durum].tone}>{DURUM[c.durum].label}</Badge>
+                      <Badge tone={durumOf(c.durum, asistan).tone}>{durumOf(c.durum, asistan).label}</Badge>
                       {c.kaynak !== "dogrudan" && <Badge dot={false}>{KAYNAK[c.kaynak]}</Badge>}
                       {c.ilgilenen && <Badge dot={false}>{c.ilgilenen}</Badge>}
                     </span>
@@ -150,7 +158,7 @@ export function Inbox({ chats, chat, durum }: { chats: ChatRow[]; chat: ChatDeta
 
         {chat ? (
           <>
-            <Conversation key={chat.id} chat={chat} back={href(null)} />
+            <Conversation key={chat.id} chat={chat} back={href(null)} asistan={asistan} />
             <CustomerCard chat={chat} />
           </>
         ) : (
@@ -161,7 +169,7 @@ export function Inbox({ chats, chat, durum }: { chats: ChatRow[]; chat: ChatDeta
   );
 }
 
-function Conversation({ chat, back }: { chat: ChatDetail; back: string }) {
+function Conversation({ chat, back, asistan }: { chat: ChatDetail; back: string; asistan: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [text, setText] = useState("");
@@ -194,7 +202,7 @@ function Conversation({ chat, back }: { chat: ChatDetail; back: string }) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-bold">{chat.ad || phoneText(chat.telefon)}</p>
           <p className="text-xs text-muted-foreground">
-            {phoneText(chat.telefon)} · {DURUM[chat.durum].label}
+            {phoneText(chat.telefon)} · {durumOf(chat.durum, asistan).label}
             {chat.ilgilenen ? ` · ${chat.ilgilenen}` : ""}
           </p>
         </div>
@@ -206,6 +214,11 @@ function Conversation({ chat, back }: { chat: ChatDetail; back: string }) {
             <UserCheck /> Devral
           </Button>
         )}
+        {chat.durum === "ekip" && (
+          <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => waAsistanaBirak(chat.id))} title="Müşteri yeniden yazınca asistan cevaplar">
+            <Bot /> Asistana bırak
+          </Button>
+        )}
         {chat.durum !== "kapali" && (
           <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => waKapat(chat.id))}>
             <X /> Kapat
@@ -214,37 +227,9 @@ function Conversation({ chat, back }: { chat: ChatDetail; back: string }) {
       </div>
 
       <div className="flex-1 space-y-2 overflow-y-auto bg-muted/30 px-4 py-4">
-        {chat.mesajlar.map((m) => {
-          const out = m.yon !== "gelen";
-          const img = m.tur === "image" ? mediaUrl(m.medyaYol) : null;
-          return (
-            <div key={m.id} className={cn("flex", out ? "justify-end" : "justify-start")}>
-              <div
-                className={cn(
-                  "max-w-[80%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
-                  m.yon === "gelen" && "rounded-bl-md bg-card",
-                  m.yon === "ekip" && "rounded-br-md bg-success-soft",
-                  m.yon === "asistan" && "rounded-br-md bg-info-soft",
-                )}
-              >
-                {out && <p className="mb-0.5 text-[11px] font-semibold text-muted-foreground">{m.yon === "asistan" ? "Asistan" : m.yazan ? m.yazan : "Ekip (telefon)"}</p>}
-                {img ? (
-                  <a href={img} target="_blank" rel="noopener noreferrer">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={img} alt="Müşterinin gönderdiği görsel" className="mb-1 max-h-72 rounded-lg" />
-                  </a>
-                ) : (
-                  m.tur !== "text" && <p className="text-xs italic text-muted-foreground">[{TUR[m.tur] ?? m.tur}{m.tur === "image" ? " · indiriliyor ya da indirilemedi" : ""}]</p>
-                )}
-                {m.metin && <p className="whitespace-pre-wrap break-words">{m.metin}</p>}
-                <p className="mt-0.5 flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
-                  {timeText(m.tarih)}
-                  {out && <StatusIcon durum={m.durum} />}
-                </p>
-              </div>
-            </div>
-          );
-        })}
+        {chat.mesajlar.map((m) => (
+          <MessageBubble key={m.id} m={m} />
+        ))}
         <div ref={end} />
       </div>
 
@@ -279,14 +264,6 @@ function Conversation({ chat, back }: { chat: ChatDetail; back: string }) {
   );
 }
 
-function StatusIcon({ durum }: { durum: string | null }) {
-  if (durum === "failed") return <span className="font-semibold text-danger">gönderilemedi</span>;
-  if (durum === "read") return <CheckCheck className="size-3.5 text-info" />;
-  if (durum === "delivered") return <CheckCheck className="size-3.5" />;
-  if (durum === "sent") return <Check className="size-3.5" />;
-  return <Clock className="size-3" />;
-}
-
 function CustomerCard({ chat }: { chat: ChatDetail }) {
   const m = chat.musteri;
   return (
@@ -297,10 +274,47 @@ function CustomerCard({ chat }: { chat: ChatDetail }) {
         <p className="text-muted-foreground">{phoneText(chat.telefon)}</p>
         <p className="mt-1 text-xs text-muted-foreground">İlk mesaj: {timeText(chat.olusturma)}</p>
       </div>
+      {chat.ozet && (
+        <div className="rounded-xl bg-warning-soft p-3">
+          <p className="text-xs font-semibold">Asistanın devretme notu</p>
+          <p className="mt-1 whitespace-pre-wrap break-words text-xs">{chat.ozet}</p>
+        </div>
+      )}
+      {chat.talep && (
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground">
+            Talep ·{" "}
+            <Link href="/panel/talepler" className="text-primary hover:underline">
+              {TALEP[chat.talep.durum] ?? chat.talep.durum}
+            </Link>
+          </p>
+          <dl className="mt-1 space-y-0.5 text-xs">
+            {(
+              [
+                ["Ad", chat.talep.ad],
+                ["İl", chat.talep.il],
+                ["Ürün", chat.talep.urun],
+                ["Adet", chat.talep.adet],
+                ["Renk", chat.talep.renk],
+                ["Aranma", chat.talep.aranmaZamani],
+                ["Not", chat.talep.not],
+              ] as const
+            )
+              .filter(([, v]) => v !== null && v !== "")
+              .map(([k, v]) => (
+                <div key={k} className="flex gap-2">
+                  <dt className="w-14 shrink-0 text-muted-foreground">{k}</dt>
+                  <dd className="min-w-0 whitespace-pre-wrap break-words">{v}</dd>
+                </div>
+              ))}
+          </dl>
+        </div>
+      )}
       <div>
         <p className="text-xs font-semibold text-muted-foreground">Kaynak</p>
         <p>{KAYNAK[chat.kaynak]}</p>
         {chat.reklamId && <p className="break-all text-xs text-muted-foreground">Reklam: {chat.reklamId}</p>}
+        {chat.urunKodu && <p className="break-all text-xs text-muted-foreground">Ürün: {chat.urunKodu}</p>}
       </div>
       <div>
         <p className="text-xs font-semibold text-muted-foreground">Müşteri kaydı</p>

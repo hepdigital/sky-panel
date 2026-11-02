@@ -3,8 +3,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Inbox } from "@/components/whatsapp/inbox";
-import { requireSeller } from "@/server/auth";
+import { isAdmin, requireSeller } from "@/server/auth";
 import { waEnabled } from "@/server/whatsapp/config";
+import { assistantOn, getSettings } from "@/server/whatsapp/settings";
 import { getChat, listChats, type ChatDurum } from "@/server/whatsapp/store";
 
 export const metadata: Metadata = { title: "WhatsApp" };
@@ -19,16 +20,19 @@ async function WhatsappInbox({ searchParams }: { searchParams: Promise<{ s?: str
   const sp = await searchParams;
   const durum = DURUMLAR.find((d) => d === sp.durum) ?? null;
   const id = Number(sp.s) || null;
-  const [chats, chat] = await Promise.all([listChats(durum), id ? getChat(me, id) : null]);
+  const [chats, chat, ayar] = await Promise.all([listChats(durum), id ? getChat(me, id) : null, getSettings()]);
   return (
     <Inbox
       durum={durum}
+      asistan={assistantOn(ayar)}
+      yonetici={isAdmin(me)}
       chats={chats.map((c) => ({ ...c, sonMesaj: c.sonMesaj.toISOString(), sonMusteriMesaji: c.sonMusteriMesaji?.toISOString() ?? null }))}
       chat={
         chat && {
-          id: chat.id, telefon: chat.telefon, ad: chat.ad, durum: chat.durum, kaynak: chat.kaynak, reklamId: chat.reklamId, ctwaClid: chat.ctwaClid,
+          id: chat.id, telefon: chat.telefon, ad: chat.ad, durum: chat.durum, kaynak: chat.kaynak, reklamId: chat.reklamId, ctwaClid: chat.ctwaClid, urunKodu: chat.urunKodu, ozet: chat.ozet,
           ilgilenen: chat.ilgilenen, pencereAcik: chat.pencereAcik, sonMusteriMesaji: chat.sonMusteriMesaji?.toISOString() ?? null, olusturma: chat.olusturma.toISOString(),
           musteri: chat.musteri && { ...chat.musteri, siparisler: chat.musteri.siparisler.map((o) => ({ ...o, dahil: Number(o.dahil), tarih: new Date(o.tarih).toISOString() })) },
+          talep: chat.talep && { ad: chat.talep.ad, il: chat.talep.il, urun: chat.talep.urun, adet: chat.talep.adet, renk: chat.talep.renk, not: chat.talep.not, aranmaZamani: chat.talep.aranmaZamani, durum: chat.talep.durum },
           mesajlar: chat.mesajlar.map((m) => ({ ...m, tarih: m.tarih.toISOString() })),
         }
       }

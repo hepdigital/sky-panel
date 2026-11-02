@@ -4,13 +4,14 @@ import { revalidatePath } from "next/cache";
 import { getSeller } from "@/server/auth";
 import { syncStale } from "@/server/sites";
 import { updateRequest } from "@/server/site-requests";
+import { updateWaRequest } from "@/server/whatsapp/requests";
 
 type Result = { ok: true } | { ok: false; hata: string };
 
-export async function talepGuncelle(id: number, change: { durum?: string; not?: string }): Promise<Result> {
+export async function talepGuncelle(id: number, change: { durum?: string; not?: string }, kaynak: "site" | "whatsapp" = "site"): Promise<Result> {
   const me = await getSeller();
   if (!me) return { ok: false, hata: "Oturum kapanmış." };
-  const r = await updateRequest(me, Number(id), change);
+  const r = kaynak === "whatsapp" ? await updateWaRequest(me, Number(id), change) : await updateRequest(me, Number(id), change);
   revalidatePath("/panel/talepler");
   revalidatePath("/panel/siparisler");
   revalidatePath("/panel", "layout");

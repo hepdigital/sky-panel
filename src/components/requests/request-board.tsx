@@ -11,6 +11,9 @@ import { Card } from "@/components/ui/card";
 import { cn, formatDate } from "@/lib/utils";
 
 export type RequestRow = {
+  /** whatsapp: asistanın topladığı talep (wa_talepler); sohbete bağlantı verilir */
+  kaynak: "site" | "whatsapp";
+  sohbetId: number | null;
   id: number;
   tur: string;
   turAd: string;
@@ -37,7 +40,7 @@ const DURUMLAR: { key: string; label: string; tone: BadgeTone }[] = [
   { key: "kaybedildi", label: "Olumsuz", tone: "neutral" },
 ];
 const durumOf = (key: string) => DURUMLAR.find((d) => d.key === key) ?? DURUMLAR[0];
-const TUR_TONE: Record<string, BadgeTone> = { toptan: "warning", bayilik: "info", iletisim: "neutral" };
+const TUR_TONE: Record<string, BadgeTone> = { toptan: "warning", bayilik: "info", iletisim: "neutral", whatsapp: "success" };
 
 /** 05xx… / +90… → WhatsApp numarası (90…) */
 const waNumber = (tel: string) => {
@@ -58,7 +61,7 @@ export function RequestBoard({ rows, tumu }: { rows: RequestRow[]; tumu: boolean
       <div className="flex flex-wrap items-end justify-between gap-3 pt-1">
         <div>
           <h1 className="text-2xl font-bold tracking-tight md:text-[28px]">Talepler</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Sitelerdeki formlardan gelenler (toptan alım, bayilik, iletişim). Arayın, durumunu ve notunu işleyin.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Sitelerdeki formlardan ve WhatsApp asistanından gelenler (toptan alım, bayilik, iletişim). Arayın, durumunu ve notunu işleyin.</p>
         </div>
         <Button variant="outline" disabled={pending} onClick={() => start(async () => (await talepleriYenile(), router.refresh()))}>
           <RefreshCw className={cn(pending && "animate-spin")} /> Yenile
@@ -89,7 +92,7 @@ export function RequestBoard({ rows, tumu }: { rows: RequestRow[]; tumu: boolean
 
       <div className="mt-4 space-y-3">
         {list.map((r) => (
-          <RequestCard key={r.id} r={r} />
+          <RequestCard key={`${r.kaynak}-${r.id}`} r={r} />
         ))}
         {!list.length && <Card className="p-10 text-center text-sm text-muted-foreground">{tumu ? "Henüz talep yok." : "Açık talep yok."}</Card>}
       </div>
@@ -106,7 +109,7 @@ function RequestCard({ r }: { r: RequestRow }) {
 
   const save = (change: { durum?: string; not?: string }) =>
     start(async () => {
-      const res = await talepGuncelle(r.id, change);
+      const res = await talepGuncelle(r.id, change, r.kaynak);
       setHata(res.ok ? null : res.hata);
       if (res.ok) router.refresh();
     });
@@ -132,9 +135,15 @@ function RequestCard({ r }: { r: RequestRow }) {
             <a href={`tel:${r.telefon.replace(/\s/g, "")}`} className="inline-flex items-center gap-1 font-semibold text-primary hover:underline">
               <Phone className="size-3.5" /> {r.telefon}
             </a>
-            <a href={`https://wa.me/${waNumber(r.telefon)}`} target="_blank" rel="noopener" className="inline-flex items-center gap-1 font-semibold text-success hover:underline">
-              <MessageCircle className="size-3.5" /> WhatsApp
-            </a>
+            {r.sohbetId ? (
+              <Link href={`/panel/whatsapp?s=${r.sohbetId}`} className="inline-flex items-center gap-1 font-semibold text-success hover:underline">
+                <MessageCircle className="size-3.5" /> Sohbeti aç
+              </Link>
+            ) : (
+              <a href={`https://wa.me/${waNumber(r.telefon)}`} target="_blank" rel="noopener" className="inline-flex items-center gap-1 font-semibold text-success hover:underline">
+                <MessageCircle className="size-3.5" /> WhatsApp
+              </a>
+            )}
             {r.eposta && (
               <a href={`mailto:${r.eposta}`} className="inline-flex items-center gap-1 text-muted-foreground hover:underline">
                 <Mail className="size-3.5" /> {r.eposta}

@@ -1,4 +1,5 @@
 import { after, NextResponse } from "next/server";
+import { scheduleChat } from "@/server/whatsapp/asistan";
 import { signatureValid, waConfig } from "@/server/whatsapp/config";
 import { fetchMedia, saveWebhook, type WebhookBody } from "@/server/whatsapp/store";
 
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
   return new NextResponse("Forbidden", { status: 403 });
 }
 
-/** Mesaj, echo ve durum bildirimleri: imza doğrulanır, kaydedilir, hemen 200 döner; görseller sonra indirilir */
+/** Mesaj, echo ve durum bildirimleri: imza doğrulanır, kaydedilir, hemen 200 döner; görseller ve asistan sonra çalışır */
 export async function POST(request: Request) {
   const cfg = waConfig();
   if (!cfg) return off();
@@ -32,8 +33,10 @@ export async function POST(request: Request) {
     return new NextResponse("Bad Request", { status: 400 });
   }
   try {
-    const media = await saveWebhook(cfg, body);
+    const { media, chats } = await saveWebhook(cfg, body);
+    // Cevaptan sonra: görseller indirilir; yeni mesaj gelen sohbetler birleştirme süresinden sonra asistana verilir
     if (media.length) after(() => fetchMedia(cfg, media));
+    if (chats.length) after(() => Promise.all(chats.map((id) => scheduleChat(id).catch((e) => console.error("whatsapp asistan", e)))));
   } catch (e) {
     // Kayıt başarısızsa 500: Meta bildirimi bir süre sonra yeniden gönderir (wamid tekil olduğu için çift kayıt olmaz)
     console.error("whatsapp webhook", e);

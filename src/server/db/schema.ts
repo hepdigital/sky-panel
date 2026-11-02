@@ -633,3 +633,61 @@ export const waMesajlar = mysqlTable(
   },
   (t) => [uniqueIndex("wa_mesaj_wamid").on(t.wamid), index("wa_mesaj_sohbet").on(t.sohbetId, t.tarih)],
 );
+
+/**
+ * Asistanın ürün bilgisi (şartname §4). Fiyat burada tutulmaz, urun_bilgisi aracı siteden canlı okur.
+ * sss, itirazlar ve medya JSON; asistan_cevaplar = kapsamda (v1'de yalnız kış bahçesi).
+ */
+export const waUrunKartlari = mysqlTable("wa_urun_kartlari", {
+  kod: varchar("kod", { length: 60 }).primaryKey(),
+  ad: varchar("ad", { length: 160 }).notNull(),
+  /** Canlı fiyatın okunduğu WooCommerce bağlantısı (yoksa fiyat verilmez) */
+  siteId: int("site_id", { unsigned: true }),
+  disUrunId: int("dis_urun_id", { unsigned: true }),
+  url: varchar("url", { length: 255 }),
+  anahtarKelimeler: text("anahtar_kelimeler"),
+  asistanCevaplar: boolean("asistan_cevaplar").notNull().default(false),
+  bilgi: longtext("bilgi"),
+  /** [{soru, cevap}] */
+  sss: longtext("sss"),
+  /** [{itiraz, cevap}] */
+  itirazlar: longtext("itirazlar"),
+  /** [{id, tur: image/video, yol, aciklama}]: asistanın gönderebileceği izinli medya */
+  medya: longtext("medya"),
+  yasaklar: text("yasaklar"),
+  aktif: boolean("aktif").notNull().default(true),
+  guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+});
+
+/** Asistan ayarları: tek satır (id 1), veri JSON (server/whatsapp/settings.ts) */
+export const waAsistanAyarlari = mysqlTable("wa_asistan_ayarlari", {
+  id: int("id", { unsigned: true }).primaryKey(),
+  veri: longtext("veri").notNull(),
+  guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+});
+
+/** Asistanın topladığı müşteri bilgisi; Talepler panosunda site talepleriyle birlikte görünür. Sohbet başına bir açık talep. */
+export const waTalepler = mysqlTable(
+  "wa_talepler",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    sohbetId: int("sohbet_id", { unsigned: true })
+      .notNull()
+      .references(() => waSohbetler.id, { onDelete: "cascade" }),
+    ad: varchar("ad", { length: 120 }),
+    telefon: varchar("telefon", { length: 32 }).notNull(),
+    il: varchar("il", { length: 64 }),
+    urun: varchar("urun", { length: 160 }),
+    adet: int("adet", { unsigned: true }),
+    renk: varchar("renk", { length: 60 }),
+    not: text("not"),
+    aranmaZamani: varchar("aranma_zamani", { length: 120 }),
+    durum: mysqlEnum("durum", TALEP_DURUMLARI).notNull().default("yeni"),
+    /** Talepler panosunda ekibin yazdığı not (asistanın notu "not" alanında kalır) */
+    panelNot: text("panel_not"),
+    ilgilenenId: int("ilgilenen_id", { unsigned: true }),
+    tarih: timestamp("tarih").notNull().defaultNow(),
+    guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+  },
+  (t) => [index("wa_talep_sohbet").on(t.sohbetId), index("wa_talep_durum").on(t.durum)],
+);
