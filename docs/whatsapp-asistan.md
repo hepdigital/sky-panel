@@ -189,9 +189,9 @@ işlemlerden kaçın, Claude çağrısı dışında ağır iş yapma. Trafik bü
   `link` (panelin `/dosya/...` herkese açık adresi) ya da önceden yüklenmiş `id`.
 - Asistan çalışmaya başlarken gelen mesaj "okundu" işaretlenir ve yazıyor göstergesi gönderilir
   (⚠ teyit: `status: "read"` + `typing_indicator` alanları güncel Graph sürümünde).
-- **Mesajlaşma penceresi:** Müşterinin son mesajından sonraki 24 saat içinde serbest metin gönderilebilir
-  (reklamdan gelen sohbette 72 saat). Pencere dışında yalnızca onaylı şablon mesaj gider; panel bu durumda yazma kutusunu
-  kilitler ve uyarı gösterir.
+- **Mesajlaşma penceresi:** Müşterinin son mesajından sonraki 24 saat içinde serbest metin gönderilebilir; reklamdan
+  gelen sohbette de serbest metin penceresi 24 saattir (72 saat, reklamdan gelen sohbetin **ücretsiz** olduğu süredir,
+  bkz. §10). Pencere dışında yalnızca onaylı şablon mesaj gider; panel bu durumda yazma kutusunu kilitler ve uyarı gösterir.
 - Tek mesaj en çok 4096 karakter; asistanın cevabı paragraf sınırından bölünür.
 
 ### 5.6 Medya
