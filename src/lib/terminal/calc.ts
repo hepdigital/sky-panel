@@ -84,11 +84,12 @@ export type Side = { split?: boolean; walls: Wall[] };
 /** wallColor: duvarların rengi; yoksa tavanla (color) aynı */
 export type Gazebo = { size: string; frame: string | null; roofFab: number | null; sides: Side[]; color?: string; wallColor?: string };
 
-/** "Renk: Kırmızı" ya da tavan ve duvar farklıysa "Tavan: Kırmızı · Duvar: Beyaz" */
+/** "Renk: Kırmızı" ya da tavan ve duvar farklıysa "Tavan: Kırmızı · Duvar: Beyaz"; dijital baskılı parçanın kumaş rengi olmaz */
 export function colorText(g: Gazebo) {
-  const roof = colorName(g.color);
-  const wall = colorName(g.wallColor ?? g.color);
-  return roof === wall ? `Renk: ${roof}` : `Tavan: ${roof} · Duvar: ${wall}`;
+  const need = colorNeeds(g);
+  const roof = need.roof ? colorName(g.color) : "dijital baskı";
+  const wall = !need.anyWall ? null : need.walls ? colorName(g.wallColor ?? g.color) : "dijital baskı";
+  return !wall || roof === wall ? `Renk: ${roof}` : `Tavan: ${roof} · Duvar: ${wall}`;
 }
 export type Isk = { tip: "yuzde" | "tutar"; d: number };
 /** views: teklife eklenirken 3D'den alınan iki çapraz açı görüntüsü (sol-ön, sağ-arka); PDF'e basılır */
@@ -175,6 +176,13 @@ export function slots(g: Gazebo): Slot[] {
   });
 }
 const usedSlots = (g: Gazebo) => slots(g).filter((s) => s.wall.kind !== "yok");
+/** FABRICS içinde dijital baskılı kumaşın sırası */
+export const PRINTED_FAB = 2;
+/** Hangi parça için kumaş rengi seçilir: baskılı tavan ve baskılı duvarların rengi olmaz */
+export function colorNeeds(g: Gazebo) {
+  const walls = usedSlots(g);
+  return { roof: g.roofFab !== PRINTED_FAB, walls: walls.some((s) => s.wall.f !== PRINTED_FAB), anyWall: walls.length > 0 };
+}
 export const slotPrice = (s: Slot, mode: Mode) => wallPrice(s.grup, s.wall, mode);
 
 export const framePrice = (g: Gazebo, mode: Mode) => {

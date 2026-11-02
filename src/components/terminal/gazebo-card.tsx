@@ -11,6 +11,7 @@ import {
   FRAME_IDS,
   SIZES,
   SZ,
+  colorNeeds,
   colorText,
   gzRows,
   gzTotal,
@@ -47,6 +48,7 @@ export function GazeboCard({ draft, setDraft, qty, setQty, mode, money, editing,
   const p = plan(draft.size);
   const rows = gzRows(draft, mode);
   const total = gzTotal(draft, mode);
+  const need = colorNeeds(draft);
   const { FRAMES, ROOF } = priceTable();
   const frames = FRAME_IDS.filter((id) => FRAMES[id].p[draft.size]);
 
@@ -134,17 +136,30 @@ export function GazeboCard({ draft, setDraft, qty, setQty, mode, money, editing,
 
       {/* 4 — Renk */}
       <Section n={4} title="Kumaş rengi" hint={colorText(draft)}>
-        <ColorRow label="Tavan" value={draft.color ?? "#ffffff"} onPick={(hex) => set({ color: hex })} />
-        <label className="mt-3 flex w-fit cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={!!draft.wallColor}
-            onChange={(e) => set({ wallColor: e.target.checked ? (draft.color ?? "#ffffff") : undefined })}
-            className="size-4 accent-[var(--primary)]"
-          />
-          Duvarlar tavandan farklı renk
-        </label>
-        {draft.wallColor && <ColorRow label="Duvar" value={draft.wallColor} onPick={(hex) => set({ wallColor: hex })} className="mt-3" />}
+        {need.roof ? (
+          <>
+            <ColorRow label="Tavan" value={draft.color ?? "#ffffff"} onPick={(hex) => set({ color: hex })} />
+            {need.walls && (
+              <label className="mt-3 flex w-fit cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={!!draft.wallColor}
+                  onChange={(e) => set({ wallColor: e.target.checked ? (draft.color ?? "#ffffff") : undefined })}
+                  className="size-4 accent-[var(--primary)]"
+                />
+                Duvarlar tavandan farklı renk
+              </label>
+            )}
+            {need.walls && draft.wallColor && <ColorRow label="Duvar" value={draft.wallColor} onPick={(hex) => set({ wallColor: hex })} className="mt-3" />}
+          </>
+        ) : need.walls ? (
+          // Baskılı tavanda renk yalnız baskısız duvarlar için seçilir
+          <ColorRow label="Duvar" value={draft.wallColor ?? draft.color ?? "#ffffff"} onPick={(hex) => set({ wallColor: hex })} />
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {need.anyWall ? "Tavan ve duvarlar dijital baskılı" : "Tavan dijital baskılı"}; kumaş rengi seçilmez. Baskısız duvar eklerseniz duvar rengi burada seçilir.
+          </p>
+        )}
       </Section>
 
       {/* 5 — Duvarlar */}
