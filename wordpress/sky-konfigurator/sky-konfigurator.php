@@ -9,6 +9,13 @@
  *
  * Kurulum: wp-config.php'ye ortak anahtar (panelde KONFIGURATOR_SECRET ile aynı):
  *   define( 'SKY_KONFIGURATOR_SECRET', '...' );
+ * Başka mağaza (varsayılanlar SKY mağazasınındır; yalnız farklı olanları tanımlayın):
+ *   define( 'SKY_KONFIGURATOR_MARKA', 'sky' );                          // paneldeki marka kodu (fiyat ve ürünler bu markadan)
+ *   define( 'SKY_KONFIGURATOR_SAYFA', 'gazebo-tasarla' );               // konfigüratör sayfasının adresi
+ *   define( 'SKY_KONFIGURATOR_KATEGORILER', 'gazebo-tente,baskili-gazebo-cadir' ); // banner'ın çıktığı ana kategoriler
+ *   define( 'SKY_KONFIGURATOR_BASKISIZ', 'gazebo-tente' );              // baskısız ön seçimi yapılan ana kategori
+ *   define( 'SKY_KONFIGURATOR_BASKILI', 'baskili-gazebo-cadir' );       // baskılı ön seçimi yapılan ana kategori
+ * Taksit tablosu güncellemesi yalnız iyzico WooCommerce ve iyzico-taksit-tablosu eklentileri kuruluysa çalışır; yoksa hiçbir şey yapmaz.
  * Sayfa: içeriği [sky_konfigurator] olan sayfa tam ekran konfigüratör olarak açılır (tema başlığı ve altbilgisi olmadan).
  * Kategori banner'ı: gazebo kategorilerinin üstünde "Kendi gazebonu tasarla"; ölçü ve baskı kategoriden seçili gelir (?olcu=3x3&baski=baskisiz).
  * Ödeme linki: panelin açtığı ürünsüz siparişlerde (_sky_odeme_linki) misafir ödeme sayfası e-posta doğrulaması istemez.
@@ -71,6 +78,20 @@ final class Sky_Konfigurator {
 
 	/* ───────────── bilet ───────────── */
 
+	/** Mağazaya özel ayar: wp-config'deki SKY_KONFIGURATOR_<AD> sabiti, yoksa SKY mağazasının değeri */
+	private static function conf( $name, $default ) {
+		$c = 'SKY_KONFIGURATOR_' . $name;
+		if ( ! defined( $c ) ) {
+			return $default;
+		}
+		$v = constant( $c );
+		return is_array( $default ) ? array_filter( array_map( 'trim', is_array( $v ) ? $v : explode( ',', (string) $v ) ) ) : (string) $v;
+	}
+
+	private static function marka() {
+		return self::conf( 'MARKA', self::MARKA );
+	}
+
 	private static function secret() {
 		return defined( 'SKY_KONFIGURATOR_SECRET' ) ? (string) SKY_KONFIGURATOR_SECRET : '';
 	}
@@ -91,7 +112,7 @@ final class Sky_Konfigurator {
 			return null;
 		}
 		$p = json_decode( (string) self::b64d( $parts[0] ), true );
-		if ( ! is_array( $p ) || 1 !== ( $p['v'] ?? 0 ) || self::MARKA !== ( $p['marka'] ?? '' ) || (int) ( $p['exp'] ?? 0 ) < time() ) {
+		if ( ! is_array( $p ) || 1 !== ( $p['v'] ?? 0 ) || self::marka() !== ( $p['marka'] ?? '' ) || (int) ( $p['exp'] ?? 0 ) < time() ) {
 			return null;
 		}
 		if ( ! isset( $p['fiyat'] ) || ! is_numeric( $p['fiyat'] ) || $p['fiyat'] <= 0 ) {
@@ -118,7 +139,7 @@ final class Sky_Konfigurator {
 		if ( in_array( $baski, array( 'baskili', 'baskisiz' ), true ) ) {
 			$args['baski'] = $baski;
 		}
-		return add_query_arg( $args, self::PANEL . '/konfigurator/' . self::MARKA );
+		return add_query_arg( $args, self::PANEL . '/konfigurator/' . self::marka() );
 	}
 
 	/* ───────────── ödeme linki ───────────── */
@@ -346,17 +367,17 @@ final class Sky_Konfigurator {
 				$slugs[] = $t->slug;
 			}
 		}
-		if ( ! array_intersect( $slugs, self::BANNER_CATS ) ) {
+		if ( ! array_intersect( $slugs, self::conf( 'KATEGORILER', self::BANNER_CATS ) ) ) {
 			return;
 		}
-		$page = get_page_by_path( self::PAGE );
+		$page = get_page_by_path( self::conf( 'SAYFA', self::PAGE ) );
 		if ( ! $page ) {
 			return;
 		}
 		$done  = true;
 		$args  = array();
 		$olcu  = preg_match( '/^(\d)x(\d)(\d)?-/', $term->slug, $m ) ? $m[1] . 'x' . $m[2] . ( isset( $m[3] ) && '' !== $m[3] ? ',' . $m[3] : '' ) : '';
-		$baski = in_array( self::BASKILI, $slugs, true ) ? 'baskili' : ( in_array( self::BASKISIZ, $slugs, true ) ? 'baskisiz' : '' );
+		$baski = in_array( self::conf( 'BASKILI', self::BASKILI ), $slugs, true ) ? 'baskili' : ( in_array( self::conf( 'BASKISIZ', self::BASKISIZ ), $slugs, true ) ? 'baskisiz' : '' );
 		if ( $olcu ) {
 			$args['olcu'] = $olcu;
 		}
