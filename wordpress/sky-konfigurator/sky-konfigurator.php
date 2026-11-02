@@ -15,12 +15,10 @@
  *   define( 'SKY_KONFIGURATOR_KATEGORILER', 'gazebo-tente,baskili-gazebo-cadir' ); // banner'ın çıktığı ana kategoriler
  *   define( 'SKY_KONFIGURATOR_BASKISIZ', 'gazebo-tente' );              // baskısız ön seçimi yapılan ana kategori
  *   define( 'SKY_KONFIGURATOR_BASKILI', 'baskili-gazebo-cadir' );       // baskılı ön seçimi yapılan ana kategori
- * Taksit tablosu güncellemesi yalnız iyzico WooCommerce ve iyzico-taksit-tablosu eklentileri kuruluysa çalışır; yoksa hiçbir şey yapmaz.
  * Sayfa: içeriği [sky_konfigurator] olan sayfa tam ekran konfigüratör olarak açılır (tema başlığı ve altbilgisi olmadan).
  * Kategori banner'ı: gazebo kategorilerinin üstünde "Kendi gazebonu tasarla"; ölçü ve baskı kategoriden seçili gelir (?olcu=3x3&baski=baskisiz).
  * Ödeme linki: panelin açtığı ürünsüz siparişlerde (_sky_odeme_linki) misafir ödeme sayfası e-posta doğrulaması istemez.
  * Taksit: GET /wp-json/sky/v1/taksit?tutar=&ts=&sig= (panelin imzası) → iyzico'nun kart ailesi bazında taksit tutarları (sitedeki iyzico anahtarlarıyla).
- * Sitedeki taksit tablosu: iyzico-taksit-tablosu eklentisinin elle girilen oranları (ittbo_iyzico_rates) günde iki kez iyzico'dan güncellenen gerçek vade farklarıyla değiştirilir.
  * Kargo: panelin yazdığı _sky_kargo_firma / _sky_kargo_takip_no müşterinin sipariş sayfasında takip linkiyle gösterilir.
  * Ürün: stok kodu SKY-GAZEBO-TASARLA olan, katalogda gizli bir WooCommerce ürünü; yalnızca konfigüratörden sepete düşer.
  */
@@ -40,10 +38,6 @@ final class Sky_Konfigurator {
 	const BANNER_CATS = array( 'gazebo-tente', 'baskili-gazebo-cadir', 'gazebo-cadir', 'gazebo-portatif-cardak-kamelya' );
 	const BASKISIZ    = 'gazebo-tente';
 	const BASKILI     = 'baskili-gazebo-cadir';
-
-	/** iyzico'dan çekilen vade farkları (taksit sayısı => oran, 0.038 = %3,8) ve zamanlanmış güncelleme */
-	const RATES_OPT  = 'sky_iyzico_vade_farklari';
-	const RATES_HOOK = 'sky_iyzico_vade_guncelle';
 
 	/** Yalnızca bu eklentinin eklemesine izin verilir (ürün sayfasından ya da ?add-to-cart ile eklenemez) */
 	private static $adding = false;
@@ -65,9 +59,6 @@ final class Sky_Konfigurator {
 		add_filter( 'woocommerce_order_email_verification_grace_period', array( __CLASS__, 'payment_link_grace' ), 10, 2 );
 		add_action( 'rest_api_init', array( __CLASS__, 'rest_routes' ) );
 		add_action( 'woocommerce_order_details_after_order_table', array( __CLASS__, 'order_tracking' ), 5 );
-		add_filter( 'option_ittbo_iyzico_rates', array( __CLASS__, 'site_rates' ) );
-		add_action( self::RATES_HOOK, array( __CLASS__, 'refresh_rates' ) );
-		add_action( 'init', array( __CLASS__, 'schedule_rates' ) );
 		add_action( 'woocommerce_before_shop_loop', array( __CLASS__, 'category_banner' ), 1 );
 		// WoodMart yerleşim oluşturucusu (Elementor, öğe önbellekli) kategori sayfasında woocommerce_before_shop_loop'u çağırmaz:
 		// ana içerik tamponlanır, banner sıralama ve ürünleri tutan "list-section" sınıflı kapsayıcının hemen önüne konur
@@ -218,20 +209,9 @@ final class Sky_Konfigurator {
 		if ( is_array( $hit ) ) {
 			return new WP_REST_Response( $hit );
 		}
-		$aileler = self::iyzico_installments( $tutar );
-		if ( is_wp_error( $aileler ) ) {
-			return new WP_REST_Response( array( 'hata' => $aileler->get_error_message() ), (int) $aileler->get_error_data() );
-		}
-		$out = array( 'tutar' => (float) $tutar, 'aileler' => $aileler );
-		set_transient( $key, $out, 10 * MINUTE_IN_SECONDS );
-		return new WP_REST_Response( $out );
-	}
-
-	/** iyzico'nun kart ailesi bazında taksit tutarları (sitedeki iyzico anahtarlarıyla) */
-	private static function iyzico_installments( $tutar ) {
 		$set = get_option( 'woocommerce_iyzico_settings' );
 		if ( ! class_exists( '\Iyzipay\Options' ) || ! is_array( $set ) || empty( $set['api_key'] ) ) {
-			return new WP_Error( 'sky_iyzico', 'iyzico ayarları bulunamadı.', 500 );
+			return new WP_REST_Response( array( 'hata' => 'iyzico ayarları bulunamadı.' ), 500 );
 		}
 		$o = new \Iyzipay\Options();
 		$o->setApiKey( $set['api_key'] );
@@ -243,7 +223,7 @@ final class Sky_Konfigurator {
 		$r->setPrice( $tutar );
 		$info = \Iyzipay\Model\InstallmentInfo::retrieve( $r, $o );
 		if ( 'success' !== $info->getStatus() ) {
-			return new WP_Error( 'sky_iyzico', (string) $info->getErrorMessage(), 502 );
+			return new WP_REST_Response( array( 'hata' => (string) $info->getErrorMessage() ), 502 );
 		}
 		$aileler = array();
 		foreach ( (array) $info->getInstallmentDetails() as $d ) {
@@ -261,65 +241,9 @@ final class Sky_Konfigurator {
 				'taksitler' => $taksitler,
 			);
 		}
-		return $aileler;
-	}
-
-	public static function schedule_rates() {
-		if ( ! wp_next_scheduled( self::RATES_HOOK ) ) {
-			wp_schedule_event( time() + 60, 'twicedaily', self::RATES_HOOK );
-		}
-	}
-
-	/** Vade farkını 10.000 TL üzerinden hesaplar; aileler arasında fark varsa en yükseği alınır (müşteri eksik görmesin) */
-	public static function refresh_rates() {
-		$aileler = self::iyzico_installments( '10000' );
-		if ( is_wp_error( $aileler ) ) {
-			return;
-		}
-		$oran = array();
-		foreach ( $aileler as $a ) {
-			foreach ( $a['taksitler'] as $t ) {
-				if ( $t['n'] > 1 && $t['toplam'] > 0 ) {
-					$oran[ $t['n'] ] = max( $oran[ $t['n'] ] ?? 0, round( $t['toplam'] / 10000 - 1, 4 ) );
-				}
-			}
-		}
-		if ( ! $oran ) {
-			return;
-		}
-		ksort( $oran );
-		if ( get_option( self::RATES_OPT ) !== $oran ) {
-			update_option( self::RATES_OPT, $oran, false );
-			do_action( 'litespeed_purge_all' );
-		}
-	}
-
-	/**
-	 * Taksit tablosu eklentisinin kayıtlı oranlarını güncel vade farklarıyla değiştirir. Kayıtlı biçim korunur
-	 * (dizi ya da JSON metin, oran ya da yüzde); yalnızca iki tarafta da bulunan taksit sayıları değişir.
-	 */
-	public static function site_rates( $value ) {
-		$oran = get_option( self::RATES_OPT );
-		if ( ! is_array( $oran ) || ! $oran ) {
-			return $value;
-		}
-		$json = is_string( $value );
-		$arr  = $json ? json_decode( $value, true ) : $value;
-		if ( ! is_array( $arr ) || ! $arr ) {
-			return $value;
-		}
-		$nums = array_filter( $arr, 'is_numeric' );
-		if ( count( $nums ) !== count( $arr ) ) {
-			return $value;
-		}
-		$yuzde = max( array_map( 'floatval', $nums ) ) > 1;
-		foreach ( $arr as $n => $v ) {
-			if ( isset( $oran[ (int) $n ] ) ) {
-				$yeni      = $yuzde ? round( $oran[ (int) $n ] * 100, 2 ) : $oran[ (int) $n ];
-				$arr[ $n ] = is_string( $v ) ? (string) $yeni : $yeni;
-			}
-		}
-		return $json ? wp_json_encode( $arr ) : $arr;
+		$out = array( 'tutar' => (float) $tutar, 'aileler' => $aileler );
+		set_transient( $key, $out, 10 * MINUTE_IN_SECONDS );
+		return new WP_REST_Response( $out );
 	}
 
 	/* ───────────── kategori banner'ı ───────────── */
