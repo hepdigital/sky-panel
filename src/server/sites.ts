@@ -140,7 +140,7 @@ function wcToOrder(site: Site, o: WcOrder, notes: { note: string; customer_note:
     odemeDurumu: o.date_paid_gmt ? "odendi" : "bekliyor",
     musteri: {
       ad: fullName(b) || b.company, eposta: b.email ?? "", telefon: b.phone ?? "", il: ilOf(b.state) || b.city, ilce: b.city,
-      adres: [b.address_1, b.address_2, b.postcode].filter(Boolean).join(" "), faturaTipi: b.company ? "kurumsal" : "bireysel",
+      adres: [b.address_1, b.address_2, b.postcode].filter(Boolean).join(" "), faturaTipi: metaOf(o, "_billing_fatura_tipi") === "kurumsal" || b.company ? "kurumsal" : "bireysel",
       firma: b.company || null, vergiDairesi: metaOf(o, "_billing_tax_office", "billing_tax_office", "_vergi_dairesi"), vergiNo: metaOf(o, "_billing_tax_number", "billing_tax_number", "_vergi_no", "_billing_tc"),
     },
     teslimat: s && (s.address_1 || s.city) ? { ad: fullName(s) || fullName(b), adres: [s.address_1, s.address_2, s.postcode].filter(Boolean).join(" "), il: ilOf(s.state) || s.city, ilce: s.city, telefon: s.phone ?? "" } : null,
