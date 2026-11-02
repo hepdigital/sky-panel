@@ -255,8 +255,8 @@ bilgisi, kullanıcı/şifre tabloları. Bu veriler hiçbir araçtan dönmez.
 - İndirim, pazarlık, kampanya sözü vermez; "pahalı" itirazında ürün kartındaki itiraz cevaplarını kullanır, gerekirse
   ekibe devreder.
 - Kesin teslim tarihi garanti etmez: "5 iş gününde üretilip kargoya verilir, kargo genellikle 2-4 iş günü" der.
-- Ödeme yolları yalnızca: **Havale / EFT** ve **Banka / Kredi Kartı (site linki, 12 taksite kadar, taksit farkıyla)**.
-  Mail order'dan bahsetmez.
+- Ödeme yolları yalnızca: **Havale / EFT (%5 indirimli)** ve **Banka / Kredi Kartı (site linki, 12 taksite kadar,
+  taksit farkıyla)**. Mail order'dan bahsetmez.
 - Kapsam dışı ürün → `urun_bul` ile tanır, karşılar, bilgileri toplar, `bilgi_kaydet` + `ekibe_devret`.
 - **Devretme durumları:** sipariş kesinleştirme ve ödeme dekontu, özel ölçü/tek kapı/özel üretim, firma ve toptan
   talepleri, şikâyet ve iade, kargo sorunu, müşteri insanla görüşmek isterse, asistan emin değilse.
@@ -326,8 +326,8 @@ ayarları yalnızca yönetici değiştirir.
 - **Uyarılar:** 30 km/s üzeri rüzgârda çadır kapatılmalı. Kar yağışında üzerinde kar birikmemeli; yoğun karda
   kaldırılmalı.
 - **Renk:** `renkleri_listele` ile stoktaki renkler önerilir. Müşteri kararsızsa kartela gönderilir.
-- **Ödeme:** Havale/EFT veya site üzerinden kart (12 taksite kadar, taksit farkıyla). ⚠ teyit: sitede havale/EFT'ye
-  %5 indirim uygulanıyor mu, asistan bunu söylesin mi?
+- **Ödeme:** Havale/EFT veya site üzerinden kart (12 taksite kadar, taksit farkıyla). Sitede havale/EFT ile ödemede
+  %5 indirim uygulanır; asistan bunu bir avantaj olarak söyler (bu bir pazarlık indirimi değil, sabit ödeme kuralıdır).
 - **Sık itirazlar (ilk taslak — ekip düzeltecek):**
   - *"Pahalı"* → 40 mm çelik iskelet ve soba çıkışlı kapalı yapı; kurulum dahil hiçbir ek masraf yok, kargo ücretsiz,
     12 taksit imkânı.
@@ -359,7 +359,7 @@ ayarları yalnızca yönetici değiştirir.
 
 | Faz | İçerik | Bitti sayılması için |
 |---|---|---|
-| **1. Altyapı** | Webhook, tablolar, gelen kutusu, panelden manuel cevap, echo ile ekip mesajlarının görünmesi | Test numarasıyla gelen/giden mesajlar panelde akıyor |
+| **1. Altyapı** | Webhook, tablolar, gelen kutusu, panelden manuel cevap, echo ile ekip mesajlarının görünmesi | Meta'nın ücretsiz **test numarasıyla** gelen/giden mesajlar panelde akıyor (gerçek numara ve coexistence kurulumu Faz 1 testleri geçtikten sonra) |
 | **2. Asistan (kış bahçesi)** | Asistan döngüsü, araçlar, ürün kartı, deneme alanı, devretme, kilit ve birleştirme, cron yedeği | Deneme alanında 20 senaryo geçiyor (§12); canlıda 1 hafta günlük kayıt incelemesi |
 | **3. Ölçüm ve öğrenme** | Rapor, reklam-ürün eşlemesi, düzelt-öğret, StonWhatsapp hazır metni | Reklam bazında sohbet ve satış sayısı görülebiliyor |
 | **4. Genişleme** | Diğer B2C ürünler, ödeme linki (onaylı), şablon mesajlar (kargo bildirimi vb.), sesli mesaj | İşletme kararıyla |
