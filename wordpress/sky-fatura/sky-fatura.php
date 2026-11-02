@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SKY Fatura Bilgileri
  * Description: Ödeme sayfasında Bireysel / Kurumsal fatura seçimi. Bireyselde TC kimlik no, kurumsalda firma adı, vergi dairesi ve vergi no istenir; siparişte, e-postada, hesabım sayfasında ve yönetim ekranında gösterilir.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: SKY Görsel Çözümler
  * Requires Plugins: woocommerce
  * Text Domain: sky-fatura
@@ -175,9 +175,28 @@ final class Sky_Fatura {
 		}
 		?>
 		<style>
-			.sky-fatura-tipi .woocommerce-input-wrapper { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 6px; }
-			.sky-fatura-tipi .woocommerce-input-wrapper input.input-radio { margin: 0 2px 0 0; }
-			.sky-fatura-tipi .woocommerce-input-wrapper label.radio { display: inline-block; margin: 0 22px 0 0; font-weight: 600; cursor: pointer; }
+			/* Seçim kartları: seçili kart lacivert çerçeve ve açık mavi zemin (konfigüratördeki ölçü kartları gibi) */
+			.sky-fatura-tipi .woocommerce-input-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px; }
+			.sky-fatura-tipi input.input-radio { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+			.sky-fatura-tipi label.radio {
+				display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; margin: 0; padding: 18px 12px 16px;
+				border: 2px solid #e3e7ee; border-radius: 14px; background: #fff; cursor: pointer; text-align: center;
+				font-size: 17px; font-weight: 700; line-height: 1.2; color: #1f2329; transition: border-color .15s, background-color .15s;
+			}
+			.sky-fatura-tipi label.radio:hover { border-color: #b9c6d8; }
+			.sky-fatura-tipi label.radio .required, .sky-fatura-tipi label.radio abbr { display: none; }
+			.sky-fatura-tipi label.radio::before {
+				content: ""; width: 34px; height: 34px; background-color: #8a94a3;
+				-webkit-mask: var(--sky-ikon) center / contain no-repeat; mask: var(--sky-ikon) center / contain no-repeat;
+			}
+			.sky-fatura-tipi label.radio::after { font-size: 13px; font-weight: 400; color: #7a828e; }
+			.sky-fatura-tipi label.radio[for$="_bireysel"] { --sky-ikon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 21a8 8 0 0 1 16 0'/%3E%3C/svg%3E"); }
+			.sky-fatura-tipi label.radio[for$="_kurumsal"] { --sky-ikon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='3' width='16' height='18' rx='1.5'/%3E%3Cpath d='M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1M10 21v-3h4v3'/%3E%3C/svg%3E"); }
+			.sky-fatura-tipi label.radio[for$="_bireysel"]::after { content: "TC kimlik no ile"; }
+			.sky-fatura-tipi label.radio[for$="_kurumsal"]::after { content: "Firma ve vergi no ile"; }
+			.sky-fatura-tipi input.input-radio:checked + label.radio { border-color: #0f4c8a; background: #f3f6fb; color: #0f2f57; }
+			.sky-fatura-tipi input.input-radio:checked + label.radio::before { background-color: #0f4c8a; }
+			.sky-fatura-tipi input.input-radio:focus-visible + label.radio { outline: 2px solid #0f4c8a; outline-offset: 2px; }
 		</style>
 		<script>
 		( function () {
