@@ -137,6 +137,26 @@ const phoneKey = (v: string | null | undefined) => {
 };
 const phoneMatch = (col: string, key: string) => sql`RIGHT(REGEXP_REPLACE(${sql.raw(col)}, '[^0-9]', ''), 10) = ${key}`;
 
+/** Telefonu (son 10 hane) eşleşen, kullanıcının görebildiği ilk müşteri ve açık siparişleri (WhatsApp müşteri kartı) */
+export async function customerByPhone(me: Me, telefon: string) {
+  const key = phoneKey(telefon);
+  if (!key) return null;
+  const [m] = await db()
+    .select({ id: musteriler.id, firma: musteriler.firma, yetkili: musteriler.yetkili, il: musteriler.il })
+    .from(musteriler)
+    .where(and(phoneMatch("musteriler.telefon", key), await visible(me)))
+    .orderBy(desc(musteriler.id))
+    .limit(1);
+  if (!m) return null;
+  const orders = await db()
+    .select({ id: siparisler.id, no: siparisler.no, durum: siparisler.durum, dahil: siparisler.tutarKdvDahil, tarih: sql<Date>`COALESCE(${siparisler.disTarih}, ${siparisler.olusturma})` })
+    .from(siparisler)
+    .where(eq(siparisler.musteriId, m.id))
+    .orderBy(desc(siparisler.id))
+    .limit(5);
+  return { ...m, siparisler: orders };
+}
+
 /** Müşterinin site talepleri ve konfigüratör tasarımları: aynı telefon (son 10 hane) ya da aynı e-posta */
 async function customerRequests(me: Me, telefon: string | null, eposta: string | null) {
   const key = phoneKey(telefon);

@@ -10,6 +10,7 @@ import {
   Link2,
   History,
   LayoutDashboard,
+  MessageCircle,
   MonitorSmartphone,
   Package,
   Palette,
@@ -39,6 +40,7 @@ export const adminNav: AdminNavGroup[] = [
     label: "Satış",
     items: [
       { href: "/panel/talepler", label: "Talepler", icon: Inbox, roles: ["admin", "sales"] },
+      { href: "/panel/whatsapp", label: "WhatsApp", icon: MessageCircle, roles: ["admin", "sales"] },
       { href: "/panel/musteriler", label: "Müşteriler", icon: Users, roles: ["admin", "sales", "finance"] },
       { href: "/panel/teklifler", label: "Teklifler", icon: FileText, roles: ["admin", "sales"] },
       { href: "/panel/siparisler", label: "Siparişler", icon: Package, roles: ["admin", "sales"] },
@@ -81,17 +83,26 @@ export const adminNav: AdminNavGroup[] = [
 ];
 
 /** 1. aşamada açık ekranlar: teklif, sipariş, cari, ürün ve kullanıcı yönetimi (diğerleri sonraki aşamalarda açılacak) */
-const PHASE1 = new Set(["/panel", "/panel/gorevler", "/panel/talepler", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/odeme-linkleri", "/panel/urunler", "/panel/satis-urunleri", "/panel/markalar", "/panel/siteler", "/panel/kullanicilar"]);
+const PHASE1 = new Set(["/panel", "/panel/gorevler", "/panel/talepler", "/panel/whatsapp", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/odeme-linkleri", "/panel/urunler", "/panel/satis-urunleri", "/panel/markalar", "/panel/siteler", "/panel/kullanicilar"]);
 
-/** openTasks: Görevler'in yanında bana atanan açık görev sayısı · newRequests: Talepler'in yanında yeni talep sayısı */
-export function navFor(role: Role, openTasks = 0, newRequests = 0) {
+/**
+ * openTasks: Görevler'in yanında bana atanan açık görev sayısı · newRequests: Talepler'in yanında yeni talep sayısı ·
+ * whatsapp: okunmamış sohbet sayısı; null ise WhatsApp bağlantısı ayarlı değil ve menüde görünmez
+ */
+export function navFor(role: Role, openTasks = 0, newRequests = 0, whatsapp: number | null = null) {
   return adminNav
     .map((g) => ({
       ...g,
       items: g.items
-        .filter((i) => PHASE1.has(i.href) && (i.roles === "all" || i.roles.includes(role)))
+        .filter((i) => PHASE1.has(i.href) && (i.roles === "all" || i.roles.includes(role)) && (i.href !== "/panel/whatsapp" || whatsapp !== null))
         .map((i) =>
-          i.href === "/panel/gorevler" && openTasks ? { ...i, badge: String(openTasks) } : i.href === "/panel/talepler" && newRequests ? { ...i, badge: String(newRequests) } : i,
+          i.href === "/panel/gorevler" && openTasks
+            ? { ...i, badge: String(openTasks) }
+            : i.href === "/panel/talepler" && newRequests
+              ? { ...i, badge: String(newRequests) }
+              : i.href === "/panel/whatsapp" && whatsapp
+                ? { ...i, badge: String(whatsapp) }
+                : i,
         ),
     }))
     .filter((g) => g.items.length);

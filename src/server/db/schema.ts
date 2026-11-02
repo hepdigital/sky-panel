@@ -2,7 +2,7 @@
 // terminaldeki kayıtlar tek seferde aktarılabilir. Her teklif o anki halini (fiyatlar dahil) "veri" alanında eksiksiz saklar.
 //
 // Görünürlük: satışçı yalnızca kendi teklif, sipariş ve carilerini görür (sahip/kullanici_id); yönetici hepsini.
-import { type AnyMySqlColumn, boolean, date, decimal, index, int, longtext, mysqlEnum, mysqlTable, primaryKey, smallint, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { type AnyMySqlColumn, boolean, date, decimal, index, int, json, longtext, mysqlEnum, mysqlTable, primaryKey, smallint, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 export const kullanicilar = mysqlTable("kullanicilar", {
   id: int("id", { unsigned: true }).autoincrement().primaryKey(),
@@ -572,4 +572,64 @@ export const pazaryeriIslemleri = mysqlTable(
     olusturma: timestamp("olusturma").notNull().defaultNow(),
   },
   (t) => [index("pi_site").on(t.siteId, t.olusturma)],
+);
+
+/**
+ * WhatsApp sohbetleri (Cloud API, bkz. docs/whatsapp-asistan.md §4). Tablo yoksa ilk kullanımda oluşturulur
+ * (server/whatsapp/store.ts). urun_kodu, isleniyor_kadar, asistan_gecmis ve ozet asistan fazında kullanılacak.
+ */
+export const WA_SOHBET_DURUMLARI = ["asistan", "ekip", "kapali"] as const;
+export const WA_KAYNAKLAR = ["reklam", "site", "dogrudan"] as const;
+export const waSohbetler = mysqlTable(
+  "wa_sohbetler",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    /** E.164, başında + olmadan: 905xx… */
+    telefon: varchar("telefon", { length: 32 }).notNull(),
+    /** WhatsApp profil adı */
+    ad: varchar("ad", { length: 120 }),
+    durum: mysqlEnum("durum", WA_SOHBET_DURUMLARI).notNull().default("asistan"),
+    ilgilenenId: int("ilgilenen_id", { unsigned: true }),
+    kaynak: mysqlEnum("kaynak", WA_KAYNAKLAR).notNull().default("dogrudan"),
+    reklamId: varchar("reklam_id", { length: 40 }),
+    ctwaClid: varchar("ctwa_clid", { length: 191 }),
+    urunKodu: varchar("urun_kodu", { length: 60 }),
+    musteriId: int("musteri_id", { unsigned: true }),
+    /** 24 saat penceresi bu zamandan hesaplanır */
+    sonMusteriMesaji: timestamp("son_musteri_mesaji"),
+    sonMesaj: timestamp("son_mesaj").notNull().defaultNow(),
+    okunmamis: int("okunmamis", { unsigned: true }).notNull().default(0),
+    isleniyorKadar: timestamp("isleniyor_kadar"),
+    asistanGecmis: longtext("asistan_gecmis"),
+    ozet: text("ozet"),
+    olusturma: timestamp("olusturma").notNull().defaultNow(),
+    guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+  },
+  (t) => [uniqueIndex("wa_sohbet_telefon").on(t.telefon), index("wa_sohbet_son").on(t.sonMesaj)],
+);
+
+export const WA_YONLER = ["gelen", "asistan", "ekip"] as const;
+export const waMesajlar = mysqlTable(
+  "wa_mesajlar",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    sohbetId: int("sohbet_id", { unsigned: true })
+      .notNull()
+      .references(() => waSohbetler.id, { onDelete: "cascade" }),
+    /** Meta mesaj kimliği: tekrar gelen webhook aynı mesajı ikinci kez yazmaz */
+    wamid: varchar("wamid", { length: 191 }).notNull(),
+    /** ekip = telefondan (echo) ya da panelden */
+    yon: mysqlEnum("yon", WA_YONLER).notNull(),
+    tur: varchar("tur", { length: 20 }).notNull(),
+    metin: text("metin"),
+    medyaId: varchar("medya_id", { length: 191 }),
+    /** UPLOAD_DIR altındaki yol: whatsapp/<ad> */
+    medyaYol: varchar("medya_yol", { length: 255 }),
+    /** Giden mesajlar: sent, delivered, read, failed */
+    durum: varchar("durum", { length: 20 }),
+    kullaniciId: int("kullanici_id", { unsigned: true }),
+    ham: json("ham"),
+    tarih: timestamp("tarih").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("wa_mesaj_wamid").on(t.wamid), index("wa_mesaj_sohbet").on(t.sohbetId, t.tarih)],
 );

@@ -4,6 +4,8 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { canSell, requireMe } from "@/server/auth";
 import { newRequestCount } from "@/server/site-requests";
 import { openTaskCount } from "@/server/tasks";
+import { waEnabled } from "@/server/whatsapp/config";
+import { unreadChatCount } from "@/server/whatsapp/store";
 
 export const metadata: Metadata = { title: { default: "Yönetim", template: "%s · Sky Yönetim" } };
 
@@ -12,7 +14,10 @@ async function Guard({ children }: { children: React.ReactNode }) {
   const me = await requireMe();
   return (
     <AdminShell
-      me={{ id: me.id, adSoyad: me.adSoyad, kullaniciAdi: me.kullaniciAdi, rol: me.rol, openTasks: await openTaskCount(me), newRequests: canSell(me) ? await newRequestCount(me) : 0 }}
+      me={{
+        id: me.id, adSoyad: me.adSoyad, kullaniciAdi: me.kullaniciAdi, rol: me.rol, openTasks: await openTaskCount(me), newRequests: canSell(me) ? await newRequestCount(me) : 0,
+        whatsapp: canSell(me) && waEnabled() ? await unreadChatCount() : null,
+      }}
     >
       {children}
     </AdminShell>
