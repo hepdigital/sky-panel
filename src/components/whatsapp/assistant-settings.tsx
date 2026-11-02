@@ -25,6 +25,9 @@ type Ayar = {
   iban_gonderebilir: boolean;
   sesli_mesaj: "sor" | "devret";
   bildirim_eposta: string;
+  usd_try_kuru: number | null;
+  gunluk_butce_usd: number;
+  sohbet_gunluk_tur: number;
 };
 
 type Deneme = { durum: "asistan" | "ekip" | "kapali"; ozet: string | null; urunKodu: string | null; mesajlar: Bubble[] };
@@ -33,10 +36,11 @@ const inputCls = "h-10 w-full rounded-xl border border-input bg-card px-3 text-s
 const areaCls = "w-full rounded-xl border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
 const GUNLER = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
 const MODELLER = [
-  { key: "claude-opus-5-5", label: "Claude Opus 5.5 (en iyi kalite)" },
-  { key: "claude-sonnet-5-5", label: "Claude Sonnet 5.5 (daha ucuz)" },
   { key: "claude-haiku-5-5", label: "Claude Haiku 5.5 (en ucuz)" },
+  { key: "claude-sonnet-5-5", label: "Claude Sonnet 5.5" },
+  { key: "claude-opus-5-5", label: "Claude Opus 5.5 (en iyi kalite)" },
 ];
+const modelAd = (k: string) => MODELLER.find((m) => m.key === k)?.label.replace(/ \(.*\)$/, "") ?? k;
 const EFORLAR = [
   { key: "low", label: "Düşük (hızlı, ucuz)" },
   { key: "medium", label: "Orta (önerilen)" },
@@ -54,7 +58,16 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 }
 
 /** Asistan ayarları (§4) ve deneme alanı (§7.2): WhatsApp'a bağlanmadan müşteri gibi yazıp cevabı görme */
-export function AssistantSettings({ ayar, calisiyor, anahtar, deneme }: { ayar: Ayar; calisiyor: boolean; anahtar: boolean; deneme: Deneme }) {
+export function AssistantSettings({
+  ayar, calisiyor, butceDoldu, anahtar, deneme, denemeB,
+}: {
+  ayar: Ayar;
+  calisiyor: boolean;
+  butceDoldu: boolean;
+  anahtar: boolean;
+  deneme: Deneme;
+  denemeB: Deneme | null;
+}) {
   return (
     <div className="mx-auto max-w-[1400px]">
       <div className="flex flex-wrap items-end justify-between gap-3 pt-1">
@@ -68,6 +81,8 @@ export function AssistantSettings({ ayar, calisiyor, anahtar, deneme }: { ayar: 
               <span className="font-semibold text-success">Asistan şu an müşterilere cevap veriyor.</span>
             ) : !anahtar ? (
               <span className="font-semibold text-danger">Claude anahtarı (ANTHROPIC_API_KEY) sunucuda tanımlı değil; asistan çalışmaz.</span>
+            ) : ayar.aktif && butceDoldu ? (
+              <span className="font-semibold text-danger">Günlük AI bütçesi doldu; asistan yarın devam eder (deneme alanı çalışır).</span>
             ) : !ayar.aktif ? (
               "Asistan kapalı. Deneme alanında deneyip hazır olunca açın."
             ) : (
@@ -81,7 +96,7 @@ export function AssistantSettings({ ayar, calisiyor, anahtar, deneme }: { ayar: 
       </div>
       <div className="mt-5 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <SettingsForm ayar={ayar} />
-        <Playground deneme={deneme} anahtar={anahtar} />
+        <Playground deneme={deneme} denemeB={denemeB} anahtar={anahtar} varsayilanModel={ayar.model} />
       </div>
     </div>
   );
@@ -215,6 +230,22 @@ function SettingsForm({ ayar }: { ayar: Ayar }) {
         <Field label="Devretme bildirimi e-postası" hint="Boş: e-posta gönderilmez (menü rozeti her zaman çalışır).">
           <input type="email" value={a.bildirim_eposta} onChange={(e) => set("bildirim_eposta", e.target.value)} className={inputCls} placeholder="satis@…" />
         </Field>
+        <Field label="Günlük AI bütçesi (USD)" hint="Aşılırsa asistan o gün yeni tur başlatmaz; müşteriye bir kez bilgi verilir. Deneme alanı sayılmaz.">
+          <input type="number" min={0} step="0.5" value={a.gunluk_butce_usd} onChange={(e) => set("gunluk_butce_usd", Number(e.target.value))} className={inputCls} />
+        </Field>
+        <Field label="Sohbet başına günlük en çok tur" hint="Aşılırsa sohbet ekibe devredilir.">
+          <input type="number" min={1} max={500} value={a.sohbet_gunluk_tur} onChange={(e) => set("sohbet_gunluk_tur", Number(e.target.value))} className={inputCls} />
+        </Field>
+        <Field label="Dolar kuru (₺)" hint="Maliyetlerin ₺ gösterimi için elle girilir. Boş: $ gösterilir.">
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={a.usd_try_kuru ?? ""}
+            onChange={(e) => set("usd_try_kuru", e.target.value ? Number(e.target.value) : null)}
+            className={inputCls}
+          />
+        </Field>
       </div>
 
       <label className="flex items-start gap-3">
@@ -242,20 +273,18 @@ function SettingsForm({ ayar }: { ayar: Ayar }) {
   );
 }
 
-function Playground({ deneme, anahtar }: { deneme: Deneme; anahtar: boolean }) {
+function Playground({ deneme, denemeB, anahtar, varsayilanModel }: { deneme: Deneme; denemeB: Deneme | null; anahtar: boolean; varsayilanModel: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [kaynak, setKaynak] = useState<"reklam" | "site" | "dogrudan">("reklam");
   const [telefon, setTelefon] = useState("");
+  const [modelA, setModelA] = useState(varsayilanModel);
+  const [modelB, setModelB] = useState("");
+  const yanYana = !!modelB || !!denemeB;
   const [err, setErr] = useState<string | null>(null);
-  const end = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    end.current?.scrollIntoView({ block: "end" });
-  }, [deneme.mesajlar.length, pending]);
 
   const send = () =>
     (text.trim() || file) &&
@@ -269,7 +298,7 @@ function Playground({ deneme, anahtar }: { deneme: Deneme; anahtar: boolean }) {
           return setErr("Görsel okunamadı.");
         }
       }
-      const r = await waDeneme(text, gorsel, { kaynak, telefon });
+      const r = await waDeneme(text, gorsel, { kaynak, telefon }, modelA, modelB || null);
       if (!r.ok) return setErr(r.hata);
       setText("");
       setFile(null);
@@ -291,8 +320,8 @@ function Playground({ deneme, anahtar }: { deneme: Deneme; anahtar: boolean }) {
           <p className="text-[15px] font-bold">Deneme alanı</p>
           <p className="text-xs text-muted-foreground">Müşteri gibi yazın. Gerçek asistan ve gerçek bilgiler; WhatsApp&apos;a hiçbir şey gitmez, talep yazılmaz.</p>
         </div>
-        {deneme.durum === "ekip" && <Badge tone="info">Ekibe devretti</Badge>}
-        {deneme.urunKodu && <Badge dot={false}>{deneme.urunKodu}</Badge>}
+        {!yanYana && deneme.durum === "ekip" && <Badge tone="info">Ekibe devretti</Badge>}
+        {!yanYana && deneme.urunKodu && <Badge dot={false}>{deneme.urunKodu}</Badge>}
         <Button size="sm" variant="outline" disabled={pending} onClick={reset}>
           <RotateCcw /> Sıfırla
         </Button>
@@ -316,21 +345,32 @@ function Playground({ deneme, anahtar }: { deneme: Deneme; anahtar: boolean }) {
             title="Kayıtlı bir müşterinin telefonunu yazarsanız sipariş sorgusu o müşteriyle denenir"
           />
         </label>
+        <label className="flex items-center gap-2">
+          Model
+          <select value={modelA} onChange={(e) => setModelA(e.target.value)} className="h-8 rounded-lg border border-input bg-card px-2">
+            {MODELLER.map((m) => (
+              <option key={m.key} value={m.key}>
+                {modelAd(m.key)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-2">
+          Karşılaştır
+          <select value={modelB} onChange={(e) => setModelB(e.target.value)} className="h-8 rounded-lg border border-input bg-card px-2">
+            <option value="">Yok</option>
+            {MODELLER.map((m) => (
+              <option key={m.key} value={m.key}>
+                {modelAd(m.key)}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
-      <div className="flex-1 space-y-2 overflow-y-auto bg-muted/30 px-4 py-4">
-        {deneme.mesajlar.map((m) => (
-          <MessageBubble key={m.id} m={m} status={false} />
-        ))}
-        {!deneme.mesajlar.length && <p className="py-10 text-center text-sm text-muted-foreground">Bir mesaj yazarak başlayın (ör. &quot;Merhaba fiyat nedir&quot;).</p>}
-        {pending && <p className="text-center text-xs text-muted-foreground">Asistan yazıyor…</p>}
-        {deneme.ozet && (
-          <div className="rounded-xl bg-warning-soft p-3 text-xs">
-            <p className="font-semibold">Devretme notu</p>
-            <p className="mt-1 whitespace-pre-wrap break-words">{deneme.ozet}</p>
-          </div>
-        )}
-        <div ref={end} />
+      <div className={cn("grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)]", yanYana && "grid-cols-2 divide-x divide-border")}>
+        <Column d={deneme} baslik={yanYana ? modelAd(modelA) : null} pending={pending} bos />
+        {yanYana && <Column d={denemeB ?? { durum: "asistan", ozet: null, urunKodu: null, mesajlar: [] }} baslik={modelB ? modelAd(modelB) : "Karşılaştırma"} pending={pending && !!modelB} />}
       </div>
 
       <div className="border-t border-border p-3">
@@ -368,5 +408,36 @@ function Playground({ deneme, anahtar }: { deneme: Deneme; anahtar: boolean }) {
         </div>
       </div>
     </Card>
+  );
+}
+
+/** Deneme sütunu: mesajlar, araç ve maliyet satırları, devretme notu */
+function Column({ d, baslik, pending, bos = false }: { d: Deneme; baslik: string | null; pending: boolean; bos?: boolean }) {
+  const end = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "end" });
+  }, [d.mesajlar.length, pending]);
+  return (
+    <div className="min-w-0 space-y-2 overflow-y-auto bg-muted/30 px-4 py-4">
+      {baslik && (
+        <p className="sticky top-0 z-10 flex flex-wrap items-center gap-1.5 rounded-lg bg-card/90 px-2 py-1 text-xs font-bold backdrop-blur">
+          {baslik}
+          {d.durum === "ekip" && <Badge tone="info">Ekibe devretti</Badge>}
+          {d.urunKodu && <Badge dot={false}>{d.urunKodu}</Badge>}
+        </p>
+      )}
+      {d.mesajlar.map((m) => (
+        <MessageBubble key={m.id} m={m} status={false} />
+      ))}
+      {bos && !d.mesajlar.length && <p className="py-10 text-center text-sm text-muted-foreground">Bir mesaj yazarak başlayın (ör. &quot;Merhaba fiyat nedir&quot;).</p>}
+      {pending && <p className="text-center text-xs text-muted-foreground">Asistan yazıyor…</p>}
+      {d.ozet && (
+        <div className="rounded-xl bg-warning-soft p-3 text-xs">
+          <p className="font-semibold">Devretme notu</p>
+          <p className="mt-1 whitespace-pre-wrap break-words">{d.ozet}</p>
+        </div>
+      )}
+      <div ref={end} />
+    </div>
   );
 }

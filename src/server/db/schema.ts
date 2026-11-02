@@ -691,3 +691,26 @@ export const waTalepler = mysqlTable(
   },
   (t) => [index("wa_talep_sohbet").on(t.sohbetId), index("wa_talep_durum").on(t.durum)],
 );
+
+/** Asistanın her Claude çağrısının token kullanımı ve maliyeti (server/whatsapp/usage.ts). deneme: deneme alanı, canlı toplamlara girmez. */
+export const waAiKullanim = mysqlTable(
+  "wa_ai_kullanim",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    sohbetId: int("sohbet_id", { unsigned: true })
+      .notNull()
+      .references(() => waSohbetler.id, { onDelete: "cascade" }),
+    /** Yanıtı veren model (ret yedeği devreye girerse ayardakinden farklı olabilir) */
+    model: varchar("model", { length: 60 }).notNull(),
+    inputTokens: int("input_tokens", { unsigned: true }).notNull(),
+    cacheCreationInputTokens: int("cache_creation_input_tokens", { unsigned: true }).notNull(),
+    cacheReadInputTokens: int("cache_read_input_tokens", { unsigned: true }).notNull(),
+    outputTokens: int("output_tokens", { unsigned: true }).notNull(),
+    maliyetUsd: decimal("maliyet_usd", { precision: 10, scale: 6 }).notNull(),
+    deneme: boolean("deneme").notNull().default(false),
+    /** Turun ilk çağrısı: sohbet başına günlük tur sınırı bununla sayılır */
+    ilkCagri: boolean("ilk_cagri").notNull().default(false),
+    olusturma: timestamp("olusturma").notNull().defaultNow(),
+  },
+  (t) => [index("wa_ai_sohbet").on(t.sohbetId, t.olusturma), index("wa_ai_tarih").on(t.olusturma)],
+);

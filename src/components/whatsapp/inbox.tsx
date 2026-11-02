@@ -8,6 +8,7 @@ import { waAsistanaBirak, waDevral, waGonder, waKapat } from "@/app/panel/whatsa
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { aiPara } from "@/lib/para";
 import { cn, formatTRY } from "@/lib/utils";
 import { MessageBubble, timeText, type Bubble } from "./bubbles";
 
@@ -37,6 +38,7 @@ export type ChatDetail = {
   ctwaClid: string | null;
   urunKodu: string | null;
   ozet: string | null;
+  aiMaliyet: { usd: number; cagri: number } | null;
   ilgilenen: string | null;
   pencereAcik: boolean;
   sonMusteriMesaji: string | null;
@@ -73,7 +75,17 @@ function windowLeft(son: string | null) {
 }
 
 /** WhatsApp gelen kutusu: sohbetler, mesajlar, devral/asistana bırak/kapat, panelden cevap ve müşteri kartı */
-export function Inbox({ chats, chat, durum, asistan, yonetici }: { chats: ChatRow[]; chat: ChatDetail | null; durum: Durum | null; asistan: boolean; yonetici: boolean }) {
+export function Inbox({
+  chats, chat, durum, asistan, butceDoldu, yonetici, maliyet,
+}: {
+  chats: ChatRow[];
+  chat: ChatDetail | null;
+  durum: Durum | null;
+  asistan: boolean;
+  butceDoldu: boolean;
+  yonetici: boolean;
+  maliyet: { bugun: number; ay: number; ortalama: number; kur: number | null };
+}) {
   const router = useRouter();
 
   // Yeni mesajlar için sayfa açık ve görünürken 20 saniyede bir yenilenir
@@ -99,7 +111,12 @@ export function Inbox({ chats, chat, durum, asistan, yonetici }: { chats: ChatRo
           <h1 className="text-2xl font-bold tracking-tight md:text-[28px]">WhatsApp</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Müşteri mesajları. Ekibin telefondan yazdıkları da burada görünür.{" "}
-            <span className={cn("font-semibold", asistan ? "text-success" : "text-muted-foreground")}>{asistan ? "Asistan şu an cevaplıyor." : "Asistan şu an kapalı."}</span>
+            <span className={cn("font-semibold", asistan ? "text-success" : butceDoldu ? "text-danger" : "text-muted-foreground")}>
+              {asistan ? "Asistan şu an cevaplıyor." : butceDoldu ? "Günlük AI bütçesi doldu; asistan yarın devam eder." : "Asistan şu an kapalı."}
+            </span>
+          </p>
+          <p className="mt-1 text-xs font-semibold text-muted-foreground">
+            AI maliyeti: Bugün {aiPara(maliyet.bugun, maliyet.kur)} · Bu ay {aiPara(maliyet.ay, maliyet.kur)} · Sohbet başı ort. {aiPara(maliyet.ortalama, maliyet.kur)}
           </p>
           {yonetici && (
             <p className="mt-2 flex flex-wrap gap-3 text-xs font-semibold">
@@ -159,7 +176,7 @@ export function Inbox({ chats, chat, durum, asistan, yonetici }: { chats: ChatRo
         {chat ? (
           <>
             <Conversation key={chat.id} chat={chat} back={href(null)} asistan={asistan} />
-            <CustomerCard chat={chat} />
+            <CustomerCard chat={chat} kur={maliyet.kur} />
           </>
         ) : (
           <Card className="hidden items-center justify-center p-10 text-sm text-muted-foreground lg:flex">Soldan bir sohbet seçin.</Card>
@@ -264,7 +281,7 @@ function Conversation({ chat, back, asistan }: { chat: ChatDetail; back: string;
   );
 }
 
-function CustomerCard({ chat }: { chat: ChatDetail }) {
+function CustomerCard({ chat, kur }: { chat: ChatDetail; kur: number | null }) {
   const m = chat.musteri;
   return (
     <Card className="hidden h-fit space-y-4 p-4 text-sm xl:block">
@@ -316,6 +333,11 @@ function CustomerCard({ chat }: { chat: ChatDetail }) {
         {chat.reklamId && <p className="break-all text-xs text-muted-foreground">Reklam: {chat.reklamId}</p>}
         {chat.urunKodu && <p className="break-all text-xs text-muted-foreground">Ürün: {chat.urunKodu}</p>}
       </div>
+      {chat.aiMaliyet && chat.aiMaliyet.cagri > 0 && (
+        <p className="text-xs">
+          <span className="font-semibold text-muted-foreground">AI maliyeti:</span> {aiPara(chat.aiMaliyet.usd, kur)} ({chat.aiMaliyet.cagri} çağrı)
+        </p>
+      )}
       <div>
         <p className="text-xs font-semibold text-muted-foreground">Müşteri kaydı</p>
         {m ? (

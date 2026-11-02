@@ -105,6 +105,24 @@ export const ensureTables = (): Promise<unknown> =>
         CONSTRAINT wa_talepler_sohbet_id_wa_sohbetler_id_fk FOREIGN KEY (sohbet_id) REFERENCES wa_sohbetler (id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`),
     );
+    await db().execute(
+      sql.raw(`CREATE TABLE IF NOT EXISTS wa_ai_kullanim (
+        id int unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        sohbet_id int unsigned NOT NULL,
+        model varchar(60) NOT NULL,
+        input_tokens int unsigned NOT NULL,
+        cache_creation_input_tokens int unsigned NOT NULL,
+        cache_read_input_tokens int unsigned NOT NULL,
+        output_tokens int unsigned NOT NULL,
+        maliyet_usd decimal(10,6) NOT NULL,
+        deneme tinyint(1) NOT NULL DEFAULT 0,
+        ilk_cagri tinyint(1) NOT NULL DEFAULT 0,
+        olusturma timestamp NOT NULL DEFAULT current_timestamp(),
+        KEY wa_ai_sohbet (sohbet_id, olusturma),
+        KEY wa_ai_tarih (olusturma),
+        CONSTRAINT wa_ai_kullanim_sohbet_id_wa_sohbetler_id_fk FOREIGN KEY (sohbet_id) REFERENCES wa_sohbetler (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`),
+    );
   })().catch((e) => {
     ready = null;
     throw e;

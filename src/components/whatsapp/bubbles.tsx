@@ -1,4 +1,4 @@
-import { Bot, Check, CheckCheck, Clock, Wrench } from "lucide-react";
+import { Bot, Check, CheckCheck, Clock, Coins, Wrench } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
 
 export type Bubble = {
@@ -53,6 +53,13 @@ function StatusIcon({ durum }: { durum: string | null | undefined }) {
 /** Tek mesaj balonu. Metin yalnızca React metni olarak basılır (müşteri girdisi HTML olarak yorumlanmaz). */
 export function MessageBubble({ m, status = true }: { m: Bubble; status?: boolean }) {
   if (m.tur === "arac") return <ToolLine m={m} />;
+  // Deneme alanı: turun token ve maliyeti
+  if (m.tur === "maliyet")
+    return (
+      <p className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
+        <Coins className="size-3 shrink-0" /> {m.metin}
+      </p>
+    );
   const out = m.yon !== "gelen";
   const img = m.tur === "image" ? mediaUrl(m.medyaYol) : null;
   const video = m.tur === "video" && m.medyaYol && /^https:\/\//.test(m.medyaYol) ? m.medyaYol : null;

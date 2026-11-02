@@ -6,9 +6,9 @@ import { ensureTables } from "./store";
 // Asistan ayarları (şartname §4 wa_asistan_ayarlari): tek satır, veri JSON. Okunamayan alan varsayılana döner.
 
 export const MODELLER = [
-  { key: "claude-opus-5-5", label: "Claude Opus 5.5 (en iyi kalite)" },
-  { key: "claude-sonnet-5-5", label: "Claude Sonnet 5.5 (daha ucuz)" },
   { key: "claude-haiku-5-5", label: "Claude Haiku 5.5 (en ucuz)" },
+  { key: "claude-sonnet-5-5", label: "Claude Sonnet 5.5" },
+  { key: "claude-opus-5-5", label: "Claude Opus 5.5 (en iyi kalite)" },
 ] as const;
 export const EFORLAR = ["low", "medium", "high"] as const;
 export const CALISMA_MODLARI = ["7/24", "mesai_disi", "saat_araliklari"] as const;
@@ -32,14 +32,20 @@ export type WaAyarlar = {
   /** Sesli mesajda: yazarak iletmesini rica et ya da ekibe devret */
   sesli_mesaj: "sor" | "devret";
   bildirim_eposta: string;
+  /** Panelde ₺ gösterimi için elle girilen kur (null: dolar gösterilir) */
+  usd_try_kuru: number | null;
+  /** Canlı sohbetlerin günlük Claude bütçesi (USD); aşılınca asistan o gün yeni tur başlatmaz */
+  gunluk_butce_usd: number;
+  /** Sohbet başına günlük en çok asistan turu; aşılınca ekibe devredilir */
+  sohbet_gunluk_tur: number;
 };
 
 export const VARSAYILAN: WaAyarlar = {
   aktif: false,
   calisma_modu: "7/24",
   saat_araliklari: [{ gunler: [1, 2, 3, 4, 5], bas: "09:00", bit: "18:00" }],
-  model: "claude-opus-5-5",
-  effort: "medium",
+  model: "claude-haiku-5-5",
+  effort: "low",
   birlestirme_saniye: 8,
   ekipten_geri_donus_saat: null,
   ton_ve_kurallar: "",
@@ -47,6 +53,9 @@ export const VARSAYILAN: WaAyarlar = {
   iban_gonderebilir: false,
   sesli_mesaj: "sor",
   bildirim_eposta: "",
+  usd_try_kuru: null,
+  gunluk_butce_usd: 2,
+  sohbet_gunluk_tur: 25,
 };
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -63,6 +72,9 @@ export function normalize(raw: unknown): WaAyarlar {
         .slice(0, 14)
     : VARSAYILAN.saat_araliklari;
   const geri = Number(r.ekipten_geri_donus_saat);
+  const kur = Number(r.usd_try_kuru);
+  const butce = Number(r.gunluk_butce_usd ?? VARSAYILAN.gunluk_butce_usd);
+  const tur = Number(r.sohbet_gunluk_tur ?? VARSAYILAN.sohbet_gunluk_tur);
   return {
     aktif: r.aktif === true,
     calisma_modu: CALISMA_MODLARI.find((m) => m === r.calisma_modu) ?? VARSAYILAN.calisma_modu,
@@ -76,6 +88,9 @@ export function normalize(raw: unknown): WaAyarlar {
     iban_gonderebilir: r.iban_gonderebilir === true,
     sesli_mesaj: r.sesli_mesaj === "devret" ? "devret" : "sor",
     bildirim_eposta: str(r.bildirim_eposta, 200, "").trim(),
+    usd_try_kuru: r.usd_try_kuru === null || r.usd_try_kuru === "" || !(kur > 0) ? null : Math.min(1000, Math.round(kur * 100) / 100),
+    gunluk_butce_usd: Number.isFinite(butce) && butce >= 0 ? Math.min(1000, Math.round(butce * 100) / 100) : VARSAYILAN.gunluk_butce_usd,
+    sohbet_gunluk_tur: Number.isFinite(tur) && tur >= 1 ? Math.min(500, Math.round(tur)) : VARSAYILAN.sohbet_gunluk_tur,
   };
 }
 

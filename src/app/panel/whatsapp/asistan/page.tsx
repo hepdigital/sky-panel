@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import { AssistantSettings } from "@/components/whatsapp/assistant-settings";
 import { requireAdmin } from "@/server/auth";
 import { claudeReady, denemeMesajlari } from "@/server/whatsapp/asistan";
+import { spentToday } from "@/server/whatsapp/usage";
 import { waEnabled } from "@/server/whatsapp/config";
 import { assistantOn, getSettings } from "@/server/whatsapp/settings";
 
@@ -14,13 +15,16 @@ async function Assistant() {
   await connection();
   if (!waEnabled()) notFound();
   const me = await requireAdmin();
-  const [ayar, deneme] = await Promise.all([getSettings(), denemeMesajlari(me.id)]);
+  const [ayar, deneme, denemeB, bugun] = await Promise.all([getSettings(), denemeMesajlari(me.id, "a"), denemeMesajlari(me.id, "b"), spentToday()]);
+  const ser = (d: typeof deneme) => ({ ...d, mesajlar: d.mesajlar.map((m) => ({ ...m, tarih: m.tarih.toISOString() })) });
   return (
     <AssistantSettings
       ayar={ayar}
-      calisiyor={assistantOn(ayar)}
+      calisiyor={assistantOn(ayar) && bugun < ayar.gunluk_butce_usd}
+      butceDoldu={bugun >= ayar.gunluk_butce_usd}
       anahtar={claudeReady()}
-      deneme={{ ...deneme, mesajlar: deneme.mesajlar.map((m) => ({ ...m, tarih: m.tarih.toISOString() })) }}
+      deneme={ser(deneme)}
+      denemeB={denemeB.mesajlar.length ? ser(denemeB) : null}
     />
   );
 }
