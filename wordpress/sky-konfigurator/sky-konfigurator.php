@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SKY Konfigüratör
  * Description: SKY panelindeki gazebo konfigüratörünü siteye yerleştirir ve panelin imzaladığı tasarımı WooCommerce sepetine ekler. Fiyat panelde hesaplanır; site yalnızca imzayı doğrular.
- * Version: 1.7.0
+ * Version: 1.7.1
  * Author: SKY Görsel Çözümler
  * Requires Plugins: woocommerce
  * Text Domain: sky-konfigurator
@@ -17,7 +17,7 @@
  *   define( 'SKY_KONFIGURATOR_BASKILI', 'baskili-gazebo-cadir' );       // baskılı ön seçimi yapılan ana kategori
  * Sayfa: içeriği [sky_konfigurator] olan sayfa tam ekran konfigüratör olarak açılır (tema başlığı ve altbilgisi olmadan).
  * Kategori banner'ı: gazebo kategorilerinin üstünde "Kendi gazebonu tasarla"; ölçü ve baskı kategoriden seçili gelir (?olcu=3x3&baski=baskisiz).
- * Ödeme linki: panelin açtığı ürünsüz siparişlerde (_sky_odeme_linki) misafir ödeme sayfası e-posta doğrulaması istemez.
+ * Ödeme linki: panelin açtığı ürünsüz siparişlerde (_sky_odeme_linki) misafir ödeme sayfası e-posta doğrulaması istemez. iyzico formunda teslimat adresi de gönderilir.
  * Taksit: GET /wp-json/sky/v1/taksit?tutar=&ts=&sig= (panelin imzası) → iyzico'nun kart ailesi bazında taksit tutarları (sitedeki iyzico anahtarlarıyla).
  * Kargo: panelin yazdığı _sky_kargo_firma / _sky_kargo_takip_no müşterinin sipariş sayfasında takip linkiyle gösterilir.
  * Ürün: stok kodu SKY-GAZEBO-TASARLA olan, katalogda gizli bir WooCommerce ürünü; yalnızca konfigüratörden sepete düşer.
@@ -57,6 +57,8 @@ final class Sky_Konfigurator {
 		add_filter( 'woocommerce_order_item_thumbnail', array( __CLASS__, 'order_thumb' ), 10, 2 );
 		add_filter( 'woocommerce_hidden_order_itemmeta', array( __CLASS__, 'hidden_meta' ) );
 		add_filter( 'woocommerce_order_email_verification_grace_period', array( __CLASS__, 'payment_link_grace' ), 10, 2 );
+		add_action( 'woocommerce_receipt_iyzico', array( __CLASS__, 'pay_cart_start' ), 1 );
+		add_action( 'woocommerce_receipt_iyzico', array( __CLASS__, 'pay_cart_end' ), 999 );
 		add_action( 'rest_api_init', array( __CLASS__, 'rest_routes' ) );
 		add_action( 'woocommerce_order_details_after_order_table', array( __CLASS__, 'order_tracking' ), 5 );
 		add_action( 'woocommerce_before_shop_loop', array( __CLASS__, 'category_banner' ), 1 );
@@ -141,6 +143,37 @@ final class Sky_Konfigurator {
 	 */
 	public static function payment_link_grace( $grace, $order ) {
 		return $order instanceof WC_Order && '1' === (string) $order->get_meta( '_sky_odeme_linki' ) ? 30 * DAY_IN_SECONDS : $grace;
+	}
+
+	/** iyzico formu hazırlanırken sepete gösterilen geçici kalem (yalnız ödeme linki siparişinde) */
+	private static $pay_item = null;
+
+	/**
+	 * iyzico eklentisi teslimat adresini yalnız sepette fiziksel ürün varsa gönderir, ödeme sayfasında ise sepet boştur;
+	 * siparişi yine fiziksel kalem olarak bildirdiği için iyzico "ShippingAddress gönderilmesi zorunludur" der. Form hazırlanırken
+	 * sepet, siparişin tutarında kaydedilmemiş tek bir fiziksel "Ödeme" kalemi gösterir; müşterinin gerçek sepeti değişmez.
+	 */
+	public static function pay_cart_start( $order_id ) {
+		$order = wc_get_order( $order_id );
+		if ( ! $order || '1' !== (string) $order->get_meta( '_sky_odeme_linki' ) ) {
+			return;
+		}
+		$p = new WC_Product_Simple();
+		$p->set_name( 'Ödeme · Sipariş ' . $order->get_order_number() );
+		$p->set_regular_price( (string) $order->get_total() );
+		$p->set_price( (string) $order->get_total() );
+		$p->set_virtual( false );
+		self::$pay_item = array( 'data' => $p, 'quantity' => 1, 'product_id' => $order->get_id(), 'variation_id' => 0 );
+		add_filter( 'woocommerce_get_cart_contents', array( __CLASS__, 'pay_cart' ), 999 );
+	}
+
+	public static function pay_cart() {
+		return array( 'sky-odeme' => self::$pay_item );
+	}
+
+	public static function pay_cart_end() {
+		self::$pay_item = null;
+		remove_filter( 'woocommerce_get_cart_contents', array( __CLASS__, 'pay_cart' ), 999 );
 	}
 
 	/* ───────────── kargo takibi ───────────── */
