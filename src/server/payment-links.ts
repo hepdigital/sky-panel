@@ -70,7 +70,7 @@ const cleanPhone = (v: string) => {
 };
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-export type NewPaymentLink = { siteId: number; musteri: string; telefon: string; eposta?: string; aciklama?: string; tutar: number; komisyon: boolean };
+export type NewPaymentLink = { siteId: number; musteri: string; telefon: string; eposta?: string; adres: string; il: string; aciklama?: string; tutar: number; komisyon: boolean };
 
 export async function createPaymentLink(me: Me, input: NewPaymentLink) {
   const site = (await paymentSites(me)).find((s) => s.id === Number(input.siteId));
@@ -81,6 +81,11 @@ export async function createPaymentLink(me: Me, input: NewPaymentLink) {
   if (!telefon) return { ok: false as const, hata: "Telefonu kontrol edin (ör. 0532 123 45 67)." };
   const eposta = String(input.eposta ?? "").trim().toLowerCase();
   if (eposta && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(eposta)) return { ok: false as const, hata: "E-posta adresini kontrol edin." };
+  // iyzico ödeme formu fatura ve teslimat adresi olmadan açılmaz ("ShippingAddress gönderilmesi zorunludur")
+  const adres = String(input.adres ?? "").trim().replace(/\s+/g, " ").slice(0, 400);
+  if (adres.length < 5) return { ok: false as const, hata: "Müşterinin adresini yazın (iyzico ödeme ekranı adres ister)." };
+  const il = String(input.il ?? "").trim().replace(/\s+/g, " ").slice(0, 60);
+  if (il.length < 2) return { ok: false as const, hata: "İli yazın." };
   const tutar = round2(Number(input.tutar));
   if (!(tutar >= 1 && tutar <= 2_000_000)) return { ok: false as const, hata: "Tutarı kontrol edin." };
   const komisyon = input.komisyon ? KOMISYON_ORANI : 0;
@@ -100,7 +105,8 @@ export async function createPaymentLink(me: Me, input: NewPaymentLink) {
       body: JSON.stringify({
         status: "pending",
         currency: "TRY",
-        billing: { first_name: ad, last_name: soyad, phone: telefon, email: eposta || `odeme@${host}`, country: "TR" },
+        billing: { first_name: ad, last_name: soyad, phone: telefon, email: eposta || `odeme@${host}`, address_1: adres, city: il, country: "TR" },
+        shipping: { first_name: ad, last_name: soyad, phone: telefon, address_1: adres, city: il, country: "TR" },
         fee_lines: [{ name: aciklama ? `Ödeme · ${aciklama}` : "Ödeme", total: toplam.toFixed(2), tax_status: "none" }],
         customer_note: aciklama,
         meta_data: [

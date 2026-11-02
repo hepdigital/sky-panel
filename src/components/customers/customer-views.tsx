@@ -356,7 +356,7 @@ export function CustomerDetail({ c, admin, groups, staff, brands }: { c: Detail;
               <h2 className="text-[15px] font-semibold">Ödeme linkleri</h2>
               {c.telefon && (
                 <Link
-                  href={`/panel/odeme-linkleri?${new URLSearchParams({ musteri: c.yetkili ? `${c.yetkili}${c.firma && c.firma !== c.yetkili ? ` (${c.firma})` : ""}` : c.firma, telefon: c.telefon, ...(c.eposta ? { eposta: c.eposta } : {}) })}`}
+                  href={`/panel/odeme-linkleri?${new URLSearchParams({ musteri: c.yetkili ? `${c.yetkili}${c.firma && c.firma !== c.yetkili ? ` (${c.firma})` : ""}` : c.firma, telefon: c.telefon, ...(c.eposta ? { eposta: c.eposta } : {}), ...(c.adres ? { adres: c.adres } : {}), ...(c.il ? { il: c.il } : {}) })}`}
                   className="text-xs font-semibold text-primary hover:underline"
                 >
                   + Ödeme linki oluştur

@@ -39,7 +39,7 @@ export function PaymentLinks({
   sites: Site[];
   rows: LinkRow[];
   komisyonOrani: number;
-  initial: { musteri: string; telefon: string; eposta: string };
+  initial: { musteri: string; telefon: string; eposta: string; adres: string; il: string };
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -86,6 +86,8 @@ export function PaymentLinks({
                     musteri: String(f.get("musteri") ?? ""),
                     telefon: String(f.get("telefon") ?? ""),
                     eposta: String(f.get("eposta") ?? ""),
+                    adres: String(f.get("adres") ?? ""),
+                    il: String(f.get("il") ?? ""),
                     aciklama: String(f.get("aciklama") ?? ""),
                     tutar: amount,
                     komisyon,
@@ -121,6 +123,14 @@ export function PaymentLinks({
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-muted-foreground">E-posta (isteğe bağlı, makbuz için)</span>
                 <input name="eposta" type="email" defaultValue={initial.eposta} className={inputCls} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-muted-foreground">Adres (iyzico ödeme ekranı ister)</span>
+                <textarea name="adres" required minLength={5} rows={2} placeholder="Mahalle, sokak, no, ilçe" defaultValue={initial.adres} className={cn(inputCls, "h-auto resize-none py-2.5")} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-muted-foreground">İl</span>
+                <input name="il" required defaultValue={initial.il} className={inputCls} />
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-muted-foreground">Açıklama (müşteri görür)</span>

@@ -21,7 +21,7 @@ async function Links({ searchParams }: { searchParams: Promise<Record<string, st
       sites={sites.map((s) => ({ id: s.id, ad: s.ad, marka: s.marka }))}
       rows={rows}
       komisyonOrani={KOMISYON_ORANI}
-      initial={{ musteri: one(sp.musteri), telefon: one(sp.telefon), eposta: one(sp.eposta) }}
+      initial={{ musteri: one(sp.musteri), telefon: one(sp.telefon), eposta: one(sp.eposta), adres: one(sp.adres), il: one(sp.il) }}
     />
   );
 }
