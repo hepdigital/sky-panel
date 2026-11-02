@@ -205,6 +205,7 @@ export function Terminal({
       sides: structuredClone(c.sides),
       color: c.color ?? "#ffffff",
       wallColor: c.wallColor,
+      zemin: c.zemin,
     });
     setGq(c.qty);
     setEditing(id);

@@ -453,6 +453,8 @@ export type ViewerProps = {
   wallHex?: string;
   /** Kodla çizilen duvarlarda perdeler açık mı (değişince animasyonla açılır/kapanır) */
   curtainsOpen?: boolean;
+  /** Çadırın tabanında siyah parlak pilsa zemin */
+  floor?: boolean;
   /** Zemin işaretleri: kenar adları (ÖN, ARKA, SOL, SAĞ) ve ortada logo; etkin kenarın adı vurgu renginde */
   groundMarks?: GroundMarks;
   /** Verilen kenar seçilince kamera o kenarı gösteren çapraz açıya döner */
@@ -592,6 +594,13 @@ export default function MastertentViewer({ onSnapshot, registerCapture, register
         <Tent {...props} config={config} fabricHex={solidHex} wallHex={wallHex?.startsWith("#") ? wallHex : undefined} registerArSource={registerArSource} />
         <CurtainAnimator open={props.curtainsOpen ?? true} />
         <ContactShadows position={[0, 0.001, 0]} opacity={0.45} scale={10} blur={2.2} far={4} />
+        {props.floor && (
+          // 2 cm kalınlıkta, çadırın taban ölçüsünde parlak siyah plaka
+          <mesh position={[0, 0.01, 0]} receiveShadow>
+            <boxGeometry args={[props.width, 0.02, props.depth]} />
+            <meshPhysicalMaterial color="#0b0b0c" roughness={0.12} metalness={0.05} clearcoat={1} clearcoatRoughness={0.06} />
+          </mesh>
+        )}
         {props.groundMarks && <GroundMarksLayer marks={props.groundMarks} width={props.width} depth={props.depth} />}
         <Snapshotter
           snapshotKey={configToParams(config).toString()}

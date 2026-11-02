@@ -1,4 +1,4 @@
-// Modüler gazebo fiyat tablosu: iskelet (FRAMES), tavan (ROOF) ve duvar listesi (WALL). Varsayılan değerler
+// Modüler gazebo fiyat tablosu: iskelet (FRAMES), tavan (ROOF), duvar listesi (WALL) ve pilsa zemin (FLOOR). Varsayılan değerler
 // fiyatlar.json'dadır; Ürünler → Modüler gazebo fiyatları ekranında yapılan değişiklikler (ortak + markaya özel)
 // veritabanında "düzeltme" olarak saklanır ve bu varsayılanların üstüne uygulanır.
 //
@@ -14,11 +14,13 @@ export type PriceTable = {
   WALL: Record<string, Record<string, Pair[]>>;
   ROOF: Record<string, Pair[]>;
   FRAMES: Record<string, { desc: string; p: Record<string, Pair> }>;
+  /** Pilsa zemin, ölçüye göre (yalnız panel teklif ekranı) */
+  FLOOR: Record<string, Pair>;
 };
 
 /**
  * Düzeltmeler: hücre anahtarı → [toptan, perakende] (null = fiyat sorunuz).
- * Anahtarlar: "f|SQ3|3x3" (iskelet), "r|3x3|0" (tavan, kumaş sırası), "w|200x300|duz-tam|0" (duvar, kumaş sırası).
+ * Anahtarlar: "f|SQ3|3x3" (iskelet), "r|3x3|0" (tavan, kumaş sırası), "w|200x300|duz-tam|0" (duvar, kumaş sırası), "z|3x3" (pilsa zemin).
  */
 export type PriceEdits = Record<string, Pair>;
 /** Maliyet: aynı anahtarlar → birim maliyet (KDV hariç) */
@@ -32,6 +34,7 @@ export function cellKeys(t: PriceTable = DEFAULT_TABLE) {
   for (const [id, f] of Object.entries(t.FRAMES)) for (const size of Object.keys(f.p)) keys.push(`f|${id}|${size}`);
   for (const [size, list] of Object.entries(t.ROOF)) list.forEach((_, i) => keys.push(`r|${size}|${i}`));
   for (const [group, rows] of Object.entries(t.WALL)) for (const [kind, list] of Object.entries(rows)) list.forEach((_, i) => keys.push(`w|${group}|${kind}|${i}`));
+  for (const size of Object.keys(t.FLOOR)) keys.push(`z|${size}`);
   return keys;
 }
 
@@ -41,6 +44,7 @@ export function cellOf(t: PriceTable, key: string): Pair | undefined {
   if (k === "f") return t.FRAMES[a]?.p[b];
   if (k === "r") return t.ROOF[a]?.[Number(b)];
   if (k === "w") return t.WALL[a]?.[b]?.[Number(c)];
+  if (k === "z") return t.FLOOR[a];
   return undefined;
 }
 
@@ -60,6 +64,7 @@ export function applyEdits(base: PriceTable, ...layers: (PriceEdits | null | und
       const [k, a, b, c] = key.split("|");
       if (k === "f") t.FRAMES[a].p[b] = v;
       else if (k === "r") t.ROOF[a][Number(b)] = v;
+      else if (k === "z") t.FLOOR[a] = v;
       else t.WALL[a][b][Number(c)] = v;
       changed = true;
     }
@@ -76,6 +81,7 @@ export function costTable(costs: CostEdits): PriceTable {
     const [k, a, b, c] = key.split("|");
     if (k === "f") t.FRAMES[a].p[b] = v;
     else if (k === "r") t.ROOF[a][Number(b)] = v;
+    else if (k === "z") t.FLOOR[a] = v;
     else t.WALL[a][b][Number(c)] = v;
   }
   t.id = `m${hash(JSON.stringify(costs))}`;

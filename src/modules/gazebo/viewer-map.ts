@@ -79,5 +79,7 @@ export function viewerInput(g: Gazebo) {
     fabricHex: g.color ?? DEFAULT_COLOR,
     // Duvarlar tavandan farklı renkte olabilir
     wallHex: g.wallColor ?? g.color ?? DEFAULT_COLOR,
+    // Pilsa zemin: çadırın altında siyah parlak plaka
+    floor: !!g.zemin,
   };
 }

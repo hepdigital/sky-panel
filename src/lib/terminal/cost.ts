@@ -1,15 +1,16 @@
-import { framePrice, gzTotal, hesap, roofPrice, splitKey, unpricedWalls, type Catalog, type Gazebo, type QuoteState } from "./calc";
+import { floorPriceOf, framePrice, gzTotal, hesap, roofPrice, splitKey, unpricedWalls, type Catalog, type Gazebo, type QuoteState } from "./calc";
 import { withPriceTable, type PriceTable } from "./price-table";
 
 /** Ürün kodu → birim maliyet (KDV hariç). Seçenekli eşin ("kod+s") maliyeti ürün + seçenek maliyetidir. Yalnızca yöneticiye gönderilir. */
 export type Costs = Record<string, number>;
 
-/** Gazebonun birim maliyeti: iskelet, tavan ve duvarların hepsinin maliyeti girilmişse toplamı, yoksa undefined */
+/** Gazebonun birim maliyeti: iskelet, tavan, duvarlar ve (varsa) zeminin hepsinin maliyeti girilmişse toplamı, yoksa undefined */
 function gazeboCost(g: Gazebo, table: PriceTable) {
   return withPriceTable(table, () => {
     if (g.frame && framePrice(g, 0) === null) return undefined;
     if (g.roofFab !== null && roofPrice(g, 0) === null) return undefined;
     if (unpricedWalls(g, 0) > 0) return undefined;
+    if (g.zemin && floorPriceOf(g.size, 0) === null) return undefined;
     return gzTotal(g, 0);
   });
 }

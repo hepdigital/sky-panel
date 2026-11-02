@@ -22,7 +22,7 @@ import { LIST_PRODUCTS } from "@/modules/gazebo/walls";
 
 type Brand = { id: number; ad: string; renk: string };
 type Scope = "ortak" | "maliyet" | number;
-type Section = "iskelet" | "tavan" | "duvar";
+type Section = "iskelet" | "tavan" | "duvar" | "zemin";
 /** Hücre taslağı: [toptan, perakende] metin olarak; maliyette yalnızca ilk alan kullanılır */
 type Draft = Record<string, [string, string]>;
 
@@ -43,6 +43,11 @@ function rowsOf(section: Section, pick: string, fabric: number) {
   if (section === "iskelet")
     return Object.keys(DEFAULT_TABLE.FRAMES[pick]?.p ?? {}).map((size) => ({
       key: `f|${pick}|${size}`,
+      label: `${SZ[size] ?? size} m`,
+    }));
+  if (section === "zemin")
+    return Object.keys(DEFAULT_TABLE.FLOOR).map((size) => ({
+      key: `z|${size}`,
       label: `${SZ[size] ?? size} m`,
     }));
   if (section === "tavan")
@@ -94,6 +99,7 @@ export function GazeboPriceAdmin({
       ...Object.keys(DEFAULT_TABLE.ROOF).flatMap((s) =>
         [0, 1, 2].map((i) => `r|${s}|${i}`),
       ),
+      ...Object.keys(DEFAULT_TABLE.FLOOR).map((s) => `z|${s}`),
     ];
     for (const g of WALL_GROUPS)
       for (const k of Object.keys(DEFAULT_TABLE.WALL[g]))
@@ -194,7 +200,7 @@ export function GazeboPriceAdmin({
         Modüler gazebo fiyatları
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        İskelet, tavan kumaşı ve duvar fiyatları · KDV hariç · teklif ekranı bu
+        İskelet, tavan kumaşı, duvar ve pilsa zemin fiyatları · KDV hariç · teklif ekranı bu
         fiyatlarla hesaplar
       </p>
 
@@ -249,6 +255,7 @@ export function GazeboPriceAdmin({
               ["iskelet", "İskelet"],
               ["tavan", "Tavan kumaşı"],
               ["duvar", "Duvarlar"],
+              ["zemin", "Pilsa zemin"],
             ] as [Section, string][]
           ).map(([s, l]) => (
             <button
@@ -283,7 +290,7 @@ export function GazeboPriceAdmin({
             ))}
           </div>
         )}
-        {section !== "iskelet" && (
+        {(section === "tavan" || section === "duvar") && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {FABRICS.map((f, i) => (
               <button

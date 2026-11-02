@@ -13,6 +13,8 @@ import {
   SZ,
   colorNeeds,
   colorText,
+  floorPriceOf,
+  floorSize,
   gzRows,
   gzTotal,
   imgSrc,
@@ -165,6 +167,23 @@ export function GazeboCard({ draft, setDraft, qty, setQty, mode, money, editing,
       {/* 5 — Duvarlar */}
       <Section n={5} title="Duvarlar" hint="Kenarı açıp duvar tipini, kumaşını ve eklerini seçin">
         <WallEditor draft={draft} onChange={(sides) => set({ sides })} mode={mode} money={money} />
+      </Section>
+
+      {/* 6 — Zemin */}
+      <Section n={6} title="Zemin">
+        <label
+          className={cn(
+            "flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors",
+            draft.zemin ? "border-primary bg-primary-soft/60" : "border-border hover:bg-muted/60",
+          )}
+        >
+          <input type="checkbox" checked={!!draft.zemin} onChange={(e) => set({ zemin: e.target.checked || undefined })} className="size-4 accent-[var(--primary)]" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">Pilsa zemin ekle</span>
+            <span className="block text-xs text-muted-foreground">{floorSize(draft.size)} · siyah parlak</span>
+          </span>
+          <span className="tabular shrink-0 text-sm font-semibold">{priceText(floorPriceOf(draft.size, mode), money)}</span>
+        </label>
       </Section>
 
       {/* Döküm ve ekleme */}

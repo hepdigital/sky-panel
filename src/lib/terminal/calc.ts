@@ -82,7 +82,8 @@ export type Mode = 0 | 1; // 0 toptan, 1 perakende
 export type Side = { split?: boolean; walls: Wall[] };
 /** color: kumaş rengi (hex); fiyatı etkilemez, ürünün parçasıdır (eski terminal kayıtlarında yoktur → beyaz) */
 /** wallColor: duvarların rengi; yoksa tavanla (color) aynı */
-export type Gazebo = { size: string; frame: string | null; roofFab: number | null; sides: Side[]; color?: string; wallColor?: string };
+/** zemin: pilsa zemin eklendi mi (yalnız panel teklif ekranı) */
+export type Gazebo = { size: string; frame: string | null; roofFab: number | null; sides: Side[]; color?: string; wallColor?: string; zemin?: boolean };
 
 /** "Renk: Kırmızı" ya da tavan ve duvar farklıysa "Tavan: Kırmızı · Duvar: Beyaz"; dijital baskılı parçanın kumaş rengi olmaz */
 export function colorText(g: Gazebo) {
@@ -190,6 +191,10 @@ export const framePrice = (g: Gazebo, mode: Mode) => {
   return p ? val(p, mode) : null;
 };
 export const roofPrice = (g: Gazebo, mode: Mode) => (g.roofFab === null ? null : val(priceTable().ROOF[g.size]?.[g.roofFab] ?? null, mode));
+/** Ölçünün pilsa zemin fiyatı (seçili olmasa da; fiyatı girilmemişse null) */
+export const floorPriceOf = (size: string, mode: Mode) => val(priceTable().FLOOR?.[size] ?? null, mode);
+/** "300 × 450 cm" */
+export const floorSize = (size: string) => size.split("x").map((m) => `${Math.round(Number(m) * 100)}`).join(" × ") + " cm";
 export const unpricedWalls = (g: Gazebo, mode: Mode) => usedSlots(g).filter((s) => slotPrice(s, mode) === null).length;
 
 /** "SQ3 iskelet · 690D Impertex tavan · 4 duvar" */
@@ -199,6 +204,7 @@ export function partsOf(g: Gazebo, mode: Mode) {
   if (roofPrice(g, mode) !== null) p.push(`${FABRICS[g.roofFab!].n} tavan`);
   const w = usedSlots(g).length;
   if (w) p.push(`${w} duvar`);
+  if (g.zemin) p.push("pilsa zemin");
   return p;
 }
 
@@ -235,11 +241,15 @@ export function gzRows(g: Gazebo, mode: Mode): GzRow[] {
     const nm = c.t + (c.n > 1 ? ` × ${c.n}` : "");
     rows.push({ t: nm, s: c.s, v: c.v, bad: c.bad, c: `${nm} · ${c.s}`, img: c.img });
   }
+  if (g.zemin) {
+    const zp = floorPriceOf(g.size, mode);
+    rows.push({ t: "Pilsa zemin", s: floorSize(g.size), v: zp ?? 0, bad: zp === null, c: `Pilsa zemin · ${floorSize(g.size)}`, img: null });
+  }
   return rows;
 }
 export const gzTotal = (g: Gazebo, mode: Mode) => gzRows(g, mode).reduce((a, r) => a + (r.bad ? 0 : r.v), 0);
 export const cfgKey = (g: Gazebo) =>
-  [g.size, g.frame, g.roofFab, g.sides.map((s) => `${s.split ? "b" : "t"}${s.walls.map(wallKey).join("+")}`).join(","), g.color ?? "#ffffff", g.wallColor ?? ""].join("|");
+  [g.size, g.frame, g.roofFab, g.sides.map((s) => `${s.split ? "b" : "t"}${s.walls.map(wallKey).join("+")}`).join(","), g.color ?? "#ffffff", g.wallColor ?? "", g.zemin ? "z" : ""].join("|");
 
 /** Eski kayıtlardaki kenar ({t, f}: terminalin 12 duvar ürünü) ya da yeni kenar → yeni kenar */
 export function sideFrom(raw: unknown): Side {
