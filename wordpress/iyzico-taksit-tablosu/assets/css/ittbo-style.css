@@ -1,0 +1,331 @@
+/**
+ * İyzico Taksit Tablosu By Ogün - Stylesheet
+ * Version: 1.0.0
+ */
+
+/* Container Styling */
+.ittbo-container {
+    width: 100%;
+    overflow-x: auto;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 20px 0;
+    position: relative;
+}
+
+/* Modal Trigger Link */
+.ittbo-modal-trigger {
+    color: #2563eb;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.ittbo-modal-trigger:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+/* Modal Overlay */
+.ittbo-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 999999;
+}
+
+.ittbo-modal.ittbo-modal-open {
+    display: block;
+}
+
+.ittbo-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+}
+
+/* Modal Content */
+.ittbo-modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    max-width: 95%;
+    max-height: 90vh;
+    width: 900px;
+    overflow: hidden;
+    animation: ittboModalSlideIn 0.3s ease-out;
+}
+
+@keyframes ittboModalSlideIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -48%);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
+}
+
+/* Modal Title */
+.ittbo-modal-title {
+    margin: 0;
+    padding: 20px 24px;
+    font-size: 20px;
+    font-weight: 600;
+    color: #111827;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+/* Modal Close Button */
+.ittbo-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: transparent;
+    border: none;
+    font-size: 32px;
+    line-height: 1;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: color 0.2s;
+    z-index: 10;
+}
+
+.ittbo-modal-close:hover {
+    color: #111827;
+}
+
+/* Modal Table Container */
+.ittbo-modal-content .ittbo-container {
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    max-height: calc(90vh - 80px);
+    overflow-y: auto;
+}
+
+/* Loader */
+.ittbo-loader {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+/* Error Message */
+.ittbo-error {
+    background: #fee;
+    border: 1px solid #fcc;
+    color: #c33;
+    padding: 15px;
+    border-radius: 4px;
+    margin: 20px 0;
+    text-align: center;
+}
+
+/* Scrollbar Customization */
+.ittbo-container::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+
+.ittbo-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.ittbo-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.ittbo-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Table Basic Structure */
+.ittbo-table {
+    width: 100%;
+    min-width: 800px;
+    border-collapse: collapse;
+    font-size: 14px;
+    text-align: center;
+    margin: 0;
+}
+
+/* Headers */
+.ittbo-table thead tr {
+    background-color: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.ittbo-table th {
+    padding: 16px;
+    font-weight: 600;
+    color: #4b5563;
+    border-right: 1px solid #e5e7eb;
+    white-space: nowrap;
+}
+
+.ittbo-table th:last-child {
+    border-right: none;
+}
+
+/* Sticky First Column (Labels) */
+.ittbo-sticky-col {
+    position: sticky;
+    left: 0;
+    background-color: #fff;
+    z-index: 10;
+    border-right: 1px solid #e5e7eb;
+    box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1);
+}
+
+.ittbo-table thead th.ittbo-sticky-col {
+    background-color: #f9fafb;
+    z-index: 11;
+}
+
+/* Rows */
+.ittbo-table tbody tr {
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.ittbo-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.ittbo-table td {
+    padding: 8px;
+    vertical-align: middle;
+    border-right: 1px solid rgba(255,255,255,0.2);
+}
+
+.ittbo-table td:last-child {
+    border-right: none;
+}
+
+/* Installment Label Cell */
+.ittbo-label-cell {
+    color: #374151;
+    font-weight: 500;
+    padding: 12px !important;
+    background-color: #fff;
+}
+
+/* Bank Cells */
+.ittbo-bank-cell {
+    color: #fff;
+    transition: opacity 0.2s;
+}
+
+.ittbo-bank-cell:hover {
+    opacity: 0.9;
+}
+
+.ittbo-cell-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 0;
+    min-height: 50px;
+}
+
+.ittbo-price-main {
+    font-weight: 700;
+    font-size: 15px;
+    white-space: nowrap;
+}
+
+.ittbo-price-total {
+    font-size: 10px;
+    font-weight: 300;
+    background-color: rgba(0,0,0,0.15);
+    padding: 2px 6px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+/* Responsive Design */
+@media screen and (max-width: 768px) {
+    .ittbo-container {
+        border-radius: 4px;
+        margin: 15px 0;
+    }
+    
+    .ittbo-table {
+        font-size: 12px;
+    }
+    
+    .ittbo-table th,
+    .ittbo-table td {
+        padding: 8px;
+    }
+    
+    .ittbo-price-main {
+        font-size: 13px;
+    }
+    
+    .ittbo-price-total {
+        font-size: 9px;
+    }
+
+    /* Modal responsive */
+    .ittbo-modal-content {
+        width: 95%;
+        max-height: 95vh;
+    }
+
+    .ittbo-modal-title {
+        font-size: 18px;
+        padding: 16px 20px;
+    }
+
+    .ittbo-modal-close {
+        top: 12px;
+        right: 12px;
+        font-size: 28px;
+    }
+}
+
+/* Prevent body scroll when modal is open */
+body.ittbo-modal-active {
+    overflow: hidden;
+}
+
+/* Print Styles */
+@media print {
+    .ittbo-container {
+        border: 1px solid #000;
+        box-shadow: none;
+    }
+    
+    .ittbo-table {
+        min-width: auto;
+    }
+    
+    .ittbo-sticky-col {
+        position: static;
+        box-shadow: none;
+    }
+}
