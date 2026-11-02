@@ -606,7 +606,7 @@ function ColorSheet({ open, colors, onClose }: { open: boolean; colors: FabricCo
     });
   return (
     <Sheet open={open} onClose={onClose} title="Kumaş renkleri" className="md:max-w-lg">
-      <p className="text-sm text-muted-foreground">Stokta olmayan renk teklif ekranında seçilemez (satışçılar “stokta yok” görür) ve GazeboTente sitesinde gösterilmez.</p>
+      <p className="text-sm text-muted-foreground">Stokta olmayan renk teklif ekranında, sitedeki konfigüratörde ve GazeboTente sitesinde gösterilmez.</p>
       <ul className="mt-4 grid gap-2 sm:grid-cols-2">
         {colors.map((c) => (
           <li key={c.hex}>

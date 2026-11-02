@@ -127,7 +127,7 @@ function VariantItem({ it, prod, setProd, mode, money }: { it: CatalogItem; prod
             {hex && out.has(hex) && <span className="ml-1 text-danger">· stokta yok</span>}
           </p>
           <div className="flex flex-wrap gap-1">
-            {COLORS.map((c) => (
+            {COLORS.filter((c) => !out.has(c.hex) || c.hex === hex || lines.some((k) => splitKey(k).hex === c.hex)).map((c) => (
               <button
                 key={c.hex}
                 type="button"

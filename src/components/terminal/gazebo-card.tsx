@@ -193,7 +193,8 @@ function ColorRow({ label, value, onPick, className }: { label: string; value: s
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
       <span className="w-12 shrink-0 text-xs font-semibold text-muted-foreground">{label}</span>
-      {COLORS.map((c) => (
+      {/* Stokta olmayan renk sitedeki konfigüratörde olduğu gibi gösterilmez; yalnız önceden seçilmişse uyarıyla kalır */}
+      {COLORS.filter((c) => !out.has(c.hex) || c.hex === value).map((c) => (
         <button
           key={c.hex}
           type="button"
