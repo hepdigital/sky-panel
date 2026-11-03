@@ -10,7 +10,7 @@ import { getCatalog } from "../catalog";
 import { listColors } from "../colors";
 import { saveWebp } from "../files";
 import { gazeboTables } from "../gazebo-prices";
-import { konfExtras } from "../konfigurator";
+import { encodeDesign, konfExtras } from "../konfigurator";
 
 // Asistanın gazebo araçları: sitedeki "Kendin Tasarla" konfigüratörüyle aynı kurallar ve fiyatlar (markanın modüler gazebo tablosu,
 // perakende, tavan ve duvarlar aynı kumaştan, kenarlar bölünmez). Asistanın söylediği fiyat, müşterinin tasarım linkinde göreceği fiyattır.
@@ -56,11 +56,12 @@ async function table(markaId: number) {
 }
 
 /** Tasarım linki: sitedeki konfigüratör, ölçü ve baskı önceden seçili */
-export function designLink(card: Kart | null, siteAdres: string, size: string | null, f: number | null) {
+export function designLink(card: Kart | null, siteAdres: string, size: string | null, f: number | null, tasarim?: string) {
   const base = card?.url || `${siteAdres.replace(/\/+$/, "")}/gazebo-tasarla/`;
   const q = new URLSearchParams();
-  if (size) q.set("olcu", size);
-  if (f !== null) q.set("baski", f === 2 ? "baskili" : "baskisiz");
+  if (tasarim) q.set("tasarim", tasarim);
+  else if (size) q.set("olcu", size);
+  if (f !== null && !tasarim) q.set("baski", f === 2 ? "baskili" : "baskisiz");
   return q.size ? `${base}${base.includes("?") ? "&" : "?"}${q}` : base;
 }
 
@@ -201,7 +202,8 @@ export async function priceGazebo(markaId: number, i: GazeboSecim) {
     ...ekler.map((e) => `Ek: ${e.ad} × ${e.adet}`),
   ];
   const toplam = r.birim * adet + ekler.reduce((a, e) => a + e.tutar, 0);
-  return { ok: true as const, g: r.g, size, f, renk: renk?.ad ?? null, hex: renk?.hex ?? null, adet, birim: r.birim, ekler, duvarlar, ozet, toplam };
+  const tasarim = encodeDesign({ g: r.g, e: Object.fromEntries(ex.list.map((x) => [x.ek.kod, x.adet])), a: adet });
+  return { ok: true as const, g: r.g, size, f, renk: renk?.ad ?? null, hex: renk?.hex ?? null, adet, birim: r.birim, ekler, duvarlar, ozet, toplam, tasarim };
 }
 
 /**
