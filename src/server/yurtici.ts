@@ -14,14 +14,26 @@ export type YkCredentials = { kullanici: string; sifre: string; musteriNo: strin
 const esc = (s: string) => s.replace(/[<>&'"]/g, (c) => `&#${c.charCodeAt(0)};`);
 const unesc = (s: string) => s.replace(/&#(\d+);/g, (_, d) => String.fromCharCode(Number(d))).replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
 
+/**
+ * Yurtiçi servisi yalnızca izin verilen (Türkiye'deki ya da Yurtiçi'ye bildirilen) IP adreslerinden açılır; yurt dışındaki
+ * sunucudan bağlantı zaman aşımına düşer. Bu durumda ne yapılacağını söyleyen hata verilir.
+ */
 async function soap(service: string, ns: string, body: string) {
-  const res = await fetch(`${BASE}/${service}`, {
-    method: "POST",
-    headers: { "Content-Type": "text/xml; charset=utf-8", SOAPAction: '""' },
-    body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ws="${ns}"><soapenv:Body>${body}</soapenv:Body></soapenv:Envelope>`,
-    cache: "no-store",
-    signal: AbortSignal.timeout(TIMEOUT),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/${service}`, {
+      method: "POST",
+      headers: { "Content-Type": "text/xml; charset=utf-8", SOAPAction: '""' },
+      body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ws="${ns}"><soapenv:Body>${body}</soapenv:Body></soapenv:Envelope>`,
+      cache: "no-store",
+      signal: AbortSignal.timeout(TIMEOUT),
+    });
+  } catch (e) {
+    const code = (e as { cause?: { code?: string } }).cause?.code;
+    if (code === "UND_ERR_CONNECT_TIMEOUT" || code === "ETIMEDOUT" || code === "ECONNREFUSED" || code === "ECONNRESET")
+      throw new Error("Yurtiçi servisine bu sunucudan ulaşılamıyor (bağlantı zaman aşımı). Yurtiçi'nin panel sunucusunun IP adresine web servis izni vermesi gerekiyor.");
+    throw e;
+  }
   const text = await res.text();
   if (!res.ok && !text.includes("Envelope")) throw new Error(`Yurtiçi: HTTP ${res.status}`);
   const fault = text.match(/<faultstring>([^<]*)<\/faultstring>/);
