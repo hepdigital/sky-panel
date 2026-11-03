@@ -7,7 +7,7 @@ import { listColors } from "../colors";
 import { phoneKey, phoneMatch } from "../customers";
 import { db, schema } from "../db";
 import { mailReady, sendMail } from "../mail";
-import { wcProductInfo } from "../marketplaces/woocommerce";
+import { wcCategoryProducts, wcProductInfo } from "../marketplaces/woocommerce";
 import { orderCargo } from "../orders";
 import { siteInstallments, siteTransferRate } from "../payment-links";
 import { fold, getCard, listCards, type Kart } from "./cards";
@@ -45,7 +45,7 @@ export function toolDefs(ayar: WaAyarlar): Anthropic.Beta.BetaTool[] {
     {
       name: "urun_bilgisi",
       description:
-        "Ürün kartının canlı bilgisi: sitedeki güncel fiyat (KDV dahil, indirimliyse liste fiyatıyla), havale/EFT indirimi ve fiyatı, ürün linki. Fiyat soran her müşteride bunu çağır; fiyatı ezberden söyleme.",
+        "Ürün kartının canlı bilgisi: sitedeki güncel fiyat (KDV dahil, indirimliyse liste fiyatıyla), havale/EFT indirimi ve fiyatı, ürün linki. Kategori kartında kategorideki ürünler (ürün numarası, ad, fiyat, link) ve kategori linki. Fiyat soran her müşteride bunu çağır; fiyatı ezberden söyleme.",
       input_schema: { type: "object", properties: { kod: { type: "string", description: "Ürün kartı kodu, ör. kis-bahcesi-3x3" } }, required: ["kod"], additionalProperties: false },
     },
     {
@@ -77,6 +77,17 @@ export function toolDefs(ayar: WaAyarlar): Anthropic.Beta.BetaTool[] {
       name: "medya_gonder",
       description: "Ürün kartındaki izinli bir görseli ya da videoyu (ör. kurulum videosu) müşteriye gönderir. Yalnızca kartın medya listesindeki kimlikler.",
       input_schema: { type: "object", properties: { kod: { type: "string", description: "Ürün kartı kodu" }, id: { type: "string", description: "Medya kimliği" } }, required: ["kod", "id"], additionalProperties: false },
+    },
+    {
+      name: "urun_gorseli_gonder",
+      description:
+        "Sitedeki ürünün ana görselini müşteriye WhatsApp'tan gönderir (açıklaması ürün adı). urun_id boşsa kartın ürünü; kategori kartında urun_bilgisi'ndeki ürün numaralarından biri. Müşteri görmek isterse ya da ürünü tanıtırken bir kez kullan; aynı görseli tekrar gönderme.",
+      input_schema: {
+        type: "object",
+        properties: { kod: { type: "string", description: "Ürün kartı kodu" }, urun_id: { anyOf: [{ type: "integer" }, { type: "null" }], description: "Sitedeki ürün numarası" } },
+        required: ["kod", "urun_id"],
+        additionalProperties: false,
+      },
     },
     {
       name: "bilgi_kaydet",
@@ -219,13 +230,51 @@ async function liveProduct(card: Kart) {
   return { site, v: info.v };
 }
 
+/** Kategorideki yayındaki ürünler (5 dakika önbellek) */
+const categoryCache = new Map<string, { t: number; v: Awaited<ReturnType<typeof wcCategoryProducts>> }>();
+async function liveCategory(card: Kart) {
+  const site = await siteOf(card.siteId);
+  if (!site || !card.disKategoriId) return null;
+  const key = `${site.id}:${card.disKategoriId}`;
+  let c = categoryCache.get(key);
+  if (!c || Date.now() - c.t > 5 * 60_000) {
+    c = { t: Date.now(), v: await wcCategoryProducts(site, card.disKategoriId) };
+    categoryCache.set(key, c);
+  }
+  return { site, urunler: c.v };
+}
+
 const tl = (n: number) => Math.round(n * 100) / 100;
+
+/** Kategori kartı: kategorideki ürünler; asistan genel soruda kategoriyi özetler, belirli ürün sorulunca o ürünün linkini verir */
+async function categoryInfo(card: Kart) {
+  const base = { kod: card.kod, ad: card.ad, seviye: card.asistanSeviyesi, kategori_linki: card.url };
+  let live: Awaited<ReturnType<typeof liveCategory>>;
+  try {
+    live = await liveCategory(card);
+  } catch {
+    return { ...base, urunler: [], not: "Ürünler şu an siteden okunamadı; fiyat söyleme, ekibe devret." };
+  }
+  const urunler = (live?.urunler ?? []).filter((u) => u.fiyat !== null);
+  if (!live || !urunler.length) return { ...base, urunler: [], not: "Kategoride fiyatı okunabilen ürün yok; fiyat söyleme, ekibe devret." };
+  const oran = card.asistanSeviyesi === "cevaplar" ? await siteTransferRate(live.site) : null;
+  return {
+    ...base,
+    one_cikan_urun_id: card.disUrunId,
+    urunler: urunler.map((u) => ({ urun_id: u.id, ad: u.ad, [u.varyantli ? "baslangic_fiyati_kdv_dahil" : "fiyat_kdv_dahil"]: u.fiyat, link: u.link })),
+    ...(oran !== null ? { havale_eft_indirim_orani: oran } : {}),
+    not: `Genel soruda (ör. "bayrak fiyatı ne") seçenekleri kısaca özetle: hangi modeller / ölçüler var ve "X TL'den başlayan fiyatlarla" (en düşük fiyat); tek link olarak kategori_linki'ni ver, her ürünün linkini sıralama. Müşteri belirli bir model ya da ölçü sorarsa o ürünün fiyatını ve linkini ver. Görmek isterse urun_gorseli_gonder.${
+      card.asistanSeviyesi === "bilgi_verir" ? " Sonra ölçü, adet, baskı, il ve ad bilgisini topla, bilgi_kaydet ve ekibe_devret. Satışı kapatma: sipariş, ödeme linki, IBAN ya da teslim süresi sözü verme." : ""
+    }`,
+  };
+}
 
 async function urunBilgisi(kod: string) {
   const card = await getCard(kod);
   if (!card || !card.aktif) return { hata: `"${kod}" kodlu ürün kartı yok. urun_bul ile doğru kodu bul.` };
   const base = { kod: card.kod, ad: card.ad, seviye: card.asistanSeviyesi, link: card.url };
   if (card.asistanSeviyesi === "devreder") return { ...base, fiyat: null, not: "Bu ürünün fiyatını ekip verir: ölçü, adet, il ve ad bilgisini topla, kaydet ve ekibe devret." };
+  if (card.disKategoriId) return categoryInfo(card);
   let live: Awaited<ReturnType<typeof liveProduct>>;
   try {
     live = await liveProduct(card);
@@ -347,6 +396,28 @@ async function medyaGonder(ctx: Ctx, telefon: string, kod: string, id: string) {
   const link = yol.startsWith("/") ? publicUrl(yol) : yol;
   const r = await deliver(ctx, telefon, { tur: m.tur, link, yol, metin: m.aciklama || null });
   return r.ok ? { gonderildi: true } : { hata: r.hata };
+}
+
+/** Sitedeki ürün görseli: yalnızca kartın ürünü ya da kartın kategorisindeki ürünler; panelin /jpg dönüştürücüsünden JPEG gider */
+async function urunGorseli(ctx: Ctx, telefon: string, kod: string, urunId: number | null) {
+  const card = await getCard(kod);
+  if (!card?.aktif || card.asistanSeviyesi === "devreder" || !card.siteId) return { hata: "Bu ürün için görsel gönderilemiyor." };
+  const id = urunId || card.disUrunId;
+  if (!id) return { hata: "urun_id gerekli: urun_bilgisi'ndeki ürün numaralarından birini ver." };
+  let urun: { ad: string; gorsel: string | null } | undefined;
+  try {
+    if (id === card.disUrunId) {
+      const live = await liveProduct(card);
+      if (live?.v.yayinda) urun = live.v;
+    } else urun = (await liveCategory(card))?.urunler.find((u) => u.id === id);
+  } catch {
+    return { hata: "Ürün şu an siteden okunamadı." };
+  }
+  if (!urun) return { hata: "Bu ürün numarası bu kartta yok; urun_bilgisi'ndeki numaralardan birini kullan." };
+  if (!urun.gorsel) return { hata: "Ürünün sitede görseli yok." };
+  const yol = `/jpg/site/${card.siteId}/${id}.jpg`;
+  const r = await deliver(ctx, telefon, { tur: "image", link: publicUrl(yol), yol, metin: urun.ad });
+  return r.ok ? { gonderildi: true, urun: urun.ad } : { hata: r.hata };
 }
 
 type BilgiInput = { ad: string | null; il: string | null; urun: string | null; adet: number | null; renk: string | null; not: string | null; aranma_zamani: string | null };
@@ -472,6 +543,9 @@ export async function runTool(ctx: Ctx, telefon: string, name: string, input: Re
       break;
     case "medya_gonder":
       sonuc = await medyaGonder(ctx, telefon, str("kod"), str("id"));
+      break;
+    case "urun_gorseli_gonder":
+      sonuc = await urunGorseli(ctx, telefon, str("kod"), Number(input.urun_id) || null);
       break;
     case "bilgi_kaydet":
       sonuc = await bilgiKaydet(ctx, input as BilgiInput);

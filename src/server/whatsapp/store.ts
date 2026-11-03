@@ -132,6 +132,7 @@ export const ensureTables = (): Promise<unknown> =>
     const has = (t: string, c: string) => cols.some((x) => x.t === t && x.c === c);
     if (!has("wa_sohbetler", "odeme_linki_id")) await db().execute(sql.raw("ALTER TABLE wa_sohbetler ADD COLUMN odeme_linki_id int unsigned NULL AFTER isleniyor_kadar"));
     if (!has("wa_sohbetler", "odeme_taslak")) await db().execute(sql.raw("ALTER TABLE wa_sohbetler ADD COLUMN odeme_taslak text NULL AFTER odeme_linki_id"));
+    if (!has("wa_urun_kartlari", "dis_kategori_id")) await db().execute(sql.raw("ALTER TABLE wa_urun_kartlari ADD COLUMN dis_kategori_id int unsigned NULL AFTER dis_urun_id"));
     if (!has("wa_urun_kartlari", "asistan_seviyesi")) {
       await db().execute(sql.raw("ALTER TABLE wa_urun_kartlari ADD COLUMN asistan_seviyesi enum('cevaplar','bilgi_verir','devreder') NOT NULL DEFAULT 'devreder' AFTER anahtar_kelimeler"));
       if (has("wa_urun_kartlari", "asistan_cevaplar")) {

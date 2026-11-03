@@ -4,6 +4,7 @@ import { db, schema } from "../db";
 import { ensureTables } from "./store";
 
 // Asistanın ürün kartları (şartname §4 wa_urun_kartlari, §8). Fiyat kartta tutulmaz; urun_bilgisi aracı siteden okur.
+// Kart tek ürüne (disUrunId) ya da site kategorisine (disKategoriId: kategorideki ürünler listelenir, disUrunId öne çıkan) bağlanır.
 
 const { waUrunKartlari: kartlar } = schema;
 
@@ -15,7 +16,7 @@ export type Medya = { id: string; tur: "image" | "video"; yol: string; aciklama:
 export type Seviye = (typeof schema.WA_ASISTAN_SEVIYELERI)[number];
 
 export type Kart = {
-  kod: string; ad: string; siteId: number | null; disUrunId: number | null; url: string | null; anahtarKelimeler: string; asistanSeviyesi: Seviye;
+  kod: string; ad: string; siteId: number | null; disUrunId: number | null; disKategoriId: number | null; url: string | null; anahtarKelimeler: string; asistanSeviyesi: Seviye;
   bilgi: string; sss: Sss[]; itirazlar: Itiraz[]; medya: Medya[]; yasaklar: string; aktif: boolean;
 };
 
@@ -31,7 +32,7 @@ const s = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0
 
 function toKart(r: typeof kartlar.$inferSelect): Kart {
   return {
-    kod: r.kod, ad: r.ad, siteId: r.siteId, disUrunId: r.disUrunId, url: r.url, anahtarKelimeler: r.anahtarKelimeler ?? "", asistanSeviyesi: r.asistanSeviyesi,
+    kod: r.kod, ad: r.ad, siteId: r.siteId, disUrunId: r.disUrunId, disKategoriId: r.disKategoriId, url: r.url, anahtarKelimeler: r.anahtarKelimeler ?? "", asistanSeviyesi: r.asistanSeviyesi,
     bilgi: r.bilgi ?? "", sss: parse<Sss>(r.sss), itirazlar: parse<Itiraz>(r.itirazlar), medya: parse<Medya>(r.medya), yasaklar: r.yasaklar ?? "", aktif: r.aktif,
   };
 }
@@ -134,6 +135,7 @@ export async function saveCard(raw: Record<string, unknown>, eskiKod: string | n
   if (url && !/^https:\/\//.test(url)) return { ok: false, hata: "Ürün linki https:// ile başlamalı." };
   const siteId = Number(raw.siteId) || null;
   const disUrunId = Number(raw.disUrunId) || null;
+  const disKategoriId = Number(raw.disKategoriId) || null;
   const sss = (Array.isArray(raw.sss) ? raw.sss : []).map((x: Sss) => ({ soru: s(x?.soru, 500), cevap: s(x?.cevap, 2000) })).filter((x) => x.soru && x.cevap).slice(0, 50);
   const itirazlar = (Array.isArray(raw.itirazlar) ? raw.itirazlar : []).map((x: Itiraz) => ({ itiraz: s(x?.itiraz, 500), cevap: s(x?.cevap, 2000) })).filter((x) => x.itiraz && x.cevap).slice(0, 50);
   const medya: Medya[] = [];
@@ -148,7 +150,7 @@ export async function saveCard(raw: Record<string, unknown>, eskiKod: string | n
   }
   if (new Set(medya.map((m) => m.id)).size !== medya.length) return { ok: false, hata: "Medya kimlikleri tekil olmalı." };
   const values = {
-    kod, ad, siteId, disUrunId, url: url || null, anahtarKelimeler: s(raw.anahtarKelimeler, 2000) || null,
+    kod, ad, siteId, disUrunId, disKategoriId, url: url || null, anahtarKelimeler: s(raw.anahtarKelimeler, 2000) || null,
     asistanSeviyesi: schema.WA_ASISTAN_SEVIYELERI.find((v) => v === raw.asistanSeviyesi) ?? "devreder",
     bilgi: s(raw.bilgi, 20000) || null, sss: JSON.stringify(sss), itirazlar: JSON.stringify(itirazlar), medya: JSON.stringify(medya), yasaklar: s(raw.yasaklar, 4000) || null,
     aktif: raw.aktif !== false,

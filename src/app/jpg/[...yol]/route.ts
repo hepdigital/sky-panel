@@ -1,13 +1,17 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { listColors } from "@/server/colors";
+import { db, schema } from "@/server/db";
 import { readUpload } from "@/server/files";
+import { wcRequest } from "@/server/marketplaces/woocommerce";
 
 /**
  * Pazaryerleri için JPEG görsel: paneldeki webp görsel 1200 × 1200 beyaz zemine ortalanır.
  * /jpg/dosya/urun/<ad>.jpg → yüklenen görsel · /jpg/terminal/img/<ad>.jpg → terminal ürün görseli
  * /jpg/kartela/renkler.jpg → üretebildiğimiz kumaş renkleri (WhatsApp asistanı "renk seçeneklerimiz" diye gönderir)
+ * /jpg/site/<bağlantı>/<ürün>.jpg → bağlı WooCommerce sitesindeki yayındaki ürünün ana görseli (WhatsApp asistanı webp gönderemez)
  */
 export async function GET(_req: NextRequest, ctx: RouteContext<"/jpg/[...yol]">) {
   const { yol } = await ctx.params;
@@ -19,6 +23,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/jpg/[...yol]">)
   if (yol.length === 3 && yol[0] === "dosya") data = await readUpload([yol[1], webp]);
   else if (yol.length === 3 && yol[0] === "terminal" && yol[1] === "img")
     data = await readFile(path.join(/* turbopackIgnore: true */ process.cwd(), "public", "terminal", "img", webp)).catch(() => null);
+  else if (yol.length === 3 && yol[0] === "site" && /^\d+$/.test(yol[1]) && /^\d+\.jpg$/.test(last)) data = await siteImage(Number(yol[1]), Number(last.slice(0, -4)));
   if (!data) return new Response("Bulunamadı", { status: 404 });
   try {
     const { default: sharp } = await import("sharp");
@@ -34,6 +39,19 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/jpg/[...yol]">)
     const why = (e instanceof Error ? e.message : String(e)).replace(/[^ -~]/g, " ").slice(0, 200);
     return new Response(new Uint8Array(data), { headers: { "Content-Type": "image/webp", "Cache-Control": "no-store", "X-Donusum-Hatasi": why } });
   }
+}
+
+/** Yalnızca yayındaki ürünün görseli ve yalnızca sitenin kendi alan adından (başka adrese istek atılmaz) */
+async function siteImage(siteId: number, productId: number): Promise<Buffer | null> {
+  const [site] = await db().select().from(schema.siteBaglantilari).where(eq(schema.siteBaglantilari.id, siteId));
+  if (!site) return null;
+  const p = (await wcRequest(site, `/products/${productId}`).catch(() => null)) as { status?: string; images?: { src: string }[] } | null;
+  const src = p?.status === "publish" ? p.images?.[0]?.src : undefined;
+  if (!src) return null;
+  const host = (u: string) => new URL(u).hostname.replace(/^www\./, "");
+  if (!/^https:\/\//.test(src) || host(src) !== host(site.adres)) return null;
+  const res = await fetch(src, { signal: AbortSignal.timeout(20_000) }).catch(() => null);
+  return res?.ok ? Buffer.from(await res.arrayBuffer()) : null;
 }
 
 const esc = (v: string) => v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c]!);

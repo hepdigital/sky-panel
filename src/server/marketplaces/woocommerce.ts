@@ -101,7 +101,15 @@ export async function wcProductInfo(site: Site, productId: number) {
     ad: decode(p.name), fiyat, listeFiyati: liste !== null && fiyat !== null && liste > fiyat ? liste : null,
     stokta: p.stock_status !== "outofstock", yayinda: p.status === "publish", varyantli: p.type === "variable", link: p.permalink,
     kisaAciklama: decode((p.short_description ?? "").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim().slice(0, 600),
+    gorsel: p.images[0]?.src ?? null,
   };
+}
+
+/** WhatsApp asistanı: kategorideki yayındaki ürünler, ucuzdan pahalıya (KDV dahil fiyat; varyantlıda en düşük) */
+export async function wcCategoryProducts(site: Site, categoryId: number) {
+  const tax = await siteTax(site);
+  const list = (await wcRequest(site, `/products?category=${categoryId}&status=publish&per_page=50&orderby=price&order=asc`)) as WcProduct[];
+  return list.map((p) => ({ id: p.id, ad: decode(p.name), fiyat: gross(tax, p.price, p), varyantli: p.type === "variable", link: p.permalink, gorsel: p.images[0]?.src ?? null }));
 }
 
 export async function wcVariations(site: Site, productId: number) {
