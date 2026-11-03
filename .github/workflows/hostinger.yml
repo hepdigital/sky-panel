@@ -42,12 +42,16 @@ jobs:
           mkdir -p out/.next
           cp -r .next/static out/.next/static
           cp -r public out/public
+          # sharp'ın Linux ikilileri isteğe bağlı bağımlılık: .npmrc'deki omit=optional ve Hostinger'ın npm install'ı
+          # bunları siliyordu (görsel okuma ve renk görseli çalışmıyordu). Pakete kopyalanır, package.json'a da yazılır.
+          mkdir -p out/node_modules/@img
+          cp -r node_modules/@img/. out/node_modules/@img/
           # Hostinger "npm start" ile başlatır. Dağıtımda npm install çalışırsa pakette hazır gelen
           # modüller "fazlalık" diye silinmesin diye sunucu bağımlılıkları sürümleriyle yazılır.
           node -e '
             const v = (p) => require("./node_modules/" + p + "/package.json").version;
             const deps = {};
-            for (const p of ["next", "react", "react-dom", "mysql2", "drizzle-orm", "nodemailer", "sharp"]) deps[p] = v(p);
+            for (const p of ["next", "react", "react-dom", "mysql2", "drizzle-orm", "nodemailer", "sharp", "@img/sharp-linux-x64", "@img/sharp-libvips-linux-x64"]) deps[p] = v(p);
             const pkg = {
               name: "sky-panel",
               private: true,
