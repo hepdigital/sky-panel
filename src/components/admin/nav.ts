@@ -54,7 +54,7 @@ export const adminNav: AdminNavGroup[] = [
     items: [
       { href: "/panel/tasarim", label: "Tasarım", icon: Palette, roles: ["admin", "design", "sales"] },
       { href: "/panel/uretim", label: "Üretim", icon: Factory, roles: ["admin", "production", "design", "warehouse"] },
-      { href: "/panel/sevkiyat", label: "Sevkiyat", icon: Truck, roles: ["admin", "warehouse"] },
+      { href: "/panel/sevkiyat", label: "Sevkiyat", icon: Truck, roles: ["admin"] },
       { href: "/istasyon", label: "İstasyon ekranları", icon: MonitorSmartphone, roles: ["admin", "design", "production", "warehouse"] },
     ],
   },
@@ -83,7 +83,7 @@ export const adminNav: AdminNavGroup[] = [
 ];
 
 /** 1. aşamada açık ekranlar: teklif, sipariş, cari, ürün ve kullanıcı yönetimi (diğerleri sonraki aşamalarda açılacak) */
-const PHASE1 = new Set(["/panel", "/panel/gorevler", "/panel/talepler", "/panel/whatsapp", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/odeme-linkleri", "/panel/urunler", "/panel/satis-urunleri", "/panel/markalar", "/panel/siteler", "/panel/kullanicilar"]);
+const PHASE1 = new Set(["/panel", "/panel/gorevler", "/panel/talepler", "/panel/whatsapp", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/odeme-linkleri", "/panel/urunler", "/panel/satis-urunleri", "/panel/sevkiyat", "/panel/markalar", "/panel/siteler", "/panel/kullanicilar"]);
 
 /**
  * openTasks: Görevler'in yanında bana atanan açık görev sayısı · newRequests: Talepler'in yanında yeni talep sayısı ·
