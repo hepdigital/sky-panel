@@ -12,6 +12,7 @@ import { orderCargo } from "../orders";
 import { siteInstallments, siteTransferRate } from "../payment-links";
 import { fold, getCard, listCards, type Kart } from "./cards";
 import type { WaConfig } from "./config";
+import { DUVAR_SECENEKLERI, KUMAS_SECENEKLERI, gazeboFiyatla, gazeboSecenekleri, panelUrunAra, type GazeboInput } from "./gazebo";
 import { sendMedia, sendText } from "./graph";
 import { createChatPaymentLink, paymentMessage, type PaymentDraft } from "./payment";
 import type { WaAyarlar } from "./settings";
@@ -53,6 +54,46 @@ export function toolDefs(ayar: WaAyarlar): Anthropic.Beta.BetaTool[] {
     {
       name: "urun_bul",
       description: "Müşterinin ifadesine (ör. 'kamelya', 'bayrak') uyan ürün kartlarını bulur: kod, ad ve senin bu üründeki görevin (seviye: cevaplar / bilgi_verir / devreder).",
+      input_schema: { type: "object", properties: { sorgu: { type: "string" } }, required: ["sorgu"], additionalProperties: false },
+    },
+    {
+      name: "gazebo_secenekleri",
+      description:
+        "Gazebo çadır (Kendin Tasarla) seçenekleri ve fiyatları: olcu boşsa tüm ölçüler ve duvarsız başlangıç fiyatları; olcu verilirse o ölçüdeki iskeletler, kumaşlar ve her kenar için duvar seçenekleri fiyatlarıyla, ayrıca ölçüsü seçili tasarım linki. Gazebo sorularında site_urun_ara yerine bunu kullan.",
+      input_schema: {
+        type: "object",
+        properties: {
+          olcu: { ...NULLABLE_STR, description: "2x2, 2x3, 3x3, 3x4.5, 3x6, 4x4, 4x6, 4x8 ya da boş" },
+          kumas: { anyOf: [{ type: "string", enum: KUMAS_SECENEKLERI }, { type: "null" }], description: "Baskısız: 690D (su geçirmez) ya da 200D (su itici); baskılı: baskili. Bilinmiyorsa boş" },
+        },
+        required: ["olcu", "kumas"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "gazebo_fiyatla",
+      description:
+        "Bir gazebo tasarımının kesin fiyatı (sitedeki Kendin Tasarla ekranıyla aynı, KDV dahil) ve parça dökümü. iskelet boşsa o ölçüdeki her iskelet için ayrı fiyat döner (müşteri bilmiyorsa ya da görselden anlaşılamadıysa). Duvarlar: Ön, Arka, Sol, Sağ.",
+      input_schema: {
+        type: "object",
+        properties: {
+          olcu: { type: "string" },
+          iskelet: { ...NULLABLE_STR, description: "gazebo_secenekleri'ndeki iskelet kodu (ör. SH4) ya da boş" },
+          kumas: { type: "string", enum: KUMAS_SECENEKLERI },
+          on: { type: "string", enum: DUVAR_SECENEKLERI },
+          arka: { type: "string", enum: DUVAR_SECENEKLERI },
+          sol: { type: "string", enum: DUVAR_SECENEKLERI },
+          sag: { type: "string", enum: DUVAR_SECENEKLERI },
+          adet: { anyOf: [{ type: "integer" }, { type: "null" }] },
+        },
+        required: ["olcu", "iskelet", "kumas", "on", "arka", "sol", "sag", "adet"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "panel_urun_ara",
+      description:
+        "Paneldeki teklif kataloğunda (sitede olmayan aksesuar, sabitleme, yedek parça vb. dahil) ürün arar: ad, kategori, açıklama, KDV dahil perakende fiyat, uyarı. Sitede bulamadığın ya da ek bilgi gereken ürünlerde kullan.",
       input_schema: { type: "object", properties: { sorgu: { type: "string" } }, required: ["sorgu"], additionalProperties: false },
     },
     {
@@ -426,6 +467,14 @@ async function medyaGonder(ctx: Ctx, telefon: string, kod: string, id: string) {
 }
 
 /** Asistanın ürün sitesi: sohbetin ya da kartların sitesi */
+/** Gazebo araçları: ana sitenin markası (fiyat tablosu) ve "gazebo" kartı (tasarım linki, kartta düzenlenir) */
+async function gazeboCtx(ctx: Ctx) {
+  const site = await mainSite(ctx);
+  if (!site) return null;
+  const card = await getCard("gazebo");
+  return { markaId: site.markaId, adres: site.adres, card: card?.aktif ? card : null };
+}
+
 async function mainSite(ctx: Ctx) {
   return siteOf((await cardForChat(ctx))?.siteId ?? (await listCards()).find((c) => c.aktif && c.siteId)?.siteId ?? null);
 }
@@ -660,6 +709,16 @@ export async function runTool(ctx: Ctx, telefon: string, name: string, input: Re
     case "site_urun_ara":
       sonuc = await siteUrunAra(ctx, str("sorgu"));
       break;
+    case "gazebo_secenekleri":
+    case "gazebo_fiyatla":
+    case "panel_urun_ara": {
+      const g = await gazeboCtx(ctx);
+      if (!g) sonuc = { hata: "Site bağlantısı yok; bilgileri topla ve ekibe devret." };
+      else if (name === "gazebo_secenekleri") sonuc = await gazeboSecenekleri(g.markaId, g.card, g.adres, input.olcu ? str("olcu") : null, input.kumas ? str("kumas") : null);
+      else if (name === "gazebo_fiyatla") sonuc = await gazeboFiyatla(g.markaId, g.card, g.adres, input as GazeboInput);
+      else sonuc = await panelUrunAra(g.markaId, str("sorgu"));
+      break;
+    }
     case "site_urun_detay":
       sonuc = await siteUrunDetay(ctx, Number(input.urun_id));
       break;
