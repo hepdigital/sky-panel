@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, inArray, like, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, like, notInArray, or, sql, type SQL } from "drizzle-orm";
 import type { PdfData } from "@/lib/terminal/calc";
 import { isAdmin, type Me } from "./auth";
 import { brandsFor } from "./brands";
@@ -60,10 +60,22 @@ export async function convertQuote(me: Me, quoteId: number) {
   });
 }
 
+/** Sipariş kaynağı süzgeci: tekliften, e-ticaret sitelerinden ya da bir pazaryerinden */
+export type OrderSource = "teklif" | "site" | "trendyol";
+const PAZARYERLERI = ["trendyol", "hepsiburada"] as const;
+
 /** markaId: yalnızca o markanın siparişleri (null = hepsi) */
-/** kaynak: yalnızca teklif ya da site siparişleri (null = hepsi) */
-export async function listOrders(me: Me, q: string, markaId: number | null = null, kaynak: "teklif" | "site" | null = null) {
+/** kaynak: yalnızca teklif, site (pazaryerleri hariç) ya da o pazaryerinin siparişleri (null = hepsi) */
+export async function listOrders(me: Me, q: string, markaId: number | null = null, kaynak: OrderSource | null = null) {
   const search: SQL | undefined = q.trim() ? or(like(siparisler.no, likeOf(q)), like(siparisler.musteriAdi, likeOf(q))) : undefined;
+  const source: SQL | undefined =
+    kaynak === "teklif"
+      ? eq(siparisler.kaynak, "teklif")
+      : kaynak === "site"
+        ? and(eq(siparisler.kaynak, "site"), notInArray(schema.siteBaglantilari.tur, [...PAZARYERLERI]))
+        : kaynak
+          ? and(eq(siparisler.kaynak, "site"), eq(schema.siteBaglantilari.tur, kaynak))
+          : undefined;
   return db()
     .select({
       id: siparisler.id, no: siparisler.no, olusturma: siparisler.olusturma, musteriId: siparisler.musteriId, musteri: siparisler.musteriAdi,
@@ -78,7 +90,7 @@ export async function listOrders(me: Me, q: string, markaId: number | null = nul
     .leftJoin(kullanicilar, eq(kullanicilar.id, siparisler.kullaniciId))
     .leftJoin(teklifler, eq(teklifler.id, siparisler.teklifId))
     .leftJoin(schema.markalar, eq(schema.markalar.id, siparisler.markaId))
-    .where(and(await own(me), search, markaId ? eq(siparisler.markaId, markaId) : undefined, kaynak ? eq(siparisler.kaynak, kaynak) : undefined))
+    .where(and(await own(me), search, markaId ? eq(siparisler.markaId, markaId) : undefined, source))
     .orderBy(desc(sql`COALESCE(${siparisler.disTarih}, ${siparisler.olusturma})`), desc(siparisler.id))
     .limit(200);
 }

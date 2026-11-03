@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Globe, Pencil, Plug, Plus, RefreshCw, XCircle } from "lucide-react";
-import { siteEsitle, siteKaydet, siteTest } from "@/app/panel/siteler/actions";
+import { CheckCircle2, Globe, History, Pencil, Plug, Plus, RefreshCw, XCircle } from "lucide-react";
+import { siteEsitle, siteGecmisCek, siteKaydet, siteTest } from "@/app/panel/siteler/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -96,6 +96,15 @@ function SiteCard({ s, onEdit }: { s: SiteRow; onEdit: () => void }) {
           })}>
             <RefreshCw className={cn(pending && "animate-spin")} /> Şimdi eşitle
           </Button>
+          {s.tur === "trendyol" && (
+            <Button size="sm" variant="outline" disabled={pending} onClick={() => start(async () => {
+              const r = await siteGecmisCek(s.id);
+              setMsg(r.ok ? { ok: true, text: `Son 90 gün tarandı, ${r.adet ?? 0} sipariş eşitlendi. Kalan varsa sonraki eşitlemelerde gelir.` } : { ok: false, text: r.hata });
+              router.refresh();
+            })}>
+              <History /> Geçmişi yeniden çek
+            </Button>
+          )}
           <Button size="sm" variant="ghost" onClick={onEdit}>
             <Pencil /> Düzenle
           </Button>

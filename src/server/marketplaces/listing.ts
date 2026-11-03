@@ -3,8 +3,8 @@ import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 import { ensureMarketplaceSchema } from "../db/ensure";
 import {
-  tyBatch, tyBrands, tyCategories, tyCategoryAttributes, tyPriceStock, tyProductState, tySendProducts,
-  type CategoryAttribute, type TyItem,
+  tyBatch, tyBrands, tyCategories, tyCategoryAttributes, tyPriceStock, tyProducts, tyProductState, tySendProducts,
+  type CategoryAttribute, type TyItem, type TyProduct,
 } from "./trendyol";
 import { wcCurrent, wcProduct, wcSearch, wcSetPrices, wcVariations } from "./woocommerce";
 
@@ -116,7 +116,13 @@ export async function nextBarcode() {
   }
 }
 
-export const barcodeValid = (b: string) => /^\d{13}$/.test(b) ? ean13(b.slice(0, 12)) === b : /^[A-Za-z0-9-]{4,40}$/.test(b);
+/** Barkod karakterleri: harf (Türkçe dahil), rakam, nokta, alt çizgi, tire; pazaryerinden gelen barkodlar böyle olabilir */
+const barcodeChars = (b: string) => /^[\p{L}\p{N}._-]{4,40}$/u.test(b);
+/** Elle girilen barkod: 13 haneli sayıysa EAN kontrol hanesi de tutmalı (yazım hatası yakalanır) */
+export const barcodeValid = (b: string) => /^\d{13}$/.test(b) ? ean13(b.slice(0, 12)) === b : barcodeChars(b);
+
+/** Yeni kartlarda hazırlık süresi (gün) */
+const HAZIRLIK_GUN = 7;
 
 /* ───────────── fiyat ───────────── */
 
@@ -204,6 +210,8 @@ export type ItemInput = {
   listelemeler: ListingInput[];
   /** Ad, açıklama, marka, KDV ve hazırlık süresi aynı grup kodlu diğer seçeneklere de yazılır */
   grubaUygula?: boolean;
+  /** Barkod pazaryerinden geldi: EAN kontrol hanesi aranmaz (pazaryeri kabul etmiş) */
+  barkodPazaryerinden?: boolean;
 };
 
 export async function listItems() {
@@ -241,7 +249,12 @@ export async function saveItem(input: ItemInput): Promise<{ ok: true; id: number
   const barkod = clip(input.barkod, 40);
   if (!ad) return { ok: false, hata: "Ürün adı gerekli." };
   if (!stokKodu || !/^[A-Za-z0-9._-]+$/.test(stokKodu)) return { ok: false, hata: "Stok kodu gerekli (harf, rakam, nokta, tire)." };
-  if (!barkod || !barcodeValid(barkod)) return { ok: false, hata: "Barkod geçersiz (13 haneli EAN ya da harf/rakam)." };
+  if (!barkod) return { ok: false, hata: "Barkod geçersiz (13 haneli EAN ya da harf/rakam)." };
+  if (!barcodeValid(barkod)) {
+    // Pazaryerinden gelen ya da kartta zaten kayıtlı (değişmeyen) barkod EAN kontrolüne girmez
+    const [kayitli] = input.id ? await db().select({ barkod: items.barkod }).from(items).where(eq(items.id, input.id)) : [];
+    if (!barcodeChars(barkod) || !(input.barkodPazaryerinden || kayitli?.barkod === barkod)) return { ok: false, hata: "Barkod geçersiz (13 haneli EAN ya da harf/rakam)." };
+  }
   const gorseller = input.gorseller.map((g) => g.trim()).filter((g) => /^(https:\/\/\S+|\/(dosya|terminal)\/\S+)$/.test(g)).slice(0, 8);
   const values = {
     stokKodu, barkod, ad, aciklama: clip(input.aciklama, 30000), grupKodu: clip(input.grupKodu, 60) ?? stokKodu, markaAdi: clip(input.markaAdi, 80),
@@ -249,7 +262,7 @@ export async function saveItem(input: ItemInput): Promise<{ ok: true; id: number
     desi: desiOf(num(input.en), num(input.boy), num(input.yukseklik)) ?? num(input.desi),
     agirlik: num(input.agirlik), en: num(input.en), boy: num(input.boy), yukseklik: num(input.yukseklik),
     secenekDahil: !!input.urunId && !!input.secenekDahil && !input.yalnizSecenek, yalnizSecenek: !!input.urunId && !!input.yalnizSecenek, maliyet: num(input.maliyet), kdv: [0, 1, 10, 20].includes(Number(input.kdv)) ? Number(input.kdv) : 20, fiyat: num(input.fiyat),
-    stok: Math.max(0, Math.round(Number(input.stok) || 0)), hazirlikGun: Math.max(1, Math.min(30, Math.round(Number(input.hazirlikGun) || 3))), aktif: !!input.aktif,
+    stok: Math.max(0, Math.round(Number(input.stok) || 0)), hazirlikGun: Math.max(1, Math.min(30, Math.round(Number(input.hazirlikGun) || HAZIRLIK_GUN))), aktif: !!input.aktif,
   };
   const dup = await db()
     .select({ id: items.id, stokKodu: items.stokKodu })
@@ -780,7 +793,7 @@ export async function wooImport(input: WooImportInput) {
       urunId: r.urunId || null, renk: r.renk, olcu: r.olcu, gorseller: [...new Set([v?.gorsel, ...p.gorseller].filter((g): g is string => !!g))].slice(0, 8),
       desi: null, agirlik: null, en: null, boy: null, yukseklik: null, kdv,
       fiyat,
-      secenekDahil: dahil, yalnizSecenek: yalniz, maliyet: null, stok: 10, hazirlikGun: 3, aktif: true,
+      secenekDahil: dahil, yalnizSecenek: yalniz, maliyet: null, stok: 10, hazirlikGun: HAZIRLIK_GUN, aktif: true,
       listelemeler: [{
         siteId: input.siteId, aktif: true, kategoriId: null, kategoriYol: null, markaId: null, markaAd: null, ozellikler: {}, fiyat: null, fiyatFarki: fark,
         disUrunId: p.id, disVaryantId: v?.id ?? null, disAd: v ? `${p.ad} · ${v.ad}` : p.ad, disFiyat: siteFiyat,
@@ -832,6 +845,113 @@ export async function pushWooPrices(siteId: number, kim?: string) {
   for (const c of changed) await db().update(listings).set({ sonFiyatStok: String(c.price), disFiyat: c.price, sonGonderim: new Date(), hata: null }).where(eq(listings.id, c.r.l.id));
   await log(siteId, "site-fiyat", null, "tamam", `${changed.length} ürün: ${changed.map((c) => `${c.r.i.stokKodu} ${c.price} ₺`).join(", ")}`, kim);
   return changed.length;
+}
+
+/* ───────────── Trendyol'dan aktarım ───────────── */
+/* Pazaryerinde zaten olan kartlar panele alınır: barkod aynen korunur (pazaryeri kartı barkodla bağlıdır; satış geçmişi ve
+   yorumlar kalır). Listeleme kapalı ve "oluşmuş" olarak gelir, son gönderilen fiyat/stok pazaryerindeki sayılır: kanal
+   kartta açılana kadar pazaryerine hiçbir şey yazılmaz. Açılınca onay durumu sorulur, fiyat/stok panelden gider. */
+
+const tyDurum = (p: TyProduct) =>
+  p.archived ? "Arşivde" : p.blacklisted ? "Kara listede" : p.locked ? "Kilitli" : p.rejected ? "Reddedildi" : !p.approved ? "Onay bekliyor" : p.onSale ? "Satışta" : "Satışa kapalı";
+
+/** HTML açıklamayı düz metne çevirir (paragraf ve satır sonları korunur) */
+const htmlText = (h: string | null | undefined) =>
+  (h ?? "")
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h\d)>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+export type TyImportRow = {
+  barkod: string; ad: string; stokKodu: string; fiyat: number | null; stok: number; durum: string; kategori: string | null; gorsel: string | null; link: string | null;
+  bagli: string | null; barkodGecersiz: boolean;
+};
+
+/** Pazaryerindeki kartlar ve önerilen stok kodları; barkodu panelde bir kartta olanlar işaretli */
+export async function tyImportPreview(siteId: number): Promise<TyImportRow[]> {
+  await ensureMarketplaceSchema();
+  const site = await siteOf(siteId);
+  const [ps, have] = await Promise.all([tyProducts(site), db().select({ barkod: items.barkod, stokKodu: items.stokKodu, ad: items.ad }).from(items)]);
+  const byBarcode = new Map(have.map((h) => [h.barkod, h.ad]));
+  const used = new Set(have.map((h) => h.stokKodu.toUpperCase()));
+  return ps.map((p) => {
+    const bagli = byBarcode.get(p.barcode) ?? null;
+    return {
+      barkod: p.barcode, ad: p.title, stokKodu: bagli ? "" : uniqueCode(tyStockCode(p), used), fiyat: p.salePrice || null, stok: p.quantity ?? 0, durum: tyDurum(p),
+      kategori: p.categoryName ?? null, gorsel: p.images?.[0]?.url ?? null, link: p.productUrl ?? null, bagli, barkodGecersiz: !barcodeChars(p.barcode),
+    };
+  });
+}
+
+const tyStockCode = (p: TyProduct) => (p.stockCode && /^[A-Za-z0-9._-]{1,60}$/.test(p.stockCode) ? p.stockCode : shortSlug(p.title) || "URUN");
+const uniqueCode = (k: string, used: Set<string>) => {
+  let out = k;
+  for (let n = 2; used.has(out.toUpperCase()); n++) out = `${k}-${n}`;
+  used.add(out.toUpperCase());
+  return out;
+};
+
+/**
+ * Seçilen pazaryeri kartlarını panele alır (barkod, ad, açıklama, görseller, desi, KDV, fiyat, stok, kategori, marka ve
+ * özellikler pazaryerinden). Pazaryerinde hiçbir şey değişmez.
+ */
+export async function tyImport(siteId: number, satirlar: { barkod: string; stokKodu: string }[]) {
+  await ensureMarketplaceSchema();
+  const site = await siteOf(siteId);
+  const s = await settingsOf(siteId);
+  const ps = new Map((await tyProducts(site)).map((p) => [p.barcode, p]));
+  const hatalar: string[] = [];
+  let eklenen = 0;
+  for (const r of satirlar) {
+    const p = ps.get(r.barkod);
+    if (!p) {
+      hatalar.push(`${r.barkod}: pazaryerinde bu barkod yok`);
+      continue;
+    }
+    const kdv = [0, 1, 10, 20].includes(Number(p.vatRate)) ? Number(p.vatRate) : 20;
+    const fiyat = p.salePrice ? Math.round((p.salePrice / (1 + kdv / 100)) * 100) / 100 : null;
+    const stok = Math.max(0, Math.round(Number(p.quantity) || 0));
+    const res = await saveItem({
+      id: null, stokKodu: r.stokKodu, barkod: p.barcode, ad: p.title.slice(0, 150), aciklama: htmlText(p.description), grupKodu: (p.productMainId ?? "").trim() || r.stokKodu,
+      markaAdi: p.brand ?? "", urunId: null, renk: "", olcu: "",
+      gorseller: (p.images ?? []).map((g) => g.url).filter((u) => /^https:\/\/\S+$/.test(u)),
+      desi: p.dimensionalWeight || null, agirlik: null, en: null, boy: null, yukseklik: null, kdv, fiyat,
+      secenekDahil: false, maliyet: null, stok, hazirlikGun: HAZIRLIK_GUN, aktif: true, listelemeler: [], barkodPazaryerinden: true,
+    });
+    if (!res.ok) {
+      hatalar.push(`${r.barkod}: ${res.hata}`);
+      continue;
+    }
+    const ozellikler: ListingInput["ozellikler"] = {};
+    for (const a of p.attributes ?? []) {
+      if (a.attributeValueId) ozellikler[a.attributeId] = { v: a.attributeValueId };
+      else if (a.attributeValue?.trim()) ozellikler[a.attributeId] = { c: a.attributeValue.trim().slice(0, 200) };
+    }
+    const [kat] = p.pimCategoryId
+      ? await db().select({ yol: categories.yol }).from(categories).where(and(eq(categories.tur, site.tur), eq(categories.id, p.pimCategoryId)))
+      : [];
+    // Kapalı listelemede pazaryerine stok 0 gider; "son gönderilen" bu sayılır ki kanal açılana kadar hiçbir şey gönderilmesin
+    const price = channelPrice({ fiyat, kdv }, null, null, s);
+    await db().insert(listings).values({
+      urunId: res.id, siteId, aktif: false, durum: "pasif", olustu: true,
+      kategoriId: p.pimCategoryId ?? null, kategoriYol: (kat?.yol ?? p.categoryName ?? null)?.slice(0, 500) ?? null,
+      markaId: p.brandId ?? null, markaAd: p.brand?.slice(0, 120) ?? null, ozellikler: JSON.stringify(ozellikler),
+      sonFiyatStok: price ? `${price}|${price}|0` : null,
+    });
+    eklenen++;
+  }
+  if (eklenen) await log(siteId, "urun-aktar", null, "tamam", `${eklenen} ürün pazaryerinden panele alındı.`);
+  return { eklenen, hatalar };
 }
 
 /* ───────────── kayıt ───────────── */

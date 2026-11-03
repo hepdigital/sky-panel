@@ -157,8 +157,8 @@ function tyToOrder(p: TyPackage): SiteOrder {
 
 const PAGE = 200;
 const WINDOW = 14 * 24 * 3600_000;
-/** İlk eşitlemede geriye doğru bakılacak süre */
-const FIRST_LOOKBACK = 30 * 24 * 3600_000;
+/** İlk eşitlemede (ve "geçmişi yeniden çek"te) geriye doğru bakılacak süre; Trendyol sipariş servisi daha eskisini zaten vermez */
+const FIRST_LOOKBACK = 90 * 24 * 3600_000;
 /**
  * Trendyol zaman damgaları Türkiye saatine kaydırılmış gelebilir: pencere sonu üç saat ileride, sonraki pencerenin başı
  * dört saat geride tutulur; hiçbir değişiklik kaçmaz (kayıt eşsiz, tekrar çekmek zararsız)
@@ -309,6 +309,44 @@ export async function tyBatch(c: Conn, batchId: string): Promise<BatchResult> {
       hatalar: i.failureReasons ?? [],
     })),
   };
+}
+
+/** Satıcının Trendyol'daki ürün kartı (arşivdekiler dahil); panele aktarım için */
+export type TyProduct = {
+  barcode: string;
+  title: string;
+  stockCode?: string | null;
+  productMainId?: string | null;
+  brand?: string | null;
+  brandId?: number | null;
+  pimCategoryId?: number | null;
+  categoryName?: string | null;
+  description?: string | null;
+  images?: { url: string }[];
+  attributes?: { attributeId: number; attributeName?: string; attributeValueId?: number | null; attributeValue?: string | null }[];
+  dimensionalWeight?: number | null;
+  quantity?: number | null;
+  salePrice?: number | null;
+  listPrice?: number | null;
+  vatRate?: number | null;
+  approved?: boolean;
+  archived?: boolean;
+  locked?: boolean;
+  blacklisted?: boolean;
+  rejected?: boolean;
+  onSale?: boolean;
+  productUrl?: string | null;
+};
+
+/** Tüm ürün kartları (sayfa sayfa; yalnızca okuma) */
+export async function tyProducts(c: Conn) {
+  const out: TyProduct[] = [];
+  for (let page = 0; page < 100; page++) {
+    const data = (await tyRequest(c, `/product/sellers/{saticiId}/products?page=${page}&size=100`)) as { content?: TyProduct[]; totalPages?: number };
+    out.push(...(data.content ?? []));
+    if (page + 1 >= (data.totalPages ?? 0)) break;
+  }
+  return out;
 }
 
 /** Oluşmuş kartın onay durumu: onaylı / reddedildi (gerekçesiyle) / bekliyor; kart yoksa null */
