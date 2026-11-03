@@ -7,7 +7,7 @@ import { listColors } from "../colors";
 import { phoneKey, phoneMatch } from "../customers";
 import { db, schema } from "../db";
 import { mailReady, sendMail } from "../mail";
-import { wcCategoryProducts, wcProductInfo } from "../marketplaces/woocommerce";
+import { wcCategoryProducts, wcProductDetail, wcProductInfo, wcSearch, wcVariations } from "../marketplaces/woocommerce";
 import { orderCargo } from "../orders";
 import { siteInstallments, siteTransferRate } from "../payment-links";
 import { fold, getCard, listCards, type Kart } from "./cards";
@@ -17,6 +17,8 @@ import { createChatPaymentLink, paymentMessage, type PaymentDraft } from "./paym
 import type { WaAyarlar } from "./settings";
 import { ARAC, insertMessage, MAX_TEXT } from "./store";
 
+// Kartı olmayan ürünler sitede aranır (site_urun_ara / site_urun_detay): fiyat, açıklama, seçenekler ve görsel sitedeki yayındaki üründen;
+// panelden yalnızca eşleşen pazaryeri ürününün ölçü/paket bilgisi ve satış uyarısı gelir (toptan fiyat ve maliyet asla).
 // Asistanın araçları (şartname §6.3). Araçlar yalnızca o anki sohbetin verisine erişir: telefon numarası parametre değildir,
 // sunucu sohbetten alır. Maliyet, toptan fiyat, iskonto, başka müşterinin bilgisi ve kullanıcı tabloları hiçbir araçtan dönmez.
 
@@ -54,6 +56,18 @@ export function toolDefs(ayar: WaAyarlar): Anthropic.Beta.BetaTool[] {
       input_schema: { type: "object", properties: { sorgu: { type: "string" } }, required: ["sorgu"], additionalProperties: false },
     },
     {
+      name: "site_urun_ara",
+      description:
+        "Kartı olmayanlar dahil sitedeki tüm yayındaki ürünlerde arar: ürün numarası, ad, KDV dahil fiyat (varyantlıda başlangıç), link. Önce urun_bul; kart yoksa ya da müşteri karttakinden farklı bir ürün soruyorsa bunu kullan.",
+      input_schema: { type: "object", properties: { sorgu: { type: "string", description: "Kısa arama ifadesi, ör. 'gazebo 3x3', 'kum torbası', 'tente'" } }, required: ["sorgu"], additionalProperties: false },
+    },
+    {
+      name: "site_urun_detay",
+      description:
+        "Sitedeki bir ürünün ayrıntısı: güncel fiyat, açıklama, ölçü/seçenek fiyatları, link; panelde eşleşen ürün varsa ölçü, paket ölçüsü/ağırlığı ve satış uyarısı. urun_id site_urun_ara ya da urun_bilgisi'nden.",
+      input_schema: { type: "object", properties: { urun_id: { type: "integer" } }, required: ["urun_id"], additionalProperties: false },
+    },
+    {
       name: "renkleri_listele",
       description: "Üretebildiğimiz kumaş renkleri (ad ve renk kodu). Ürünler stokta tutulmaz, seçilen renkte siparişe özel üretilir. Yalnızca bu renkleri öner.",
       input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
@@ -81,10 +95,10 @@ export function toolDefs(ayar: WaAyarlar): Anthropic.Beta.BetaTool[] {
     {
       name: "urun_gorseli_gonder",
       description:
-        "Sitedeki ürünün ana görselini müşteriye WhatsApp'tan gönderir (açıklaması ürün adı). urun_id boşsa kartın ürünü; kategori kartında urun_bilgisi'ndeki ürün numaralarından biri. Müşteri görmek isterse ya da ürünü tanıtırken bir kez kullan; aynı görseli tekrar gönderme.",
+        "Sitedeki yayındaki bir ürünün ana görselini müşteriye WhatsApp'tan gönderir (açıklaması ürün adı). urun_id: urun_bilgisi, site_urun_ara ya da site_urun_detay'daki ürün numarası; boşsa kodu verilen kartın ürünü. Müşteri görmek isterse ya da ürünü tanıtırken bir kez kullan; aynı görseli tekrar gönderme.",
       input_schema: {
         type: "object",
-        properties: { kod: { type: "string", description: "Ürün kartı kodu" }, urun_id: { anyOf: [{ type: "integer" }, { type: "null" }], description: "Sitedeki ürün numarası" } },
+        properties: { kod: { ...NULLABLE_STR, description: "Ürün kartı kodu (urun_id verildiyse boş olabilir)" }, urun_id: { anyOf: [{ type: "integer" }, { type: "null" }], description: "Sitedeki ürün numarası" } },
         required: ["kod", "urun_id"],
         additionalProperties: false,
       },
@@ -324,7 +338,7 @@ async function urunBul(sorgu: string) {
     .slice(0, 5);
   const row = (c: Kart) => ({ kod: c.kod, ad: c.ad, seviye: c.asistanSeviyesi });
   if (scored.length) return { sonuclar: scored.map((x) => row(x.c)) };
-  return { sonuclar: [], not: "Eşleşen kart yok. Ürün kapsam dışı sayılır: bilgileri topla, kaydet ve ekibe devret.", tum_kartlar: cards.map(row) };
+  return { sonuclar: [], not: "Eşleşen kart yok. site_urun_ara ile sitede ara; fiyat, özellik ve link verip bilgileri topla, kaydet ve ekibe devret.", tum_kartlar: cards.map(row) };
 }
 
 async function activeColors() {
@@ -398,26 +412,103 @@ async function medyaGonder(ctx: Ctx, telefon: string, kod: string, id: string) {
   return r.ok ? { gonderildi: true } : { hata: r.hata };
 }
 
-/** Sitedeki ürün görseli: yalnızca kartın ürünü ya da kartın kategorisindeki ürünler; panelin /jpg dönüştürücüsünden JPEG gider */
-async function urunGorseli(ctx: Ctx, telefon: string, kod: string, urunId: number | null) {
-  const card = await getCard(kod);
-  if (!card?.aktif || card.asistanSeviyesi === "devreder" || !card.siteId) return { hata: "Bu ürün için görsel gönderilemiyor." };
-  const id = urunId || card.disUrunId;
-  if (!id) return { hata: "urun_id gerekli: urun_bilgisi'ndeki ürün numaralarından birini ver." };
-  let urun: { ad: string; gorsel: string | null } | undefined;
+/** Asistanın ürün sitesi: sohbetin ya da kartların sitesi */
+async function mainSite(ctx: Ctx) {
+  return siteOf((await cardForChat(ctx))?.siteId ?? (await listCards()).find((c) => c.aktif && c.siteId)?.siteId ?? null);
+}
+
+async function siteUrunAra(ctx: Ctx, sorgu: string) {
+  const site = await mainSite(ctx);
+  if (!site) return { hata: "Site bağlantısı yok; bilgileri topla ve ekibe devret." };
+  const q = sorgu.trim().slice(0, 80);
+  if (q.length < 2) return { hata: "Arama ifadesi çok kısa." };
+  let rows: Awaited<ReturnType<typeof wcSearch>>;
   try {
-    if (id === card.disUrunId) {
-      const live = await liveProduct(card);
-      if (live?.v.yayinda) urun = live.v;
-    } else urun = (await liveCategory(card))?.urunler.find((u) => u.id === id);
+    rows = (await wcSearch(site, q)).filter((r) => r.durum === "publish" && r.fiyat !== null).slice(0, 8);
+  } catch {
+    return { hata: "Site şu an okunamadı; fiyat söyleme, ekibe devret." };
+  }
+  if (!rows.length) return { sonuclar: [], not: "Sitede eşleşen ürün yok. Farklı bir ifadeyle bir kez daha ara; yoksa bilgileri topla ve ekibe devret." };
+  return {
+    sonuclar: rows.map((r) => ({ urun_id: r.id, ad: r.ad, [r.varyantli ? "baslangic_fiyati_kdv_dahil" : "fiyat_kdv_dahil"]: r.fiyat, link: r.link })),
+    not: "Fiyatlar KDV dahil, sitedeki güncel fiyat. Ayrıntı için site_urun_detay. Kartı olmayan üründe fiyat, özellik ve link verirsin; satışı kapatmazsın, bilgileri toplayıp ekibe devredersin.",
+  };
+}
+
+/** Panelde bu site ürününe bağlı pazaryeri ürünleri: ölçü, renk, paket ve satış uyarısı (fiyat, toptan ve maliyet dönmez) */
+async function panelInfo(siteId: number, urunId: number) {
+  const pl = schema.pazaryeriListelemeleri;
+  const pu = schema.pazaryeriUrunleri;
+  const u = schema.urunler;
+  const rows = await db()
+    .select({ ad: pu.ad, olcu: pu.olcu, renk: pu.renk, aciklama: pu.aciklama, agirlik: pu.agirlik, en: pu.en, boy: pu.boy, yukseklik: pu.yukseklik, uyari: u.uyari })
+    .from(pl)
+    .innerJoin(pu, eq(pu.id, pl.urunId))
+    .leftJoin(u, eq(u.id, pu.urunId))
+    .where(and(eq(pl.siteId, siteId), eq(pl.disUrunId, urunId), eq(pl.aktif, true), eq(pu.aktif, true)))
+    .limit(10);
+  if (!rows.length) return null;
+  const first = rows.find((r) => r.aciklama) ?? rows[0];
+  return {
+    secenekler: rows.map((r) => ({
+      ad: r.ad,
+      olcu: r.olcu,
+      renk: r.renk,
+      paket: r.en && r.boy && r.yukseklik ? `${r.en}×${r.boy}×${r.yukseklik} cm${r.agirlik ? `, ${r.agirlik} kg` : ""}` : r.agirlik ? `${r.agirlik} kg` : null,
+    })),
+    aciklama: first.aciklama?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 1200) || null,
+    satis_uyarisi: [...new Set(rows.map((r) => r.uyari).filter(Boolean))].join(" ") || null,
+  };
+}
+
+async function siteUrunDetay(ctx: Ctx, urunId: number) {
+  const site = await mainSite(ctx);
+  if (!site) return { hata: "Site bağlantısı yok; bilgileri topla ve ekibe devret." };
+  if (!(urunId > 0)) return { hata: "urun_id gerekli." };
+  try {
+    const v = await wcProductInfo(site, urunId);
+    if (!v.yayinda || v.fiyat === null) return { hata: "Bu ürün sitede satışta değil; fiyat söyleme, ekibe devret." };
+    const [d, varyant, panel] = await Promise.all([
+      wcProductDetail(site, urunId),
+      v.varyantli ? wcVariations(site, urunId).catch(() => []) : Promise.resolve([]),
+      panelInfo(site.id, urunId).catch(() => null),
+    ]);
+    return {
+      urun_id: urunId,
+      ad: v.ad,
+      link: v.link,
+      ...(v.varyantli ? { baslangic_fiyati_kdv_dahil: v.fiyat } : { fiyat_kdv_dahil: v.fiyat }),
+      liste_fiyati: v.listeFiyati,
+      kategoriler: d.kategoriler,
+      kisa_aciklama: v.kisaAciklama || null,
+      aciklama: d.aciklama || null,
+      secenekler: varyant.filter((x) => x.fiyat !== null).slice(0, 30).map((x) => ({ ad: x.ad, fiyat_kdv_dahil: x.fiyat })),
+      panel,
+      gorsel_var: !!v.gorsel,
+      not: "Bilgiyi kısa ve satış diliyle özetle; açıklamayı olduğu gibi yapıştırma. Kartı olmayan üründe satışı kapatmazsın: ölçü, adet, il ve ad bilgisini topla, bilgi_kaydet ve ekibe_devret. Stok durumundan bahsetme.",
+    };
+  } catch {
+    return { hata: "Ürün şu an siteden okunamadı; fiyat söyleme, ekibe devret." };
+  }
+}
+
+/** Sitedeki yayındaki ürünün görseli: panelin /jpg dönüştürücüsünden JPEG gider (dönüştürücü de yalnız yayındaki ürünü verir) */
+async function urunGorseli(ctx: Ctx, telefon: string, kod: string | null, urunId: number | null) {
+  const card = kod ? await getCard(kod) : null;
+  const site = card?.aktif && card.siteId ? await siteOf(card.siteId) : await mainSite(ctx);
+  const id = urunId || (card?.aktif ? card.disUrunId : null);
+  if (!site || !id) return { hata: "urun_id gerekli: urun_bilgisi ya da site_urun_ara'daki ürün numaralarından birini ver." };
+  let v: Awaited<ReturnType<typeof wcProductInfo>>;
+  try {
+    v = await wcProductInfo(site, id);
   } catch {
     return { hata: "Ürün şu an siteden okunamadı." };
   }
-  if (!urun) return { hata: "Bu ürün numarası bu kartta yok; urun_bilgisi'ndeki numaralardan birini kullan." };
-  if (!urun.gorsel) return { hata: "Ürünün sitede görseli yok." };
-  const yol = `/jpg/site/${card.siteId}/${id}.jpg`;
-  const r = await deliver(ctx, telefon, { tur: "image", link: publicUrl(yol), yol, metin: urun.ad });
-  return r.ok ? { gonderildi: true, urun: urun.ad } : { hata: r.hata };
+  if (!v.yayinda) return { hata: "Bu ürün sitede yayında değil." };
+  if (!v.gorsel) return { hata: "Ürünün sitede görseli yok." };
+  const yol = `/jpg/site/${site.id}/${id}.jpg`;
+  const r = await deliver(ctx, telefon, { tur: "image", link: publicUrl(yol), yol, metin: v.ad });
+  return r.ok ? { gonderildi: true, urun: v.ad } : { hata: r.hata };
 }
 
 type BilgiInput = { ad: string | null; il: string | null; urun: string | null; adet: number | null; renk: string | null; not: string | null; aranma_zamani: string | null };
@@ -545,7 +636,13 @@ export async function runTool(ctx: Ctx, telefon: string, name: string, input: Re
       sonuc = await medyaGonder(ctx, telefon, str("kod"), str("id"));
       break;
     case "urun_gorseli_gonder":
-      sonuc = await urunGorseli(ctx, telefon, str("kod"), Number(input.urun_id) || null);
+      sonuc = await urunGorseli(ctx, telefon, input.kod ? str("kod") : null, Number(input.urun_id) || null);
+      break;
+    case "site_urun_ara":
+      sonuc = await siteUrunAra(ctx, str("sorgu"));
+      break;
+    case "site_urun_detay":
+      sonuc = await siteUrunDetay(ctx, Number(input.urun_id));
       break;
     case "bilgi_kaydet":
       sonuc = await bilgiKaydet(ctx, input as BilgiInput);
