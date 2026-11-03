@@ -244,15 +244,25 @@ async function liveProduct(card: Kart) {
   return { site, v: info.v };
 }
 
-/** Kategorideki yayındaki ürünler (5 dakika önbellek) */
-const categoryCache = new Map<string, { t: number; v: Awaited<ReturnType<typeof wcCategoryProducts>> }>();
+/** Kategorideki yayındaki ürünler; varyantlı ürünlerin seçenekleri de (en düşük fiyat çoğu zaman yalnız baskı gibi bir seçenektir). 5 dakika önbellek. */
+type KategoriUrunu = Awaited<ReturnType<typeof wcCategoryProducts>>[number] & { secenekler: { ad: string; fiyat: number }[] };
+const categoryCache = new Map<string, { t: number; v: KategoriUrunu[] }>();
 async function liveCategory(card: Kart) {
   const site = await siteOf(card.siteId);
   if (!site || !card.disKategoriId) return null;
   const key = `${site.id}:${card.disKategoriId}`;
   let c = categoryCache.get(key);
   if (!c || Date.now() - c.t > 5 * 60_000) {
-    c = { t: Date.now(), v: await wcCategoryProducts(site, card.disKategoriId) };
+    const list = await wcCategoryProducts(site, card.disKategoriId);
+    const v = await Promise.all(
+      list.map(async (u) => ({
+        ...u,
+        secenekler: u.varyantli
+          ? (await wcVariations(site, u.id).catch(() => [])).flatMap((x) => (x.fiyat === null ? [] : [{ ad: x.ad, fiyat: x.fiyat }])).slice(0, 10)
+          : [],
+      })),
+    );
+    c = { t: Date.now(), v };
     categoryCache.set(key, c);
   }
   return { site, urunler: c.v };
@@ -275,9 +285,12 @@ async function categoryInfo(card: Kart) {
   return {
     ...base,
     one_cikan_urun_id: card.disUrunId,
-    urunler: urunler.map((u) => ({ urun_id: u.id, ad: u.ad, [u.varyantli ? "baslangic_fiyati_kdv_dahil" : "fiyat_kdv_dahil"]: u.fiyat, link: u.link })),
+    urunler: urunler.map((u) => ({
+      urun_id: u.id, ad: u.ad, [u.varyantli ? "baslangic_fiyati_kdv_dahil" : "fiyat_kdv_dahil"]: u.fiyat, link: u.link,
+      ...(u.secenekler.length ? { secenekler_kdv_dahil: u.secenekler } : {}),
+    })),
     ...(oran !== null ? { havale_eft_indirim_orani: oran } : {}),
-    not: `Genel soruda (ör. "bayrak fiyatı ne") seçenekleri kısaca özetle: hangi modeller / ölçüler var ve "X TL'den başlayan fiyatlarla" (en düşük fiyat); tek link olarak kategori_linki'ni ver, her ürünün linkini sıralama. Müşteri belirli bir model ya da ölçü sorarsa o ürünün fiyatını ve linkini ver. Görmek isterse urun_gorseli_gonder.${
+    not: `Genel soruda (ör. "bayrak fiyatı ne") seçenekleri kısaca özetle: hangi modeller / ölçüler var ve fiyatları; tek link olarak kategori_linki'ni ver, her ürünün linkini sıralama. Seçenekli üründe en düşük fiyat çoğu zaman tam ürün değildir (ör. "sadece baskı", "sadece iskelet"): fiyatı tam set / komple ürün seçeneği üzerinden söyle, diğer seçenekleri ayrıca belirt; yalnız baskı fiyatını ürün fiyatı gibi sunma. Müşteri belirli bir model ya da ölçü sorarsa o ürünün fiyatını ve linkini ver. Görmek isterse urun_gorseli_gonder.${
       card.asistanSeviyesi === "bilgi_verir" ? " Sonra ölçü, adet, baskı, il ve ad bilgisini topla, bilgi_kaydet ve ekibe_devret. Satışı kapatma: sipariş, ödeme linki, IBAN ya da teslim süresi sözü verme." : ""
     }`,
   };
@@ -424,7 +437,13 @@ async function siteUrunAra(ctx: Ctx, sorgu: string) {
   if (q.length < 2) return { hata: "Arama ifadesi çok kısa." };
   let rows: Awaited<ReturnType<typeof wcSearch>>;
   try {
-    rows = (await wcSearch(site, q)).filter((r) => r.durum === "publish" && r.fiyat !== null).slice(0, 8);
+    // Site anlık yoğunlukta (ör. kategori seçenekleriyle aynı anda) hata verebilir: bir kez yeniden denenir
+    const all = await wcSearch(site, q).catch(async (e) => {
+      console.error("[wa-asistan] site araması", e instanceof Error ? e.message : e);
+      await new Promise((r) => setTimeout(r, 1500));
+      return wcSearch(site, q);
+    });
+    rows = all.filter((r) => r.durum === "publish" && r.fiyat !== null).slice(0, 8);
   } catch {
     return { hata: "Site şu an okunamadı; fiyat söyleme, ekibe devret." };
   }
