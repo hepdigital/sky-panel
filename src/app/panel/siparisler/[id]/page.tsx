@@ -4,9 +4,11 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { OrderDetail } from "@/components/orders/order-views";
 import { MarketplaceProfitCard } from "@/components/orders/marketplace-profit";
+import { OrderShipmentsCard } from "@/components/orders/order-shipments";
 import { SiteOrderDetail } from "@/components/orders/site-order";
 import { isAdmin, requireSeller } from "@/server/auth";
 import { orderProfit } from "@/server/marketplaces/finance";
+import { orderShipments } from "@/server/shipping";
 import { getOrder, orderCargo } from "@/server/orders";
 import { refreshNotes } from "@/server/sites";
 
@@ -26,24 +28,36 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     const ok = await Promise.race([refreshNotes(o.id).then(() => true), new Promise<false>((r) => setTimeout(() => r(false), 4000))]).catch(() => false);
     if (ok) o = (await getOrder(me, id)) ?? o;
   }
+  // Siparişe bağlanan Yurtiçi gönderileri (ücret yalnızca yöneticiye)
+  const gonderiler = (await orderShipments(o.id).catch(() => [])).map((s) => ({
+    id: s.id, tarih: s.tarih, koli: s.koli, desi: s.desi, toplam: s.toplam, durum: s.durum, teslim: s.durumKodu === "OK", red: s.red, takipUrl: s.takipUrl, eslesme: s.eslesme,
+  }));
+  const kargo = <OrderShipmentsCard list={gonderiler} fiyat={isAdmin(me)} />;
   if (o.kaynak === "site" && o.site && o.siteVeri) {
     // Pazaryeri siparişinde komisyon, kargo ve kâr (maliyet içerdiği için yalnızca yönetici görür)
     const kar = o.site.tur === "trendyol" && isAdmin(me) ? await orderProfit(o.site.id, o.siteVeri).catch(() => null) : null;
     return (
       <SiteOrderDetail
         id={o.id} no={o.no} marka={o.marka} site={o.site} disDurum={o.disDurum} odemeYontemi={o.odemeYontemi} odemeDurumu={o.odemeDurumu}
-        veri={o.veri} o={o.siteVeri} ek={kar ? <MarketplaceProfitCard p={kar} site={o.site.ad} /> : null}
+        veri={o.veri} o={o.siteVeri}
+        ek={
+          <>
+            {kar && <MarketplaceProfitCard p={kar} site={o.site.ad} />}
+            {kargo}
+          </>
+        }
       />
     );
   }
-  const kargo = await orderCargo(o.id);
+  const kargoBilgi = await orderCargo(o.id);
   return (
     <OrderDetail
       order={{
         id: o.id, no: o.no, olusturma: o.olusturma.toISOString(), durum: o.durum, notlar: o.notlar, satisci: o.satisci,
         teklifId: o.teklifId, teklifNo: o.teklifNo, musteriId: o.musteriId, veri: o.veri, marka: o.marka,
-        telefon: o.musteriTelefon, kargo,
+        telefon: o.musteriTelefon, kargo: kargoBilgi,
       }}
+      ek={kargo}
     />
   );
 }

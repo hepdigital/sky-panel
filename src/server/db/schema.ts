@@ -466,6 +466,41 @@ export const kargoPaketleri = mysqlTable("kargo_paketleri", {
   guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
 });
 
+/**
+ * Kargo firmasındaki gönderiler (Yurtiçi rapor servisinden, salt okuma): giden ve bizim ödediğimiz gelen gönderiler; ücret
+ * KDV hariç. siparis_id: eşleşen panel siparişi; eslesme: "oto" (alıcı adı ve tarihle), "elle", "yok" (bağlantı kaldırıldı).
+ */
+export const kargoGonderileri = mysqlTable(
+  "kargo_gonderileri",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    firma: varchar("firma", { length: 20 }).notNull(),
+    belgeId: varchar("belge_id", { length: 40 }).notNull(),
+    belgeNo: varchar("belge_no", { length: 40 }),
+    tarih: date("tarih", { mode: "string" }).notNull(),
+    /** giden · gelen */
+    yon: varchar("yon", { length: 10 }).notNull(),
+    gonderici: varchar("gonderici", { length: 200 }),
+    alici: varchar("alici", { length: 200 }),
+    aliciAdres: varchar("alici_adres", { length: 500 }),
+    koli: smallint("koli", { unsigned: true }).notNull().default(1),
+    desi: decimal("desi", { precision: 8, scale: 2, mode: "number" }).notNull().default(0),
+    kg: decimal("kg", { precision: 8, scale: 2, mode: "number" }).notNull().default(0),
+    ucret: decimal("ucret", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+    kdv: decimal("kdv", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+    toplam: decimal("toplam", { precision: 12, scale: 2, mode: "number" }).notNull().default(0),
+    durumKodu: varchar("durum_kodu", { length: 10 }),
+    durum: varchar("durum", { length: 80 }),
+    red: boolean("red").notNull().default(false),
+    takipUrl: varchar("takip_url", { length: 255 }),
+    tahminiTeslim: date("tahmini_teslim", { mode: "string" }),
+    siparisId: int("siparis_id", { unsigned: true }),
+    eslesme: varchar("eslesme", { length: 10 }),
+    guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+  },
+  (t) => [uniqueIndex("kg_firma_belge").on(t.firma, t.belgeId), index("kg_tarih").on(t.tarih), index("kg_siparis").on(t.siparisId)],
+);
+
 /* ───────────── pazaryeri ürünleri ───────────── */
 
 /**
