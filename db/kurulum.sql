@@ -476,3 +476,19 @@ CREATE TABLE IF NOT EXISTS pazaryeri_finans (
     son timestamp NULL,
     CONSTRAINT pazaryeri_finans_site_id_site_baglantilari_id_fk FOREIGN KEY (site_id) REFERENCES site_baglantilari (id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS kargo_tarifeleri (
+    firma varchar(20) NOT NULL PRIMARY KEY,
+    veri longtext NOT NULL,
+    guncelleme timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS kargo_paketleri (
+    anahtar varchar(120) NOT NULL PRIMARY KEY,
+    en decimal(8,1) NULL,
+    boy decimal(8,1) NULL,
+    yukseklik decimal(8,1) NULL,
+    kg decimal(8,2) NULL,
+    adet smallint unsigned NOT NULL DEFAULT 1,
+    guncelleme timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

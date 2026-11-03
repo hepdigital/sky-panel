@@ -5,6 +5,7 @@ import { MarketplaceAdmin } from "@/components/marketplace/marketplace-admin";
 import { requireAdmin } from "@/server/auth";
 import { listProducts } from "@/server/catalog";
 import { financeRefs } from "@/server/marketplaces/finance";
+import { getTariff } from "@/server/shipping";
 import { categoryCount, channelPrice, listItems, recentLogs, salesChannels } from "@/server/marketplaces/listing";
 
 export const metadata: Metadata = { title: "Ürünler" };
@@ -15,12 +16,13 @@ const imageOf = (g: string | null) => (!g ? null : g.startsWith("p:") ? `/termin
 async function Products() {
   await connection();
   await requireAdmin();
-  const [channels, items, { urunler }, logs] = await Promise.all([salesChannels(), listItems(), listProducts(), recentLogs()]);
+  const [channels, items, { urunler }, logs, tarife] = await Promise.all([salesChannels(), listItems(), listProducts(), recentLogs(), getTariff()]);
   const counts = Object.fromEntries(await Promise.all([...new Set(channels.filter((c) => c.pazaryeri).map((c) => c.tur))].map(async (t) => [t, await categoryCount(t)] as const)));
   const finans = Object.fromEntries(await Promise.all(channels.filter((c) => c.pazaryeri).map(async (c) => [c.id, await financeRefs(c.id)] as const)));
   const iso = (d: Date | null) => d?.toISOString() ?? null;
   return (
     <MarketplaceAdmin
+      tarife={tarife}
       channels={channels.map((c) => ({ ...c, kategoriSayisi: counts[c.tur] ?? 0, finans: finans[c.id] ?? null }))}
       catalog={urunler
         .filter((u) => u.aktif)

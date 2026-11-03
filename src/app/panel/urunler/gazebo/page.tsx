@@ -5,14 +5,20 @@ import { GazeboPriceAdmin } from "@/components/products/gazebo-prices";
 import { requireAdmin } from "@/server/auth";
 import { brandsFor } from "@/server/brands";
 import { gazeboEdits } from "@/server/gazebo-prices";
+import { getPackages, getTariff } from "@/server/shipping";
 
 export const metadata: Metadata = { title: "Modüler gazebo fiyatları" };
 
 async function Prices() {
   await connection();
   const me = await requireAdmin();
-  const [e, brands] = await Promise.all([gazeboEdits(), brandsFor(me)]);
-  return <GazeboPriceAdmin brands={brands.map((b) => ({ id: b.id, ad: b.ad, renk: b.renk }))} ortak={e.ortak} markalar={e.markalar} maliyet={e.maliyet} />;
+  const [e, brands, paketler, tarife] = await Promise.all([gazeboEdits(), brandsFor(me), getPackages(), getTariff()]);
+  return (
+    <GazeboPriceAdmin
+      brands={brands.map((b) => ({ id: b.id, ad: b.ad, renk: b.renk }))} ortak={e.ortak} markalar={e.markalar} maliyet={e.maliyet}
+      paketler={Object.fromEntries(Object.entries(paketler).filter(([k]) => !k.startsWith("u|")))} tarife={tarife}
+    />
+  );
 }
 
 export default function GazeboPricesPage() {

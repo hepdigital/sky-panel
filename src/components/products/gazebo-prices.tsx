@@ -4,10 +4,13 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Info, Save } from "lucide-react";
+import { kargoPaketKaydet } from "@/app/panel/sevkiyat/actions";
 import { gazeboFiyatKaydet } from "@/app/panel/urunler/gazebo/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { CargoLine, draftOf, paketOf, type PaketDraft } from "@/components/shipping/package-fields";
+import type { Paket, Tariff } from "@/lib/cargo-tariff";
 import { FABRICS, FRAME_IDS, SZ } from "@/lib/terminal/calc";
 import {
   DEFAULT_TABLE,
@@ -21,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { LIST_PRODUCTS } from "@/modules/gazebo/walls";
 
 type Brand = { id: number; ad: string; renk: string };
-type Scope = "ortak" | "maliyet" | number;
+type Scope = "ortak" | "maliyet" | "koli" | number;
 type Section = "iskelet" | "tavan" | "duvar" | "zemin";
 /** Hücre taslağı: [toptan, perakende] metin olarak; maliyette yalnızca ilk alan kullanılır */
 type Draft = Record<string, [string, string]>;
@@ -71,11 +74,16 @@ export function GazeboPriceAdmin({
   ortak,
   markalar,
   maliyet,
+  paketler,
+  tarife,
 }: {
   brands: Brand[];
   ortak: PriceEdits;
   markalar: Record<number, PriceEdits>;
   maliyet: CostEdits;
+  /** Parçaların koli ölçüleri (kargo hesabı) */
+  paketler: Record<string, Paket>;
+  tarife: Tariff;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -155,6 +163,7 @@ export function GazeboPriceAdmin({
       else if (scope === "ortak") edits[key] = null; // ortakta boş = fiyat sorunuz
     }
     start(async () => {
+      if (scope === "koli") return;
       const r = await gazeboFiyatKaydet(scope, edits);
       setMsg(
         r.ok
@@ -210,6 +219,7 @@ export function GazeboPriceAdmin({
             ["ortak", "Ortak fiyat"],
             ...brands.map((b) => [b.id, b.ad] as const),
             ["maliyet", "Maliyet"],
+            ["koli", "Koli ölçüleri"],
           ] as [Scope, string][]
         ).map(([s, l]) => {
           const k = typeof s === "number" ? `m${s}` : s;
@@ -241,13 +251,18 @@ export function GazeboPriceAdmin({
       </div>
       <p className="mt-3 flex items-start gap-2 rounded-xl bg-muted/60 px-3 py-2.5 text-xs text-muted-foreground">
         <Info className="mt-px size-3.5 shrink-0" />
-        {scope === "ortak"
+        {scope === "koli"
+          ? "Her parçanın kolisi: teklif özetindeki tahmini Yurtiçi kargo bu ölçülerle hesaplanır (parça başına ayrı koli). Başka bir kolinin içinde giden parçayı boş bırakın."
+          : scope === "ortak"
           ? "Ortak fiyat tüm markalarda geçerlidir. Boş bırakılan hücre teklifte “fiyat alınız” olur."
           : scope === "maliyet"
             ? "Maliyet yalnızca yöneticiye görünür. Bir gazebonun tüm parçalarının (iskelet, tavan, duvarlar) maliyeti girilmişse satışçı o gazeboyu maliyetin altında teklif edemez. Boş bırakılabilir."
             : `${brandOf?.ad} tekliflerinde bu fiyatlar kullanılır. Boş hücre ortak fiyatı kullanır (soluk yazan değer).`}
       </p>
 
+      {scope === "koli" ? (
+        <GazeboPackages paketler={paketler} tarife={tarife} />
+      ) : (
       <Card className="mt-4 p-4 md:p-5">
         <div className="flex flex-wrap gap-1 rounded-full bg-muted p-1 sm:inline-flex">
           {(
@@ -415,6 +430,122 @@ export function GazeboPriceAdmin({
           </Button>
         </div>
       </Card>
+      )}
     </div>
+  );
+}
+
+/** Koli ölçüleri: iskelet (seri × ölçü), tavan ve zemin (ölçü), duvar (duvar ölçüsü; kumaş ve tipten bağımsız) */
+function GazeboPackages({ paketler, tarife }: { paketler: Record<string, Paket>; tarife: Tariff }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [section, setSection] = useState<Section>("iskelet");
+  const [frame, setFrame] = useState(FRAME_IDS[0]);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const initial = useMemo(() => Object.fromEntries(Object.entries(paketler).map(([k, p]) => [k, draftOf(p)])), [paketler]);
+  const [drafts, setDrafts] = useState<Record<string, PaketDraft>>(initial);
+  const keys = Object.keys({ ...initial, ...drafts });
+  const dirty = keys.some((k) => JSON.stringify(paketOf(drafts[k] ?? draftOf(null))) !== JSON.stringify(paketOf(initial[k] ?? draftOf(null))));
+  const rows =
+    section === "iskelet"
+      ? Object.keys(DEFAULT_TABLE.FRAMES[frame]?.p ?? {}).map((size) => ({ key: `f|${frame}|${size}`, label: `${SZ[size] ?? size} m` }))
+      : section === "tavan"
+        ? Object.keys(DEFAULT_TABLE.ROOF).map((size) => ({ key: `r|${size}`, label: `${SZ[size] ?? size} m tavan` }))
+        : section === "zemin"
+          ? Object.keys(DEFAULT_TABLE.FLOOR).map((size) => ({ key: `z|${size}`, label: `${SZ[size] ?? size} m zemin` }))
+          : WALL_GROUPS.map((g) => ({ key: `w|${g}`, label: `${groupLabel(g)} duvar` }));
+  const cell = "tabular h-9 w-full rounded-lg border border-input bg-card px-2 text-right text-sm font-semibold outline-none focus:border-primary";
+
+  function save() {
+    const list: Record<string, Paket | null> = {};
+    for (const k of keys) list[k] = paketOf(drafts[k] ?? draftOf(null));
+    start(async () => {
+      const r = await kargoPaketKaydet(list);
+      setMsg(r.ok ? { ok: true, text: "Kaydedildi. Teklif özeti yeni ölçülerle hesaplar." } : { ok: false, text: r.hata });
+      if (r.ok) router.refresh();
+    });
+  }
+
+  return (
+    <Card className="mt-4 p-4 md:p-5">
+      <div className="flex flex-wrap gap-1 rounded-full bg-muted p-1 sm:inline-flex">
+        {(
+          [
+            ["iskelet", "İskelet"],
+            ["tavan", "Tavan"],
+            ["duvar", "Duvarlar"],
+            ["zemin", "Pilsa zemin"],
+          ] as [Section, string][]
+        ).map(([s, l]) => (
+          <button key={s} type="button" onClick={() => setSection(s)} className={cn("h-9 rounded-full px-4 text-sm font-semibold", section === s ? "bg-card shadow-card" : "text-muted-foreground")}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {section === "iskelet" && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {FRAME_IDS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setFrame(id)}
+              className={cn("h-8 rounded-full border px-3 text-xs font-semibold", frame === id ? "border-primary bg-primary-soft text-primary" : "border-border text-muted-foreground hover:text-foreground")}
+            >
+              {id} · {DEFAULT_TABLE.FRAMES[id].desc}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead>
+            <tr className="text-left text-xs text-muted-foreground">
+              <th className="pb-2 font-semibold">{section === "duvar" ? "Duvar" : "Ölçü"}</th>
+              {["En (cm)", "Boy (cm)", "Yük. (cm)", "Kilo", "Koli"].map((h) => (
+                <th key={h} className="w-20 pb-2 pl-2 text-right font-semibold">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((r) => {
+              const v = drafts[r.key] ?? draftOf(null);
+              const p = paketOf(v);
+              return (
+                <tr key={r.key}>
+                  <td className="py-1.5 pr-2 align-top">
+                    <span className="font-medium">{r.label}</span>
+                    {p && <CargoLine tarife={tarife} paket={p} className="block" />}
+                  </td>
+                  {(["en", "boy", "yukseklik", "kg", "adet"] as const).map((k) => (
+                    <td key={k} className="py-1.5 pl-2 align-top">
+                      <input
+                        value={v[k]}
+                        onChange={(e) => setDrafts({ ...drafts, [r.key]: { ...v, [k]: e.target.value } })}
+                        inputMode="decimal"
+                        placeholder={k === "adet" ? "1" : ""}
+                        aria-label={`${r.label} ${k}`}
+                        className={cell}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+        {msg ? (
+          <p className={cn("text-sm font-medium", msg.ok ? "text-success" : "text-danger")}>{msg.text}</p>
+        ) : (
+          <span className="text-xs text-muted-foreground">Kaydet tüm bölümlerin koli ölçülerini kaydeder.</span>
+        )}
+        <Button disabled={pending || !dirty} onClick={save}>
+          <Save /> {pending ? "Kaydediliyor…" : "Kaydet"}
+        </Button>
+      </div>
+    </Card>
   );
 }

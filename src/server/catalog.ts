@@ -1,9 +1,11 @@
 import "server-only";
 import { and, asc, eq, ne } from "drizzle-orm";
 import { OPT_SUFFIX, type Catalog, type Pair } from "@/lib/terminal/calc";
+import type { Paket } from "@/lib/cargo-tariff";
 import type { Costs } from "@/lib/terminal/cost";
 import { isAdmin, type Me } from "./auth";
 import { db, schema } from "./db";
+import { savePackages } from "./shipping";
 
 const { urunler, urunKategorileri, kullanicilar, urunMarkalari } = schema;
 
@@ -60,6 +62,12 @@ export async function getCosts(): Promise<Costs> {
 
 export type BrandOverride = { markaId: number; toptan: number | null; perakende: number | null; gorsel: string | null; gizli: boolean };
 
+/** Ürün kimliği → kod (teklif sepetindeki anahtar) */
+export async function productCodes(): Promise<Record<number, string>> {
+  const rows = await db().select({ id: urunler.id, kod: urunler.kod }).from(urunler);
+  return Object.fromEntries(rows.map((r) => [r.id, r.kod]));
+}
+
 /** Ürünler ekranı: tüm kategoriler ve ürünler (pasifler dahil) */
 export async function listProducts() {
   const [kategoriler, liste] = await Promise.all([
@@ -99,6 +107,8 @@ export type ProductInput = {
   maliyet?: number | null;
   secenekMaliyet?: number | null;
   markalar?: BrandOverride[];
+  /** Koli ölçüleri (kargo hesabı); verilmezse değişmez, null silinir */
+  paket?: Paket | null;
 };
 
 const clip = (v: string | null | undefined, max: number) => (v?.trim() ? v.trim().slice(0, max) : null);
@@ -151,6 +161,7 @@ export async function saveProduct(me: Me, p: ProductInput): Promise<{ ok: true; 
     if (!canEditProduct(me, u.olusturanId)) return { ok: false, hata: "Bu ürünü yalnızca yönetici ya da ekleyen satışçı düzenleyebilir." };
     await db().update(urunler).set(values).where(eq(urunler.id, p.id));
     if (isAdmin(me) && p.markalar) await saveOverrides(p.id, p.markalar);
+    if (p.paket !== undefined) await savePackages({ [`u|${p.id}`]: p.paket });
     return { ok: true, id: p.id };
   }
   // Kod benzersiz ve kalıcıdır (teklif sepetindeki anahtar)
@@ -159,6 +170,7 @@ export async function saveProduct(me: Me, p: ProductInput): Promise<{ ok: true; 
   for (let i = 2; (await db().select({ id: urunler.id }).from(urunler).where(eq(urunler.kod, kod))).length; i++) kod = `${base}-${i}`;
   const [r] = await db().insert(urunler).values({ ...values, kod, sira: 1000, olusturanId: me.id }).$returningId();
   if (isAdmin(me) && p.markalar) await saveOverrides(r.id, p.markalar);
+  if (p.paket) await savePackages({ [`u|${r.id}`]: p.paket });
   return { ok: true, id: r.id };
 }
 

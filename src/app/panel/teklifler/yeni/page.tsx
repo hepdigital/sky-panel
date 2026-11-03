@@ -3,12 +3,13 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Terminal } from "@/components/terminal/terminal";
 import { isAdmin, requireSeller } from "@/server/auth";
-import { getCatalogs, getCosts } from "@/server/catalog";
+import { getCatalogs, getCosts, productCodes } from "@/server/catalog";
 import { listColors } from "@/server/colors";
 import { gazeboCostTable, gazeboTables } from "@/server/gazebo-prices";
 import { brandCard, brandsFor } from "@/server/brands";
 import { activeChannels } from "@/server/channels";
 import { customerForQuote } from "@/server/customers";
+import { getPackages, getTariff } from "@/server/shipping";
 
 export const metadata: Metadata = { title: "Yeni teklif" };
 
@@ -27,7 +28,12 @@ async function Loaded({ searchParams }: { searchParams: Promise<{ musteri?: stri
   ]);
   if (!brands.length) return <p className="mx-auto mt-10 max-w-md text-center text-sm text-muted-foreground">Size tanımlı aktif marka yok. Yöneticinizden marka atamasını isteyin.</p>;
   const ids = brands.map((b) => b.id);
-  const [catalogs, tables, gazeboCost] = await Promise.all([getCatalogs(ids), gazeboTables(ids), isAdmin(me) ? gazeboCostTable() : null]);
+  const [catalogs, tables, gazeboCost, tarife, paketler, kodlar] = await Promise.all([
+    getCatalogs(ids), gazeboTables(ids), isAdmin(me) ? gazeboCostTable() : null, getTariff(), getPackages(), productCodes(),
+  ]);
+  // Koli ölçüleri: gazebo parçaları anahtarıyla, teklif ürünleri ürün koduyla (sepet anahtarı)
+  const gazebo = Object.fromEntries(Object.entries(paketler).filter(([k]) => !k.startsWith("u|")));
+  const urun = Object.fromEntries(Object.entries(paketler).flatMap(([k, p]) => (k.startsWith("u|") && kodlar[Number(k.slice(2))] ? [[kodlar[Number(k.slice(2))], p]] : [])));
   return (
     <Terminal
       catalogs={catalogs}
@@ -38,6 +44,7 @@ async function Loaded({ searchParams }: { searchParams: Promise<{ musteri?: stri
       initialCustomer={customer}
       channels={channels}
       brands={brands.map(brandCard)}
+      kargo={{ tarife, gazebo, urun }}
     />
   );
 }

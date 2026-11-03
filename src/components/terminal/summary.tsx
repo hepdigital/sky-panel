@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { AlertTriangle, Copy, FileDown, Pencil, Percent, Plus, ReceiptText, Trash2 } from "lucide-react";
+import { AlertTriangle, Copy, FileDown, Pencil, Percent, Plus, ReceiptText, Trash2, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QtyStepper } from "@/components/ui/qty-stepper";
 import { SZ, TL, cartUnpriced, hesap, iskEtiket, iskYok, imgSrc, modeName, splitKey, wallDetail, type BrandCard, type Catalog, type ExtraLine, type Isk, type QuoteState } from "@/lib/terminal/calc";
+import { quoteCargo, type QuoteCargoData } from "@/lib/terminal/cargo";
 import type { costOf } from "@/lib/terminal/cost";
 import { recolored } from "@/lib/terminal/recolor";
+import { newId } from "@/lib/terminal/state";
 import { cn } from "@/lib/utils";
 import { CopyQuoteButton } from "./copy-quote";
 import { ExtraSheet } from "./extra-sheet";
@@ -21,6 +23,8 @@ type Props = {
   brand: BrandCard;
   /** Yalnızca yöneticide: maliyet ve kâr (satışçıya hiç gönderilmez) */
   cost: ReturnType<typeof costOf> | null;
+  /** Tahmini kargo (anlaşmalı tarife ve koli ölçüleri) */
+  kargo: QuoteCargoData | null;
   money: (n: number) => string;
   editingId: string | null;
   onEdit: (id: string) => void;
@@ -30,7 +34,7 @@ type Props = {
 };
 
 /** Teklif özeti: sepetteki gazeboler, ürünler ve ek kalemler; satır ve genel iskonto, toplamlar */
-export function Summary({ q, setQ, catalog, brand, cost, money, editingId, onEdit, onCopy, onSave, onClear }: Props) {
+export function Summary({ q, setQ, catalog, brand, cost, kargo, money, editingId, onEdit, onCopy, onSave, onClear }: Props) {
   const H = hesap(q, catalog);
   const unpriced = cartUnpriced(q);
   const all = catalog.flatMap((g) => g.items);
@@ -175,6 +179,8 @@ export function Summary({ q, setQ, catalog, brand, cost, money, editingId, onEdi
       </div>
       <p className="mt-1 text-right text-[11px] text-muted-foreground">{modeName(q.mode)} fiyat listesi · KDV dahil</p>
 
+      {kargo && <CargoEstimate q={q} setQ={setQ} kargo={kargo} money={money} />}
+
       {cost && cost.maliyet !== null && (
         <div className="mt-3 rounded-xl border border-dashed border-border px-3 py-2.5 text-xs">
           <p className="font-semibold text-muted-foreground">Yalnızca yönetici görür · KDV hariç</p>
@@ -283,5 +289,43 @@ function DiscountButton({ value, onChange, compact }: { value?: Isk; onChange: (
         </span>
       )}
     </span>
+  );
+}
+
+/**
+ * Tahmini Yurtiçi kargo: parça ve ürün kolilerinden. "Nakliye bedeli olarak ekle" ek kalemi yazar (varsa günceller);
+ * teklif fiyatına kendiliğinden eklenmez.
+ */
+function CargoEstimate({ q, setQ, kargo, money }: { q: QuoteState; setQ: (q: QuoteState) => void; kargo: QuoteCargoData; money: (n: number) => string }) {
+  const c = quoteCargo(q, kargo);
+  if (!c.parca) return null;
+  const mevcut = (q.extra ?? []).find((x) => x.ad === "Nakliye bedeli");
+  const aciklama = `Yurtiçi Kargo · ${c.koli} koli`;
+  const ekle = () => {
+    const line: ExtraLine = { id: mevcut?.id ?? newId(), ad: "Nakliye bedeli", aciklama, adet: 1, birim: c.haric, isk: mevcut?.isk ?? { tip: "yuzde", d: 0 } };
+    setQ({ ...q, extra: mevcut ? (q.extra ?? []).map((x) => (x.id === mevcut.id ? line : x)) : [...(q.extra ?? []), line] });
+  };
+  return (
+    <div className="mt-3 rounded-xl bg-muted/60 px-3 py-2.5 text-xs">
+      <div className="flex items-start justify-between gap-2">
+        <p className="flex items-center gap-1.5 font-semibold text-muted-foreground">
+          <Truck className="size-3.5" /> Tahmini kargo · Yurtiçi
+        </p>
+        {c.koli > 0 && (
+          <span className="text-right">
+            <b className="tabular">{money(c.haric)}</b> <span className="text-muted-foreground">+ KDV</span>
+          </span>
+        )}
+      </div>
+      <p className="mt-0.5 text-muted-foreground">
+        {c.koli > 0 ? `${c.koli} koli · ${c.desi.toLocaleString("tr-TR")} desi` : "Hiçbir parçanın koli ölçüsü girilmemiş"}
+        {c.eksik > 0 && c.koli > 0 && ` · ${c.eksik} parçanın ölçüsü eksik, toplama girmedi`}
+      </p>
+      {c.koli > 0 && (
+        <button type="button" onClick={ekle} disabled={!!mevcut && mevcut.birim === c.haric && mevcut.aciklama === aciklama} className="mt-1.5 font-semibold text-primary hover:underline disabled:text-muted-foreground disabled:no-underline">
+          {mevcut ? (mevcut.birim === c.haric && mevcut.aciklama === aciklama ? "Nakliye bedeli teklifte" : "Nakliye bedelini güncelle") : "Nakliye bedeli olarak ekle"}
+        </button>
+      )}
+    </div>
   );
 }
