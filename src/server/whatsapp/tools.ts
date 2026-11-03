@@ -12,7 +12,7 @@ import { orderCargo } from "../orders";
 import { siteInstallments, siteTransferRate } from "../payment-links";
 import { fold, getCard, listCards, type Kart } from "./cards";
 import type { WaConfig } from "./config";
-import { DUVAR_SECENEKLERI, KUMAS_SECENEKLERI, gazeboFiyatla, gazeboOnayGorseli, gazeboSecenekleri, panelUrunAra, priceGazebo, type GazeboInput, type GazeboSecim } from "./gazebo";
+import { DUVAR_SECENEKLERI, KUMAS_SECENEKLERI, designLink, gazeboFiyatla, gazeboOnayGorseli, gazeboSecenekleri, panelUrunAra, priceGazebo, type GazeboInput, type GazeboSecim } from "./gazebo";
 import { sendMedia, sendText } from "./graph";
 import { createChatPaymentLink, paymentMessage, type PaymentDraft } from "./payment";
 import type { WaAyarlar } from "./settings";
@@ -696,7 +696,8 @@ async function gazeboOnay(ctx: Ctx, telefon: string, i: GazeboSecim) {
     return { hata: "Tasarım görseli hazırlanamadı; özeti yazıyla gönder." };
   }
   const jpg = `/jpg${yol.replace(/\.webp$/, ".jpg")}`;
-  const metin = [...p.ozet, `Toplam: ${p.toplam.toLocaleString("tr-TR")} TL (KDV dahil, kargo ücretsiz)`].join("\n").slice(0, 1000);
+  const link3d = designLink(g.card, g.adres, p.size, p.f, p.tasarim);
+  const metin = [...p.ozet, `Toplam: ${p.toplam.toLocaleString("tr-TR")} TL (KDV dahil, kargo ücretsiz)`, "", `3D olarak görmek ve çevirmek için: ${link3d}`].join("\n").slice(0, 1024);
   const r = await deliver(ctx, telefon, { tur: "image", link: publicUrl(jpg), yol: jpg, metin });
   if (r.ok) await db().update(sohbetler).set({ gazeboTasarim: JSON.stringify(i) }).where(eq(sohbetler.id, ctx.sohbetId));
   return r.ok

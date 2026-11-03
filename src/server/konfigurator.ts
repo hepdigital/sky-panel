@@ -1,8 +1,9 @@
 import "server-only";
 import { createHmac, randomBytes } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
-import { SZ, gzRows, gzTotal, imgSrc, val } from "@/lib/terminal/calc";
+import { SZ, gzRows, gzTotal, imgSrc, val, type Gazebo } from "@/lib/terminal/calc";
 import { withPriceTable } from "@/lib/terminal/price-table";
+import type { Wall } from "@/modules/gazebo/walls";
 import { KONF_EK_KATEGORI, KONF_KDV, KONF_MODE, cleanConfig, cleanExtras, ekSizes, summaryLines, type KonfEk } from "@/lib/konfigurator";
 import { getCatalog } from "./catalog";
 import { listColors } from "./colors";
@@ -133,6 +134,55 @@ async function priceDesign(markaId: number, g: unknown, rawExtras: unknown) {
   const ex = cleanExtras(rawExtras, extras, r.g.size);
   if (!ex.ok) throw new Error(ex.hata);
   return { ...r, ekler: ex.list };
+}
+
+/* ───────────── hazır tasarım linki ───────────── */
+
+/**
+ * Linkte taşınan tasarım (?tasarim=…): kısa metin, base64url. Alanlar "~" ile: ölçü, iskelet, kumaş, tavan rengi, duvar rengi,
+ * dört duvar (Ön, Arka, Sol, Sağ; tip.pencere.kapı: v PVC, s sineklik, p perde), ek ürünler (kod*adet, "," ile), adet.
+ * Duvarların kumaşı tavanınkiyle aynıdır (konfigüratör kuralı), ayrıca taşınmaz.
+ */
+export type KonfTasarim = { g: Gazebo; e?: Record<string, number>; a?: number };
+
+const wallCode = (w: Wall) =>
+  [w.kind, w.p ? `${w.p.pvc ? "v" : ""}${w.p.sineklik ? "s" : ""}${w.p.perde ? "p" : ""}` : "", w.k ? (w.k.sineklik ? "s" : "-") : ""].join(".").replace(/\.+$/, "");
+
+function wallOf(code: string, f: number): Wall {
+  const [kind, p, k] = code.split(".");
+  return {
+    kind: kind as Wall["kind"],
+    f,
+    ...(p ? { p: { pvc: p.includes("v"), sineklik: p.includes("s"), perde: p.includes("p") } } : {}),
+    ...(k ? { k: { sineklik: k === "s" } } : {}),
+  };
+}
+
+export function encodeDesign(t: KonfTasarim) {
+  const g = t.g;
+  const ek = Object.entries(t.e ?? {}).filter(([, n]) => n > 0).map(([k, n]) => `${k}*${n}`).join(",");
+  const parts = [g.size, g.frame ?? "", g.roofFab ?? 0, (g.color ?? "").replace("#", ""), (g.wallColor ?? "").replace("#", ""), ...g.sides.map((s) => wallCode(s.walls[0])), ek, t.a ?? 1];
+  return b64(parts.join("~"));
+}
+
+/**
+ * Linkteki tasarımı çözer ve konfigüratörün kurallarıyla doğrular (satılmayan seçim ya da stokta olmayan renk → yok sayılır,
+ * konfigüratör boş açılır). Fiyat yine ekranda hesaplanır; link fiyat taşımaz.
+ */
+export async function decodeDesign(markaId: number, raw: unknown) {
+  if (typeof raw !== "string" || !/^[A-Za-z0-9_-]{10,1000}$/.test(raw)) return null;
+  const f = Buffer.from(raw, "base64url").toString("utf8").split("~");
+  if (f.length !== 11) return null;
+  const fab = Number(f[2]);
+  const hex = (v: string) => (/^[0-9a-f]{6}$/i.test(v) ? `#${v.toLowerCase()}` : undefined);
+  const g = { size: f[0], frame: f[1] || null, roofFab: fab, color: hex(f[3]), wallColor: hex(f[4]), sides: f.slice(5, 9).map((c) => ({ walls: [wallOf(c, fab)] })) };
+  const e = Object.fromEntries(f[9].split(",").filter(Boolean).map((x) => x.split("*")).map(([k, n]) => [k, Number(n)]));
+  try {
+    const r = await priceDesign(markaId, g, e);
+    return { g: r.g, ekler: Object.fromEntries(r.ekler.map((x) => [x.ek.kod, x.adet])), adet: Math.max(1, Math.min(99, Math.round(Number(f[10]) || 1))) };
+  } catch {
+    return null;
+  }
 }
 
 /** 3D görüntüsü (webp, data URL) kaydedilir: sepette, siparişte ve talepte küçük resim */

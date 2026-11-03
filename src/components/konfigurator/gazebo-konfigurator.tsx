@@ -56,8 +56,11 @@ export function GazeboKonfigurator({
   table: PriceTable;
   colors: Color[];
   ekler: KonfEk[];
-  /** Siteden gelen ön seçim (kategori banner'ı): ölçü ve baskı seçili gelir, ilk seçilmemiş adımdan başlanır */
-  start?: { olcu?: string; baskili?: boolean };
+  /**
+   * Siteden gelen ön seçim (kategori banner'ı): ölçü ve baskı seçili gelir, ilk seçilmemiş adımdan başlanır.
+   * tasarim: sunucuda doğrulanmış hazır tasarım (WhatsApp asistanının linki); özet adımından açılır.
+   */
+  start?: { olcu?: string; baskili?: boolean; tasarim?: { g: Gazebo; ekler: Record<string, number>; adet: number } };
 }) {
   // Hesaplar etkin fiyat tablosunu okur: markanın tablosu her çizimde etkin
   setPriceTable(table);
@@ -66,11 +69,12 @@ export function GazeboKonfigurator({
   const olcu0 = start?.olcu && framesOf(start.olcu).length ? start.olcu : null;
   // Baskılı kumaşı olmayan ölçüde baskı ön seçimi yok sayılır
   const baski0 = start?.baskili === undefined || (start.baskili && val(ROOF[olcu0 ?? "3x3"]?.[2] ?? null, MODE) === null) ? null : start.baskili;
-  const [step, setStep] = useState(olcu0 ? (baski0 === null ? 1 : 2) : 0);
+  const hazir = start?.tasarim;
+  const [step, setStep] = useState(hazir ? STEPS.length - 1 : olcu0 ? (baski0 === null ? 1 : 2) : 0);
   const [side, setSide] = useState(0);
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState(hazir?.adet ?? 1);
   /** Ek ürün adetleri (kod → adet) */
-  const [ek, setEk] = useState<Record<string, number>>({});
+  const [ek, setEk] = useState<Record<string, number>>(hazir?.ekler ?? {});
   const [busy, setBusy] = useState(false);
   /** Ödemeye geç: önce telefon penceresi (isteğe bağlı) */
   const [ask, setAsk] = useState(false);
@@ -78,13 +82,13 @@ export function GazeboKonfigurator({
   const capture = useRef<Capture | null>(null);
   const waiting = useRef<number | null>(null);
   useEffect(() => () => void (waiting.current && window.clearTimeout(waiting.current)), []);
-  const [g, setG] = useState<Gazebo>(() => ({
+  const [g, setG] = useState<Gazebo>(() => hazir?.g ?? ({
     size: olcu0 ?? "3x3",
     frame: framesOf(olcu0 ?? "3x3")[0] ?? null,
     roofFab: baski0 ? 2 : 0,
     color: colors.find((c) => c.hex === "#ffffff")?.hex ?? colors[0]?.hex ?? "#ffffff",
     sides: [0, 1, 2, 3].map(() => ({ walls: [{ kind: "yok", f: 0 } as Wall] })),
-  }));
+  }) as Gazebo);
   const fab = g.roofFab ?? 0;
   const pl = plan(g.size);
   const total = gzTotal(g, MODE);
