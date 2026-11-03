@@ -3,8 +3,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { OrderDetail } from "@/components/orders/order-views";
+import { MarketplaceProfitCard } from "@/components/orders/marketplace-profit";
 import { SiteOrderDetail } from "@/components/orders/site-order";
-import { requireSeller } from "@/server/auth";
+import { isAdmin, requireSeller } from "@/server/auth";
+import { orderProfit } from "@/server/marketplaces/finance";
 import { getOrder, orderCargo } from "@/server/orders";
 import { refreshNotes } from "@/server/sites";
 
@@ -24,13 +26,16 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     const ok = await Promise.race([refreshNotes(o.id).then(() => true), new Promise<false>((r) => setTimeout(() => r(false), 4000))]).catch(() => false);
     if (ok) o = (await getOrder(me, id)) ?? o;
   }
-  if (o.kaynak === "site" && o.site && o.siteVeri)
+  if (o.kaynak === "site" && o.site && o.siteVeri) {
+    // Pazaryeri siparişinde komisyon, kargo ve kâr (maliyet içerdiği için yalnızca yönetici görür)
+    const kar = o.site.tur === "trendyol" && isAdmin(me) ? await orderProfit(o.site.id, o.siteVeri).catch(() => null) : null;
     return (
       <SiteOrderDetail
         id={o.id} no={o.no} marka={o.marka} site={o.site} disDurum={o.disDurum} odemeYontemi={o.odemeYontemi} odemeDurumu={o.odemeDurumu}
-        veri={o.veri} o={o.siteVeri}
+        veri={o.veri} o={o.siteVeri} ek={kar ? <MarketplaceProfitCard p={kar} site={o.site.ad} /> : null}
       />
     );
+  }
   const kargo = await orderCargo(o.id);
   return (
     <OrderDetail

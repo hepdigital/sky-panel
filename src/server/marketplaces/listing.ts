@@ -39,8 +39,17 @@ export type ChannelSettings = {
   /** Varsayılan marka (yeni listelemelerde önerilir) */
   markaId: number | null;
   markaAd: string | null;
+  /**
+   * Kârlılık hesabı (pazaryeri): varsayılan komisyon (%; ürünün ve kategorisinin geçmiş satışı yoksa), desi başına kargo ve
+   * gönderi başına hizmet bedeli (KDV dahil TL). Boşsa son faturalardan öğrenilen değer kullanılır (bkz. finance.ts)
+   */
+  komisyon: number | null;
+  desiKargo: number | null;
+  hizmetBedeli: number | null;
 };
-const DEFAULT_SETTINGS: ChannelSettings = { fiyatFarki: 0, fiyatYaz: false, kargoFirmaId: null, markaId: null, markaAd: null };
+const DEFAULT_SETTINGS: ChannelSettings = {
+  fiyatFarki: 0, fiyatYaz: false, kargoFirmaId: null, markaId: null, markaAd: null, komisyon: null, desiKargo: null, hizmetBedeli: null,
+};
 
 /** Ürün kanalları: önce WooCommerce siteleri, sonra pazaryerleri */
 export async function salesChannels() {
@@ -71,11 +80,17 @@ export async function saveSettings(siteId: number, s: ChannelSettings) {
     kargoFirmaId: s.kargoFirmaId && Number(s.kargoFirmaId) > 0 ? Math.round(Number(s.kargoFirmaId)) : null,
     markaId: s.markaId ? Number(s.markaId) : null,
     markaAd: s.markaAd?.trim().slice(0, 120) || null,
+    komisyon: posOrNull(s.komisyon, 60),
+    desiKargo: posOrNull(s.desiKargo, 1000),
+    hizmetBedeli: posOrNull(s.hizmetBedeli, 1000),
   };
   const veri = JSON.stringify(v);
   await db().insert(settingsT).values({ siteId, veri }).onDuplicateKeyUpdate({ set: { veri } });
   // Fiyat farkı değişince yayındaki fiyatlar bir sonraki eşitlemede yeniden gönderilir (imza değişir)
 }
+
+/** Pozitif sayı (üst sınırlı, iki ondalık) ya da boş */
+const posOrNull = (v: number | null | undefined, max: number) => (v && Number(v) > 0 ? Math.min(max, Math.round(Number(v) * 100) / 100) : null);
 
 async function siteOf(siteId: number) {
   const [s] = await db().select().from(sites).where(eq(sites.id, siteId));
@@ -175,6 +190,8 @@ export type ListingInput = {
   fiyat: number | null;
   /** Ürüne özel fiyat farkı (%); boşsa kanalınki */
   fiyatFarki?: number | null;
+  /** Pazaryeri: ürüne özel komisyon oranı (%; kârlılık hesabı) */
+  komisyon?: number | null;
   /** WooCommerce: bağlı ürün ve varyant, sitedeki ad ve fiyat (seçilirken okunur) */
   disUrunId?: number | null;
   disVaryantId?: number | null;
@@ -305,7 +322,7 @@ export async function saveItem(input: ItemInput): Promise<{ ok: true; id: number
     }
     const lv = {
       aktif: !!l.aktif, kategoriId: l.kategoriId || null, kategoriYol: clip(l.kategoriYol, 500), markaId: l.markaId || null, markaAd: clip(l.markaAd, 120),
-      ozellikler: JSON.stringify(ozellikler), fiyat: num(l.fiyat), fiyatFarki: farkOf(l.fiyatFarki),
+      ozellikler: JSON.stringify(ozellikler), fiyat: num(l.fiyat), fiyatFarki: farkOf(l.fiyatFarki), komisyon: posOrNull(l.komisyon, 60),
     };
     const ex = oldListings.find((x) => x.siteId === l.siteId);
     if (!ex) {

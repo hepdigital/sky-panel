@@ -23,6 +23,8 @@ type Props = {
   odemeDurumu: string | null;
   veri: PdfData;
   o: SiteOrder;
+  /** Sipariş durumunun altında gösterilir (pazaryeri siparişinde kârlılık; yalnızca yönetici) */
+  ek?: React.ReactNode;
 };
 
 const when = (iso: string) => formatDate(iso, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -30,7 +32,7 @@ const label = "mb-1 block text-xs font-semibold text-muted-foreground";
 const input = "h-10 w-full rounded-xl border border-input bg-card px-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
 
 /** Siteden gelen sipariş: sitenin kendi durumları, ödeme, kargo, müşteri ve kalemler; işlemler siteye yazılır */
-export function SiteOrderDetail({ id, no, marka, site, disDurum, odemeYontemi, odemeDurumu, veri, o }: Props) {
+export function SiteOrderDetail({ id, no, marka, site, disDurum, odemeYontemi, odemeDurumu, veri, o, ek }: Props) {
   const router = useRouter();
   const v = site.sozluk ?? { durumlar: [], odemeDurumlari: [], odemeYontemleri: [], kargolar: [] };
   const gt = site.tur === "gazebotente";
@@ -250,6 +252,8 @@ export function SiteOrderDetail({ id, no, marka, site, disDurum, odemeYontemi, o
         )}
         {msg && <p className={cn("mt-3 rounded-xl px-3 py-2 text-xs font-medium", msg.ok ? "bg-success-soft text-success" : "bg-danger-soft text-danger")}>{msg.text}</p>}
       </Card>
+
+      {ek}
 
       {/* Müşteri */}
       <div className="mt-4 grid gap-4 md:grid-cols-2">

@@ -97,6 +97,31 @@ const TABLES = [
     KEY pi_site (site_id, olusturma),
     CONSTRAINT pazaryeri_islemleri_site_id_site_baglantilari_id_fk FOREIGN KEY (site_id) REFERENCES site_baglantilari (id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  // Pazaryeri cari hesap kayıtları: satış/iade (komisyonla), kargo ve hizmet bedeli faturaları. tutar işaretli: + gelir, − gider
+  `CREATE TABLE IF NOT EXISTS pazaryeri_kesintileri (
+    id int unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    site_id int unsigned NOT NULL,
+    kayit_id varchar(120) NOT NULL,
+    tur varchar(20) NOT NULL,
+    siparis_no varchar(40) NULL,
+    barkod varchar(60) NULL,
+    tutar decimal(12,2) NOT NULL,
+    komisyon decimal(12,2) NULL,
+    oran decimal(5,2) NULL,
+    desi decimal(8,2) NULL,
+    aciklama varchar(200) NULL,
+    tarih timestamp NOT NULL DEFAULT current_timestamp(),
+    UNIQUE KEY pk_site_kayit (site_id, kayit_id),
+    KEY pk_site_siparis (site_id, siparis_no),
+    CONSTRAINT pazaryeri_kesintileri_site_id_site_baglantilari_id_fk FOREIGN KEY (site_id) REFERENCES site_baglantilari (id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  // Cari hesap taramasının kaldığı yer (ms) ve son tam tarama
+  `CREATE TABLE IF NOT EXISTS pazaryeri_finans (
+    site_id int unsigned NOT NULL PRIMARY KEY,
+    imlec bigint NOT NULL,
+    son timestamp NULL,
+    CONSTRAINT pazaryeri_finans_site_id_site_baglantilari_id_fk FOREIGN KEY (site_id) REFERENCES site_baglantilari (id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ];
 
 /** Önceki sürümde oluşmuş tablolara sonradan eklenen kolonlar (yoksa eklenir) */
@@ -113,6 +138,7 @@ const COLUMNS: [table: string, column: string, def: string][] = [
   ["pazaryeri_listelemeleri", "dis_ad", "varchar(255) NULL AFTER dis_varyant_id"],
   ["pazaryeri_listelemeleri", "dis_fiyat", "decimal(12,2) NULL AFTER dis_ad"],
   ["pazaryeri_listelemeleri", "fiyat_farki", "decimal(6,2) NULL AFTER fiyat"],
+  ["pazaryeri_listelemeleri", "komisyon", "decimal(5,2) NULL AFTER fiyat_farki"],
 ];
 
 async function columnType(table: string, column: string) {

@@ -6,6 +6,7 @@ import { db, schema } from "./db";
 import { paymentLinkOwner } from "./payment-links";
 import { ensureMarketplaceSchema } from "./db/ensure";
 import { marketplaceTick } from "./marketplaces/listing";
+import { financeTick } from "./marketplaces/finance";
 import { TY_PANEL_STATUS, tyAction, tyFetch, tyKeyValid, tyTest } from "./marketplaces/trendyol";
 import { wcRequest } from "./marketplaces/woocommerce";
 import { syncRequests } from "./site-requests";
@@ -345,13 +346,16 @@ function fetchPage(site: Site, cursor: string | null) {
 }
 
 /**
- * Pazaryerinde geçmişi yeniden çeker: imleç sıfırlanır, eşitleme ilk bağlantıdaki gibi geriye bakar (Trendyol: 90 gün).
+ * Pazaryerinde geçmişi yeniden çeker: imleç sıfırlanır, eşitleme ilk bağlantıdaki gibi geriye bakar (Trendyol: siparişler 90 gün,
+ * cari hesap bir yıl).
  * Kayıtlar eşsiz olduğundan zaten paneldeki siparişler yalnızca güncellenir. Kalan pencereler sonraki eşitlemelerde sürer.
  */
 export async function resyncHistory(siteId: number) {
   const [site] = await db().select({ tur: sites.tur }).from(sites).where(eq(sites.id, siteId));
   if (site?.tur !== "trendyol") return { ok: false as const, hata: "Geçmiş yalnızca pazaryeri bağlantılarında yeniden çekilir.", count: 0 };
   await db().update(sites).set({ imlec: null }).where(eq(sites.id, siteId));
+  // Cari hesap da baştan (bir yıl) taranır
+  await db().delete(schema.pazaryeriFinans).where(eq(schema.pazaryeriFinans.siteId, siteId)).catch(() => {});
   return syncSite(siteId);
 }
 
@@ -381,6 +385,8 @@ export async function syncSite(siteId: number) {
     // Ürün kanalları: pazaryerinde gönderim sonuçları, onaylar, değişen fiyat/stok; sitede (açıksa) değişen fiyat.
     // Hata sipariş eşitlemesini bozmaz
     if (site.tur === "trendyol" || site.tur === "woocommerce") await marketplaceTick(site.id).catch((e) => console.error("marketplaceTick", e));
+    // Pazaryeri cari hesabı (komisyon, kargo, hizmet bedeli): üç saatte bir; hata sipariş eşitlemesini bozmaz
+    if (site.tur === "trendyol") await financeTick(site).catch((e) => console.error("financeTick", e));
     await db().update(sites).set({ sonBasari: new Date(), sonHata: null }).where(eq(sites.id, site.id));
     return { ok: true as const, count };
   } catch (e) {
