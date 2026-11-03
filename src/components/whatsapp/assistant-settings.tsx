@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bot, ImagePlus, Package, Plus, RotateCcw, Save, Send, Trash2, X } from "lucide-react";
+import { ArrowLeft, Bot, GraduationCap, ImagePlus, Package, Plus, RotateCcw, Save, Send, Trash2, X } from "lucide-react";
 import { waAyarKaydet, waDeneme, waDenemeSifirla } from "@/app/panel/whatsapp/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ type Ayar = {
   usd_try_kuru: number | null;
   gunluk_butce_usd: number;
   sohbet_gunluk_tur: number;
+  odeme_linki: "kapali" | "ekip_onayli" | "otomatik";
 };
 
 type Deneme = { durum: "asistan" | "ekip" | "kapali"; ozet: string | null; urunKodu: string | null; mesajlar: Bubble[] };
@@ -90,9 +91,14 @@ export function AssistantSettings({
             )}
           </p>
         </div>
-        <Link href="/panel/whatsapp/urunler" className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
-          <Package className="size-4" /> Ürün kartları
-        </Link>
+        <span className="flex flex-wrap gap-4">
+          <Link href="/panel/whatsapp/urunler" className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
+            <Package className="size-4" /> Ürün kartları
+          </Link>
+          <Link href="/panel/whatsapp/ornekler" className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
+            <GraduationCap className="size-4" /> Öğrenilen cevaplar
+          </Link>
+        </span>
       </div>
       <div className="mt-5 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <SettingsForm ayar={ayar} />
@@ -247,6 +253,17 @@ function SettingsForm({ ayar }: { ayar: Ayar }) {
           />
         </Field>
       </div>
+
+      <Field
+        label="Ödeme linki"
+        hint="Asistan, müşteri sipariş özetini onaylayınca sitede ürünlü sipariş ve kart ödeme linki hazırlar (yalnız asistanın sattığı ürünlerde; tutarı sunucu hesaplar, kart komisyonu eklenmez)."
+      >
+        <select value={a.odeme_linki} onChange={(e) => set("odeme_linki", e.target.value as Ayar["odeme_linki"])} className={inputCls}>
+          <option value="kapali">Kapalı</option>
+          <option value="ekip_onayli">Ekip onaylı: özet sohbet kartına düşer, ekip tek tıkla gönderir</option>
+          <option value="otomatik">Otomatik: link oluşturulup gönderilir, ekibe bildirim gider</option>
+        </select>
+      </Field>
 
       <label className="flex items-start gap-3">
         <input type="checkbox" className="mt-0.5 size-4 accent-primary" checked={a.iban_gonderebilir} onChange={(e) => set("iban_gonderebilir", e.target.checked)} />

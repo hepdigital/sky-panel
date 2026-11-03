@@ -600,6 +600,10 @@ export const waSohbetler = mysqlTable(
     sonMesaj: timestamp("son_mesaj").notNull().defaultNow(),
     okunmamis: int("okunmamis", { unsigned: true }).notNull().default(0),
     isleniyorKadar: timestamp("isleniyor_kadar"),
+    /** Asistanın bu sohbette açtığı son ödeme linki (odeme_linkleri.id; sohbet başına tek açık link) */
+    odemeLinkiId: int("odeme_linki_id", { unsigned: true }),
+    /** "Ekip onaylı" modda hazırlanan, ekibin onayını bekleyen ödeme linki özeti (JSON) */
+    odemeTaslak: text("odeme_taslak"),
     asistanGecmis: longtext("asistan_gecmis"),
     ozet: text("ozet"),
     olusturma: timestamp("olusturma").notNull().defaultNow(),
@@ -636,8 +640,10 @@ export const waMesajlar = mysqlTable(
 
 /**
  * Asistanın ürün bilgisi (şartname §4). Fiyat burada tutulmaz, urun_bilgisi aracı siteden canlı okur.
- * sss, itirazlar ve medya JSON; asistan_cevaplar = kapsamda (v1'de yalnız kış bahçesi).
+ * sss, itirazlar ve medya JSON. asistan_seviyesi: cevaplar (baştan sona satar), bilgi_verir (fiyat ve özellik verip devreder),
+ * devreder (bilgi toplayıp devreder).
  */
+export const WA_ASISTAN_SEVIYELERI = ["cevaplar", "bilgi_verir", "devreder"] as const;
 export const waUrunKartlari = mysqlTable("wa_urun_kartlari", {
   kod: varchar("kod", { length: 60 }).primaryKey(),
   ad: varchar("ad", { length: 160 }).notNull(),
@@ -646,7 +652,7 @@ export const waUrunKartlari = mysqlTable("wa_urun_kartlari", {
   disUrunId: int("dis_urun_id", { unsigned: true }),
   url: varchar("url", { length: 255 }),
   anahtarKelimeler: text("anahtar_kelimeler"),
-  asistanCevaplar: boolean("asistan_cevaplar").notNull().default(false),
+  asistanSeviyesi: mysqlEnum("asistan_seviyesi", WA_ASISTAN_SEVIYELERI).notNull().default("devreder"),
   bilgi: longtext("bilgi"),
   /** [{soru, cevap}] */
   sss: longtext("sss"),
@@ -713,4 +719,29 @@ export const waAiKullanim = mysqlTable(
     olusturma: timestamp("olusturma").notNull().defaultNow(),
   },
   (t) => [index("wa_ai_sohbet").on(t.sohbetId, t.olusturma), index("wa_ai_tarih").on(t.olusturma)],
+);
+
+/**
+ * Ekibin cevaplarından öğrenme (düzelt-öğret'in ilk adımı): devredilen sohbet kapanınca ya da asistana bırakılınca müşteri sorusu ve
+ * ekibin cevabından öneri çıkarılır; yönetici onaylarsa sistem istemine örnek olarak girer. fiyat: fiyat/indirim içeriyor (varsayılan işaretli).
+ */
+export const WA_ORNEK_DURUMLARI = ["oneri", "onayli", "reddedildi"] as const;
+export const waOrnekler = mysqlTable(
+  "wa_ornekler",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    sohbetId: int("sohbet_id", { unsigned: true }),
+    urunKodu: varchar("urun_kodu", { length: 60 }),
+    musteriMesaji: text("musteri_mesaji").notNull(),
+    kotuCevap: text("kotu_cevap"),
+    dogruCevap: text("dogru_cevap").notNull(),
+    durum: mysqlEnum("durum", WA_ORNEK_DURUMLARI).notNull().default("oneri"),
+    fiyat: boolean("fiyat").notNull().default(false),
+    /** Önerinin çıkarıldığı son mesaj: aynı konuşmadan ikinci kez öneri çıkarılmaz */
+    sonMesajId: int("son_mesaj_id", { unsigned: true }),
+    kullaniciId: int("kullanici_id", { unsigned: true }),
+    aktif: boolean("aktif").notNull().default(false),
+    tarih: timestamp("tarih").notNull().defaultNow(),
+  },
+  (t) => [index("wa_ornek_durum").on(t.durum), index("wa_ornek_sohbet").on(t.sohbetId)],
 );

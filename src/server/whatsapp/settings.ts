@@ -12,6 +12,7 @@ export const MODELLER = [
 ] as const;
 export const EFORLAR = ["low", "medium", "high"] as const;
 export const CALISMA_MODLARI = ["7/24", "mesai_disi", "saat_araliklari"] as const;
+export const ODEME_LINKI_MODLARI = ["kapali", "ekip_onayli", "otomatik"] as const;
 
 /** Haftanın günleri 1 (Pazartesi) … 7 (Pazar); saatler Türkiye saatiyle "SS:DD" */
 export type SaatAraligi = { gunler: number[]; bas: string; bit: string };
@@ -38,6 +39,8 @@ export type WaAyarlar = {
   gunluk_butce_usd: number;
   /** Sohbet başına günlük en çok asistan turu; aşılınca ekibe devredilir */
   sohbet_gunluk_tur: number;
+  /** Asistanın ödeme linki: kapalı, ekip onaylı (özet ekibe düşer) ya da otomatik (link oluşturulup gönderilir) */
+  odeme_linki: (typeof ODEME_LINKI_MODLARI)[number];
 };
 
 export const VARSAYILAN: WaAyarlar = {
@@ -56,6 +59,7 @@ export const VARSAYILAN: WaAyarlar = {
   usd_try_kuru: null,
   gunluk_butce_usd: 2,
   sohbet_gunluk_tur: 25,
+  odeme_linki: "kapali",
 };
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -91,6 +95,7 @@ export function normalize(raw: unknown): WaAyarlar {
     usd_try_kuru: r.usd_try_kuru === null || r.usd_try_kuru === "" || !(kur > 0) ? null : Math.min(1000, Math.round(kur * 100) / 100),
     gunluk_butce_usd: Number.isFinite(butce) && butce >= 0 ? Math.min(1000, Math.round(butce * 100) / 100) : VARSAYILAN.gunluk_butce_usd,
     sohbet_gunluk_tur: Number.isFinite(tur) && tur >= 1 ? Math.min(500, Math.round(tur)) : VARSAYILAN.sohbet_gunluk_tur,
+    odeme_linki: ODEME_LINKI_MODLARI.find((m) => m === r.odeme_linki) ?? VARSAYILAN.odeme_linki,
   };
 }
 

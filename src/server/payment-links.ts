@@ -4,7 +4,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { isAdmin, type Me } from "./auth";
 import { brandsFor } from "./brands";
 import { db, schema } from "./db";
-import { wcRequest } from "./marketplaces/woocommerce";
+import { wcProductInfo, wcRequest, wcVariations } from "./marketplaces/woocommerce";
 
 // Ödeme linki: satışçı tutarı elle girer, panel markanın WooCommerce sitesinde ürünsüz bir sipariş açar ("ödeme bekliyor",
 // tutar tek ücret satırı) ve sitenin hazır ödeme sayfasının linkini verir. Müşteri sitedeki iyzico formunda taksit seçerek öder;
@@ -152,7 +152,8 @@ export async function listPaymentLinks(me: Me) {
     toplam: Number(r.toplam),
     link: r.link,
     site: r.site,
-    satisci: r.satisci,
+    // Linki WhatsApp asistanı açtıysa kullanıcı yoktur
+    satisci: r.satisci ?? (r.kullanici_id === null ? "WhatsApp asistanı" : null),
     siparisId: r.siparis_id,
     durum: r.iptal || r.durum === "iptal" ? ("iptal" as const) : r.odeme_durumu === "odendi" ? ("odendi" as const) : ("bekliyor" as const),
     olusturma: new Date(r.olusturma).toISOString(),
@@ -206,6 +207,130 @@ export async function siteInstallments(site: { adres: string } | undefined, tuta
   } catch {
     return { ok: false, hata: "Taksit bilgisi alınamadı." };
   }
+}
+
+const transferCache = new Map<number, { t: number; oran: number }>();
+
+/**
+ * Sitedeki havale/EFT indirim oranı (yüzde; SKY Konfigüratör eklentisinin /havale ucu, havaleindirim eklentisinin ayarı).
+ * 1 saat önbellekte; okunamazsa %5.
+ */
+export async function siteTransferRate(site: { id: number; adres: string }): Promise<number> {
+  const hit = transferCache.get(site.id);
+  if (hit && Date.now() - hit.t < 3600_000) return hit.oran;
+  let oran = 5;
+  const secret = process.env.KONFIGURATOR_SECRET;
+  if (secret) {
+    const ts = Math.floor(Date.now() / 1000);
+    const sig = createHmac("sha256", secret).update(`havale|${ts}`).digest("base64url");
+    try {
+      const res = await fetch(`${site.adres.replace(/\/+$/, "")}/wp-json/sky/v1/havale?ts=${ts}&sig=${sig}`, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+      const data = (await res.json().catch(() => null)) as { oran?: number } | null;
+      if (res.ok && typeof data?.oran === "number" && data.oran >= 0 && data.oran < 50) oran = data.oran;
+    } catch {}
+  }
+  transferCache.set(site.id, { t: Date.now(), oran });
+  return oran;
+}
+
+const foldTr = (v: string) =>
+  v.toLocaleLowerCase("tr").replace(/[çğıöşü]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" })[c] ?? c).replace(/[^a-z0-9]+/g, " ").trim();
+
+export type ProductLinkInput = {
+  siteId: number;
+  urunId: number;
+  urunAd: string;
+  renk: string;
+  adet: number;
+  musteri: string;
+  telefon: string;
+  eposta: string;
+  adres: string;
+  il: string;
+  /** Linki açan panel kullanıcısı (WhatsApp asistanı: null) */
+  kullaniciId: number | null;
+  satisci: string;
+};
+
+/**
+ * Ürün satırlı ödeme linki (WhatsApp asistanı): sipariş sitedeki ürünle (varyantlıysa renge uyan varyantla) açılır, tutarı site
+ * hesaplar. Kart komisyonu eklenmez. Sitenin toplamı panelin hesapladığından 1 TL'den fazla saparsa sipariş iptal edilir.
+ */
+export async function createProductPaymentLink(i: ProductLinkInput) {
+  const [site] = await db().select().from(schema.siteBaglantilari).where(eq(schema.siteBaglantilari.id, i.siteId));
+  if (!site) return { ok: false as const, hata: "Site bağlantısı bulunamadı." };
+  const adet = Math.floor(Number(i.adet));
+  if (!(adet >= 1 && adet <= 100)) return { ok: false as const, hata: "Adet 1 ile 100 arasında olmalı." };
+  const musteri = i.musteri.trim().replace(/\s+/g, " ").slice(0, 160);
+  const telefon = cleanPhone(i.telefon);
+  const adres = i.adres.trim().replace(/\s+/g, " ").slice(0, 400);
+  const il = i.il.trim().replace(/\s+/g, " ").slice(0, 60);
+  const eposta = i.eposta.trim().toLowerCase();
+  if (musteri.length < 3 || !musteri.includes(" ")) return { ok: false as const, hata: "Müşterinin adı ve soyadı gerekli." };
+  if (!telefon) return { ok: false as const, hata: "Telefon geçersiz." };
+  if (adres.length < 10) return { ok: false as const, hata: "Açık adres gerekli (mahalle, sokak, no, ilçe)." };
+  if (il.length < 2) return { ok: false as const, hata: "İl gerekli." };
+  if (eposta && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(eposta)) return { ok: false as const, hata: "E-posta geçersiz." };
+
+  let fiyat: number | null;
+  let variationId: number | null = null;
+  try {
+    const p = await wcProductInfo(site, i.urunId);
+    fiyat = p.fiyat;
+    if (p.varyantli) {
+      // Renk varyantı: seçeneği renkle birebir (yoksa renk adını içeren) tek varyant
+      const want = foldTr(i.renk);
+      const vars = (await wcVariations(site, i.urunId)).map((v) => ({ ...v, secenekler: v.ad.split(" · ").map(foldTr) }));
+      let hit = vars.filter((v) => want && v.secenekler.includes(want));
+      if (!hit.length) hit = vars.filter((v) => want && v.secenekler.some((o) => o.includes(want)));
+      if (hit.length !== 1) return { ok: false as const, hata: `Sitede "${i.renk}" rengine uyan tek bir seçenek bulunamadı.` };
+      variationId = hit[0].id;
+      fiyat = hit[0].fiyat;
+    }
+  } catch (e) {
+    return { ok: false as const, hata: `Ürün siteden okunamadı: ${(e as Error).message}` };
+  }
+  if (fiyat === null) return { ok: false as const, hata: "Ürünün sitede fiyatı yok." };
+  const beklenen = round2(fiyat * adet);
+
+  const parts = musteri.split(" ");
+  const ad = parts.slice(0, -1).join(" ");
+  const soyad = parts[parts.length - 1];
+  const host = new URL(site.adres).hostname.replace(/^www\./, "");
+  const aciklama = `WhatsApp asistanı · ${i.urunAd} × ${adet}${i.renk ? ` · ${i.renk}` : ""}`.slice(0, 200);
+  let order: { id: number; number: string; payment_url: string; total: string };
+  try {
+    order = (await wcRequest(site, "/orders", {
+      method: "POST",
+      body: JSON.stringify({
+        status: "pending",
+        currency: "TRY",
+        billing: { first_name: ad, last_name: soyad, phone: telefon, email: eposta || `odeme@${host}`, address_1: adres, city: il, country: "TR" },
+        shipping: { first_name: ad, last_name: soyad, phone: telefon, address_1: adres, city: il, country: "TR" },
+        line_items: [{ product_id: i.urunId, ...(variationId ? { variation_id: variationId } : {}), quantity: adet, meta_data: i.renk ? [{ key: "Renk", value: i.renk }] : [] }],
+        customer_note: i.renk ? `Renk: ${i.renk}` : "",
+        meta_data: [
+          { key: "_sky_odeme_linki", value: "1" },
+          { key: "_sky_satisci", value: i.satisci },
+        ],
+      }),
+    })) as typeof order;
+  } catch (e) {
+    return { ok: false as const, hata: `Sitede sipariş açılamadı: ${(e as Error).message}` };
+  }
+  const toplam = round2(Number(order?.total));
+  if (!order?.payment_url || !(Math.abs(toplam - beklenen) <= 1)) {
+    // Site farklı bir tutar hesapladıysa (vergi, kampanya…) link gönderilmez, sipariş iptal edilir
+    if (order?.id) await wcRequest(site, `/orders/${order.id}`, { method: "PUT", body: JSON.stringify({ status: "cancelled" }) }).catch(() => null);
+    return { ok: false as const, hata: order?.payment_url ? `Sitenin toplamı (${toplam}) beklenenden (${beklenen}) farklı; link oluşturulmadı.` : "Site ödeme linki vermedi." };
+  }
+
+  await ensureTable();
+  const [r] = (await db().execute(
+    sql`INSERT INTO odeme_linkleri (site_id, marka_id, kullanici_id, dis_id, dis_no, musteri, telefon, eposta, aciklama, tutar, komisyon, toplam, link)
+        VALUES (${site.id}, ${site.markaId}, ${i.kullaniciId}, ${order.id}, ${String(order.number)}, ${musteri}, ${telefon}, ${eposta || null}, ${aciklama}, ${toplam}, 0, ${toplam}, ${order.payment_url})`,
+  )) as unknown as [{ insertId: number }];
+  return { ok: true as const, id: r.insertId, link: order.payment_url, no: String(order.number), toplam };
 }
 
 /** Site siparişi bir ödeme linkinden geldiyse linki açan satışçı (sipariş eşitlemesi siparişi ona bağlar) */
