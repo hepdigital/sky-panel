@@ -222,7 +222,8 @@ type Order = {
   kargo: { firma: string | null; takipNo: string | null; tarih: string | null };
 };
 
-export function OrderDetail({ order }: { order: Order }) {
+/** ek: kargo kartının altında gösterilir (Yurtiçi gönderileri) */
+export function OrderDetail({ order, ek }: { order: Order; ek?: React.ReactNode }) {
   const router = useRouter();
   const v = order.veri;
   const [pending, start] = useTransition();
@@ -327,6 +328,7 @@ export function OrderDetail({ order }: { order: Order }) {
       </Card>
 
       <CargoCard order={order} />
+      {ek}
 
       {/* Müşteri ve kalemler */}
       <Card className="mt-4 px-5 py-4">

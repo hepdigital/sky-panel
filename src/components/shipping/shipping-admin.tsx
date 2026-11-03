@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { YURTICI_DEFAULT, type Tariff } from "@/lib/cargo-tariff";
 import { cn } from "@/lib/utils";
 import { PackageFields, draftOf, type PaketDraft } from "./package-fields";
+import { ShipmentsPanel, type ShipmentRow, type YurticiStatus } from "./shipments-panel";
 
 const input = "h-9 w-full rounded-lg border border-input bg-card px-2.5 text-right text-sm font-semibold outline-none tabular focus:border-primary";
 const parse = (v: string) => {
@@ -28,7 +29,7 @@ const tariffDraft = (t: Tariff): Draft => ({
  * Sevkiyat: Yurtiçi Kargo anlaşmalı tarifesi (mesafeden bağımsız, desi kademeli) ve hesap makinesi. Tarife ürün kartlarında,
  * modüler gazebo parçalarında ve teklif özetinde kargo ücretini hesaplar.
  */
-export function ShippingAdmin({ tarife }: { tarife: Tariff }) {
+export function ShippingAdmin({ tarife, api, gonderiler }: { tarife: Tariff; api: YurticiStatus; gonderiler: ShipmentRow[] }) {
   const router = useRouter();
   const [d, setD] = useState<Draft>(() => tariffDraft(tarife));
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -153,6 +154,8 @@ export function ShippingAdmin({ tarife }: { tarife: Tariff }) {
           </Card>
         </div>
       </div>
+
+      <ShipmentsPanel api={api} rows={gonderiler} />
     </div>
   );
 }

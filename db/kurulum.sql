@@ -483,6 +483,35 @@ CREATE TABLE IF NOT EXISTS kargo_tarifeleri (
     guncelleme timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS kargo_gonderileri (
+    id int unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    firma varchar(20) NOT NULL,
+    belge_id varchar(40) NOT NULL,
+    belge_no varchar(40) NULL,
+    tarih date NOT NULL,
+    yon varchar(10) NOT NULL,
+    gonderici varchar(200) NULL,
+    alici varchar(200) NULL,
+    alici_adres varchar(500) NULL,
+    koli smallint unsigned NOT NULL DEFAULT 1,
+    desi decimal(8,2) NOT NULL DEFAULT 0,
+    kg decimal(8,2) NOT NULL DEFAULT 0,
+    ucret decimal(12,2) NOT NULL DEFAULT 0,
+    kdv decimal(12,2) NOT NULL DEFAULT 0,
+    toplam decimal(12,2) NOT NULL DEFAULT 0,
+    durum_kodu varchar(10) NULL,
+    durum varchar(80) NULL,
+    red tinyint(1) NOT NULL DEFAULT 0,
+    takip_url varchar(255) NULL,
+    tahmini_teslim date NULL,
+    siparis_id int unsigned NULL,
+    eslesme varchar(10) NULL,
+    guncelleme timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+    UNIQUE KEY kg_firma_belge (firma, belge_id),
+    KEY kg_tarih (tarih),
+    KEY kg_siparis (siparis_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS kargo_paketleri (
     anahtar varchar(120) NOT NULL PRIMARY KEY,
     en decimal(8,1) NULL,

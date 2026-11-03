@@ -74,6 +74,20 @@ export function cargoOf(t: Tariff, paketler: (Paket | null | undefined)[], eksik
   return { koli, haric: r2(haric), dahil: r2(haric * (1 + t.kdv / 100)), desi, eksik };
 }
 
+/**
+ * Giden gönderide kesilen ücretin tarifeye uygunluğu. Firma yalnızca toplam desiyi ve koli sayısını verir; koliler eşit desili
+ * sayılır. Koliler farklı boyda olunca gerçek ücret bu tahminin biraz altında kalır (kademeler), o yüzden yalnızca fazla
+ * kesilen ücret işaretlenir: tek kolide %1, çok kolide %3 üstü. fark = kesilen − tarife (KDV hariç).
+ */
+export function tariffCheck(t: Tariff, koli: number, desi: number, ucret: number) {
+  const n = Math.max(1, koli);
+  const birim = parcelPrice(t, Math.round(desi / n));
+  if (birim === null) return null;
+  const beklenen = r2(birim * n);
+  const fark = r2(ucret - beklenen);
+  return { beklenen, fark, uygun: fark <= Math.max(1, beklenen * (n > 1 ? 0.03 : 0.01)) };
+}
+
 /* ───────────── modüler gazebo parçalarının paket anahtarları ───────────── */
 
 /** Paket anahtarları: "f|SQ3|3x3" iskelet, "r|3x3" tavan, "w|200x300" duvar (ölçü grubu), "z|3x3" pilsa zemin, "u|<id>" teklif ürünü */
