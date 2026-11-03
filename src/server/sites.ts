@@ -344,6 +344,17 @@ function fetchPage(site: Site, cursor: string | null) {
   return null;
 }
 
+/**
+ * Pazaryerinde geçmişi yeniden çeker: imleç sıfırlanır, eşitleme ilk bağlantıdaki gibi geriye bakar (Trendyol: 90 gün).
+ * Kayıtlar eşsiz olduğundan zaten paneldeki siparişler yalnızca güncellenir. Kalan pencereler sonraki eşitlemelerde sürer.
+ */
+export async function resyncHistory(siteId: number) {
+  const [site] = await db().select({ tur: sites.tur }).from(sites).where(eq(sites.id, siteId));
+  if (site?.tur !== "trendyol") return { ok: false as const, hata: "Geçmiş yalnızca pazaryeri bağlantılarında yeniden çekilir.", count: 0 };
+  await db().update(sites).set({ imlec: null }).where(eq(sites.id, siteId));
+  return syncSite(siteId);
+}
+
 /** Bir sitenin yeni/değişen siparişlerini çeker; imleç kaldığı yerden ilerler */
 export async function syncSite(siteId: number) {
   const [site] = await db().select().from(sites).where(eq(sites.id, siteId));

@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Barcode, ChevronDown, Download, ExternalLink, Globe, ImagePlus, Link2, Pencil, Plus, RefreshCw, Search, Send, Settings2, Store, Trash2, X } from "lucide-react";
 import {
-  pyAyarKaydet, pyBarkod, pyDurumYenile, pyGonder, pyKategoriAra, pyKategoriYenile, pyMarkaAra, pyOzellikler, pyUrunKaydet, pyUrunSil, pyWooAktar, pyWooAra, pyWooOnizle,
-  pyWooVaryantlar, pyWooYenile,
+  pyAyarKaydet, pyBarkod, pyDurumYenile, pyGonder, pyKategoriAra, pyKategoriYenile, pyMarkaAra, pyOzellikler, pyTyAktar, pyTyOnizle, pyUrunKaydet, pyUrunSil, pyWooAktar,
+  pyWooAra, pyWooOnizle, pyWooVaryantlar, pyWooYenile,
 } from "@/app/panel/satis-urunleri/actions";
 import { urunGorselYukle } from "@/app/panel/urunler/actions";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
@@ -124,7 +124,7 @@ const DURUM: Record<string, { label: string; tone: BadgeTone }> = {
 const WC_DURUM: Record<string, string> = { draft: "taslak, sitede yayında değil", pending: "onay bekliyor", private: "gizli" };
 const LOG_TUR: Record<string, string> = {
   "urun-olustur": "Ürün oluşturma", "urun-guncelle": "Ürün güncelleme", "urun-sonuc": "Gönderim sonucu", "fiyat-stok": "Fiyat / stok", kategori: "Kategoriler",
-  "site-oku": "Site fiyatları", "site-fiyat": "Siteye fiyat",
+  "site-oku": "Site fiyatları", "site-fiyat": "Siteye fiyat", "urun-aktar": "Pazaryerinden alındı",
 };
 
 /** Satış ürünleri: ortak ürün kartı + kanal başına bağlantı (WooCommerce) ya da kategori, özellik, marka ve gönderim (pazaryeri) */
@@ -132,6 +132,7 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
   const [edit, setEdit] = useState<EditTarget>(null);
   const [ayar, setAyar] = useState<Channel | null>(null);
   const [aktar, setAktar] = useState(false);
+  const [tyAktar, setTyAktar] = useState<Channel | null>(null);
   const [acik, setAcik] = useState<Set<string>>(new Set());
   const [q, setQ] = useState("");
   const list = items.filter((i) => !q.trim() || `${i.ad} ${i.stokKodu} ${i.barkod} ${i.renk} ${i.olcu}`.toLocaleLowerCase("tr").includes(q.trim().toLocaleLowerCase("tr")));
@@ -155,6 +156,13 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
               <Download /> Siteden ekle
             </Button>
           )}
+          {channels
+            .filter((c) => c.tur === "trendyol")
+            .map((c) => (
+              <Button key={c.id} variant="outline" onClick={() => setTyAktar(c)}>
+                <Download /> {c.ad}’dan ekle
+              </Button>
+            ))}
           <Button onClick={() => setEdit("yeni")}>
             <Plus /> Ürün ekle
           </Button>
@@ -242,6 +250,7 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
       />
       {sites.length > 0 && <ImportSheet key={`aktar-${aktar}`} open={aktar} channels={sites} catalog={catalog} onClose={() => setAktar(false)} />}
       <SettingsSheet key={`ayar-${ayar?.id ?? "kapali"}`} channel={ayar} onClose={() => setAyar(null)} />
+      {tyAktar && <MarketplaceImportSheet key={`ty-${tyAktar.id}`} channel={tyAktar} onClose={() => setTyAktar(null)} />}
     </div>
   );
 }
@@ -620,7 +629,7 @@ function ItemSheet({ item, items, channels, catalog, onClose }: { item: EditTarg
     urunId: it?.urunId ?? null, renk: it?.renk ?? "", olcu: it?.olcu ?? "", gorseller: src?.gorseller ?? [], kdv: src?.kdv ?? 20, aktif: it?.aktif ?? true,
     secenekDahil: it?.secenekDahil ?? false, yalnizSecenek: it?.yalnizSecenek ?? false,
     desi: src?.desi?.toString() ?? "", agirlik: src?.agirlik?.toString() ?? "", en: src?.en?.toString() ?? "", boy: src?.boy?.toString() ?? "", yukseklik: src?.yukseklik?.toString() ?? "",
-    fiyat: it?.fiyat?.toString() ?? "", maliyet: it?.maliyet?.toString() ?? "", stok: (src?.stok ?? 10).toString(), hazirlikGun: (src?.hazirlikGun ?? 3).toString(),
+    fiyat: it?.fiyat?.toString() ?? "", maliyet: it?.maliyet?.toString() ?? "", stok: (src?.stok ?? 10).toString(), hazirlikGun: (src?.hazirlikGun ?? 7).toString(),
   });
   const [ls, setLs] = useState<ListingForm[]>(() =>
     channels.map((c) => {
@@ -1445,6 +1454,134 @@ function ImportSheet({ open, channels, catalog, onClose }: { open: boolean; chan
             </p>
             <Button size="lg" className="w-full" disabled={pending || !secili.length || !ad.trim() || !grup.trim()} onClick={save}>
               {pending ? "Ekleniyor…" : `${secili.length} kart ekle ve bağla`}
+            </Button>
+          </>
+        )}
+        {err && <p className="rounded-xl bg-danger-soft px-3 py-2 text-xs font-medium break-words text-danger">{err}</p>}
+      </div>
+    </Sheet>
+  );
+}
+
+type TyRow = {
+  barkod: string; ad: string; stokKodu: string; fiyat: number | null; stok: number; durum: string; kategori: string | null; gorsel: string | null; link: string | null;
+  bagli: string | null; barkodGecersiz: boolean;
+};
+
+/**
+ * Pazaryerinden ekle: pazaryerindeki kartlar barkoduyla panele alınır. Listeleme kapalı gelir; kanal kartta açılana kadar
+ * pazaryerine hiçbir şey yazılmaz.
+ */
+function MarketplaceImportSheet({ channel, onClose }: { channel: Channel; onClose: () => void }) {
+  const router = useRouter();
+  const [rows, setRows] = useState<(TyRow & { sec: boolean })[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  useEffect(() => {
+    let live = true;
+    pyTyOnizle(channel.id).then((r) => {
+      if (!live) return;
+      if (!r.ok) return setErr(r.hata);
+      setRows(r.liste.map((x) => ({ ...x, sec: !x.bagli && !x.barkodGecersiz })));
+    });
+    return () => {
+      live = false;
+    };
+  }, [channel.id]);
+  const secili = (rows ?? []).filter((r) => r.sec && !r.bagli && !r.barkodGecersiz);
+  const patch = (i: number, p: Partial<TyRow & { sec: boolean }>) => setRows((rs) => rs && rs.map((x, j) => (j === i ? { ...x, ...p } : x)));
+  const save = () =>
+    start(async () => {
+      const r = await pyTyAktar(channel.id, secili.map((x) => ({ barkod: x.barkod, stokKodu: x.stokKodu })));
+      if (!r.ok) return setErr(r.hata);
+      router.refresh();
+      if (r.hatalar.length) return setErr(`${r.eklenen} ürün eklendi; eklenemeyenler: ${r.hatalar.join("; ")}`);
+      onClose();
+    });
+
+  return (
+    <Sheet open onClose={onClose} title={`${channel.ad}’dan ekle`} className="md:max-w-3xl">
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          {channel.ad}’daki ürünleriniz barkoduyla panele alınır: ad, açıklama, görseller, desi, KDV, fiyat, stok, kategori, marka ve özellikler oradan gelir. Barkod
+          aynen korunur; satış geçmişi ve yorumlar kartta kalır. {channel.ad} kanalı kapalı gelir, siz ürünün kartında açana kadar {channel.ad}’a hiçbir şey
+          gönderilmez.
+        </p>
+        {!rows && !err && <p className="text-sm text-muted-foreground">Ürünler okunuyor…</p>}
+        {rows && !rows.length && <p className="text-sm text-muted-foreground">{channel.ad}’da ürün bulunamadı.</p>}
+        {rows && rows.length > 0 && (
+          <>
+            <div className="flex flex-wrap items-center gap-3 text-xs">
+              <button type="button" className="font-semibold text-primary hover:underline" onClick={() => setRows(rows.map((x) => ({ ...x, sec: !x.bagli && !x.barkodGecersiz })))}>
+                Tümünü seç
+              </button>
+              <button type="button" className="font-semibold text-primary hover:underline" onClick={() => setRows(rows.map((x) => ({ ...x, sec: false })))}>
+                Hiçbirini
+              </button>
+              <span className="text-muted-foreground">
+                {rows.length} ürün · {rows.filter((x) => x.bagli).length} tanesi panelde var
+              </span>
+            </div>
+            <div className="max-h-[60vh] divide-y divide-border overflow-auto rounded-xl border border-border">
+              {rows.map((r, i) => {
+                const kapali = !!r.bagli || r.barkodGecersiz;
+                return (
+                  <div key={r.barkod} className={cn("flex gap-3 p-3", (kapali || !r.sec) && "bg-muted/40")}>
+                    <input
+                      type="checkbox"
+                      checked={r.sec && !kapali}
+                      disabled={kapali}
+                      onChange={(e) => patch(i, { sec: e.target.checked })}
+                      className="mt-1 size-4 shrink-0 accent-[var(--primary)]"
+                      aria-label={r.ad}
+                    />
+                    <span className="size-12 shrink-0 overflow-hidden rounded-lg border border-border bg-white">
+                      {r.gorsel && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={r.gorsel} alt="" className="size-full object-contain" />
+                      )}
+                    </span>
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <p className="text-sm font-semibold">
+                        {r.ad}
+                        {r.link && (
+                          <a href={r.link} target="_blank" rel="noopener" className="ml-1.5 inline-flex align-middle text-muted-foreground hover:text-foreground" aria-label="Pazaryerinde aç">
+                            <ExternalLink className="size-3.5" />
+                          </a>
+                        )}
+                      </p>
+                      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                        <Badge tone={r.durum === "Satışta" ? "success" : r.durum === "Kara listede" || r.durum === "Reddedildi" ? "danger" : "neutral"}>{r.durum}</Badge>
+                        <span>barkod {r.barkod}</span>
+                        <span>· {r.fiyat ? tl(r.fiyat) : "fiyat yok"}</span>
+                        <span>· stok {r.stok}</span>
+                        {r.kategori && <span>· {r.kategori}</span>}
+                      </p>
+                      {r.bagli ? (
+                        <p className="text-xs text-muted-foreground">Panelde var: {r.bagli}</p>
+                      ) : r.barkodGecersiz ? (
+                        <p className="text-xs text-danger">Barkod panelde kullanılamıyor (4–40 karakter, harf, rakam, nokta, tire).</p>
+                      ) : (
+                        r.sec && (
+                          <input
+                            value={r.stokKodu}
+                            onChange={(e) => patch(i, { stokKodu: e.target.value.replace(/\s/g, "") })}
+                            className={cn(input, "h-9 max-w-xs")}
+                            placeholder="Stok kodu"
+                            aria-label="Stok kodu"
+                          />
+                        )
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Fiyat KDV hariç olarak karta yazılır, sonra panelden yönetilir. Teklif ürününe bağlamak, kg ve paket ölçüleri sonra karttan girilir.
+            </p>
+            <Button size="lg" className="w-full" disabled={pending || !secili.length || secili.some((x) => !x.stokKodu.trim())} onClick={save}>
+              {pending ? "Ekleniyor…" : `${secili.length} ürünü panele al`}
             </Button>
           </>
         )}

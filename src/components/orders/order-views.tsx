@@ -66,15 +66,18 @@ export function OrderTable({
   kaynak,
   sites,
   showSiteFilter,
+  trendyol,
   designs,
 }: {
   rows: OrderRow[];
   q: string;
   brands: BrandOption[];
   activeBrand: string | null;
-  kaynak: "teklif" | "site" | null;
+  kaynak: "teklif" | "site" | "trendyol" | null;
   sites: SiteStatus[];
   showSiteFilter: boolean;
+  /** Trendyol bağlantısı varsa ayrı sekme (Siteden'de pazaryerleri görünmez) */
+  trendyol: boolean;
   designs: OpenDesign[];
 }) {
   const router = useRouter();
@@ -121,6 +124,7 @@ export function OrderTable({
                 [null, "Tümü"],
                 ["teklif", "Tekliften"],
                 ["site", "Siteden"],
+                ...(trendyol ? ([["trendyol", "Trendyol"]] as const) : []),
               ] as const
             ).map(([k, l]) => (
               <Link key={l} href={kaynakHref(k)} className={cn("flex h-9 items-center rounded-full px-3.5 text-sm font-semibold", kaynak === k ? "bg-card shadow-card" : "text-muted-foreground")}>

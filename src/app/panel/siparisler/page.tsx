@@ -14,7 +14,7 @@ async function Orders({ searchParams }: { searchParams: Promise<{ q?: string | s
   await connection();
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q : "";
-  const kaynak = sp.kaynak === "site" || sp.kaynak === "teklif" ? sp.kaynak : null;
+  const kaynak = sp.kaynak === "site" || sp.kaynak === "teklif" || sp.kaynak === "trendyol" ? sp.kaynak : null;
   const me = await requireSeller();
   // Siteler arka planda yoklanır (son deneme 90 sn'den eskiyse); sayfa beklemez, yeni siparişler bir sonraki açılışta görünür
   after(() => syncStale(90).catch((e) => console.error("syncStale", e)));
@@ -41,6 +41,7 @@ async function Orders({ searchParams }: { searchParams: Promise<{ q?: string | s
       kaynak={kaynak}
       sites={visibleSites.map((s) => ({ id: s.id, ad: s.ad, sonBasari: s.sonBasari?.toISOString() ?? null, sonHata: s.sonHata }))}
       showSiteFilter={myBrands.size > 0 && visibleSites.length > 0}
+      trendyol={visibleSites.some((s) => s.tur === "trendyol")}
       designs={designs.map((d) => ({ id: d.t.id, telefon: d.t.telefon, ad: d.t.ad, mesaj: d.t.mesaj, durum: d.t.durum, not: d.t.not, tarih: d.t.disTarih.toISOString(), marka: d.marka, markaRenk: d.markaRenk }))}
     />
   );

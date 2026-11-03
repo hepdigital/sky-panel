@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/server/auth";
 import {
   categoryAttributes, checkListings, deleteItem, nextBarcode, pushPriceStock, pushWooPrices, refreshCategories, refreshWoo, saveItem, saveSettings, searchBrands, searchCategories,
-  sendListings, wooImport, wooImportPreview, wooSearch, wooVariations,
+  sendListings, tyImport, tyImportPreview, wooImport, wooImportPreview, wooSearch, wooVariations,
   type ChannelSettings, type ItemInput, type WooImportInput,
 } from "@/server/marketplaces/listing";
 
@@ -162,6 +162,28 @@ export async function pyWooAktar(input: WooImportInput) {
   await requireAdmin();
   try {
     const r = await wooImport(input);
+    done();
+    return { ok: true as const, ...r };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Pazaryerindeki kartlar (yalnızca okuma) */
+export async function pyTyOnizle(siteId: number) {
+  await requireAdmin();
+  try {
+    return { ok: true as const, liste: await tyImportPreview(Number(siteId)) };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Seçilen pazaryeri kartlarını panele alır; pazaryerine bir şey yazılmaz */
+export async function pyTyAktar(siteId: number, satirlar: { barkod: string; stokKodu: string }[]) {
+  await requireAdmin();
+  try {
+    const r = await tyImport(Number(siteId), satirlar.slice(0, 500).map((x) => ({ barkod: String(x.barkod), stokKodu: String(x.stokKodu).trim() })));
     done();
     return { ok: true as const, ...r };
   } catch (e) {
