@@ -442,6 +442,30 @@ export const gazeboFiyatlari = mysqlTable("gazebo_fiyatlari", {
   guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
 });
 
+/* ───────────── kargo ───────────── */
+
+/** Kargo firmasının anlaşmalı tarifesi (JSON: kademeler, son kademe üstü desi ücreti, ek oran, KDV). Bkz. lib/cargo-tariff.ts */
+export const kargoTarifeleri = mysqlTable("kargo_tarifeleri", {
+  firma: varchar("firma", { length: 20 }).primaryKey(),
+  veri: longtext("veri").notNull(),
+  guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+});
+
+/**
+ * Koli ölçüleri: modüler gazebo parçaları ("f|SQ3|3x3" iskelet, "r|3x3" tavan, "w|200x300" duvar, "z|3x3" zemin) ve teklif
+ * ürünleri ("u|<id>"). Satış ürünlerinin ölçüleri kendi kartındadır. Tablo ilk kullanımda oluşur (server/shipping.ts).
+ */
+export const kargoPaketleri = mysqlTable("kargo_paketleri", {
+  anahtar: varchar("anahtar", { length: 120 }).primaryKey(),
+  en: decimal("en", { precision: 8, scale: 1, mode: "number" }),
+  boy: decimal("boy", { precision: 8, scale: 1, mode: "number" }),
+  yukseklik: decimal("yukseklik", { precision: 8, scale: 1, mode: "number" }),
+  kg: decimal("kg", { precision: 8, scale: 2, mode: "number" }),
+  /** Aynı ölçüdeki koli sayısı */
+  adet: smallint("adet", { unsigned: true }).notNull().default(1),
+  guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+});
+
 /* ───────────── pazaryeri ürünleri ───────────── */
 
 /**

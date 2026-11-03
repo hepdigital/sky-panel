@@ -19,6 +19,7 @@ import {
   type Gazebo,
   type QuoteState,
 } from "@/lib/terminal/calc";
+import type { QuoteCargoData } from "@/lib/terminal/cargo";
 import { costOf, type Costs } from "@/lib/terminal/cost";
 import { DEFAULT_TABLE, setPriceTable, type PriceTable } from "@/lib/terminal/price-table";
 import { emptyQuote, newId, parseState } from "@/lib/terminal/state";
@@ -74,6 +75,7 @@ export function Terminal({
   initialCustomer,
   channels,
   brands,
+  kargo,
 }: {
   catalogs: Record<number, Catalog>;
   costs: Costs | null;
@@ -84,6 +86,8 @@ export function Terminal({
   initialCustomer: QuoteCustomer | null;
   channels: { id: number; ad: string }[];
   brands: BrandCard[];
+  /** Tahmini kargo: tarife ve koli ölçüleri */
+  kargo: QuoteCargoData | null;
 }) {
   const { user } = useRole();
   const [q, setQ] = useState<QuoteState>(emptyQuote);
@@ -392,6 +396,7 @@ export function Terminal({
               catalog={catalog}
               brand={brand}
               cost={cost}
+              kargo={kargo}
               money={money}
               editingId={editing}
               onEdit={editRow}

@@ -6,6 +6,7 @@ import { isAdmin, requireSeller } from "@/server/auth";
 import { brandsFor } from "@/server/brands";
 import { canEditProduct, listProducts } from "@/server/catalog";
 import { listColors } from "@/server/colors";
+import { getTariff, productPackages } from "@/server/shipping";
 
 export const metadata: Metadata = { title: "Teklif ürünleri" };
 
@@ -13,17 +14,19 @@ async function Products() {
   await connection();
   const me = await requireSeller();
   const admin = isAdmin(me);
-  const [{ kategoriler, urunler }, brands, colors] = await Promise.all([listProducts(), admin ? brandsFor(me) : [], listColors()]);
+  const [{ kategoriler, urunler }, brands, colors, tarife] = await Promise.all([listProducts(), admin ? brandsFor(me) : [], listColors(), getTariff()]);
+  const paketler = await productPackages(urunler.map((u) => u.id));
   return (
     <ProductAdmin
       admin={admin}
+      tarife={tarife}
       brands={brands.map((b) => ({ id: b.id, ad: b.ad, renk: b.renk }))}
       colors={colors}
       kategoriler={kategoriler.map((k) => ({ id: k.id, ad: k.ad, aciklama: k.aciklama, uyari: k.uyari, aktif: k.aktif }))}
       urunler={urunler.map((u) => ({
         id: u.id, kod: u.kod, kategoriId: u.kategoriId, ad: u.ad, aciklama: u.aciklama, gorsel: u.gorsel,
         toptan: u.toptan, perakende: u.perakende, uyari: u.uyari, aktif: u.aktif, renkSecimi: u.renkSecimi, secenekAd: u.secenekAd, secenekToptan: u.secenekToptan, secenekPerakende: u.secenekPerakende, ekleyen: u.ekleyen,
-        duzenlenebilir: canEditProduct(me, u.olusturanId),
+        duzenlenebilir: canEditProduct(me, u.olusturanId), paket: paketler[u.id] ?? null,
         // Maliyet ve markaya özel değerler yalnızca yöneticiye gönderilir
         maliyet: admin ? u.maliyet : null, secenekMaliyet: admin ? u.secenekMaliyet : null, markalar: admin ? u.markalar : [],
       }))}

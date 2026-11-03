@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet } from "@/components/ui/sheet";
+import { PackageFields, draftOf, paketOf } from "@/components/shipping/package-fields";
+import type { Paket, Tariff } from "@/lib/cargo-tariff";
 import { toWebp } from "@/lib/image";
 import { imgSrc } from "@/lib/terminal/calc";
 import { cn } from "@/lib/utils";
@@ -36,6 +38,8 @@ type Product = {
   maliyet: number | null;
   secenekMaliyet: number | null;
   markalar: Override[];
+  /** Koli ölçüleri (kargo hesabı) */
+  paket: Paket | null;
 };
 type Override = { markaId: number; toptan: number | null; perakende: number | null; gorsel: string | null; gizli: boolean };
 type Brand = { id: number; ad: string; renk: string };
@@ -58,12 +62,14 @@ const showPrice = (n: number | null) => (n === null ? "" : n.toLocaleString("tr-
  */
 export function ProductAdmin({
   admin,
+  tarife,
   brands,
   colors,
   kategoriler,
   urunler,
 }: {
   admin: boolean;
+  tarife: Tariff;
   brands: Brand[];
   colors: FabricColor[];
   kategoriler: Category[];
@@ -209,6 +215,7 @@ export function ProductAdmin({
         kategoriId={newIn}
         kategoriler={kategoriler}
         admin={admin}
+        tarife={tarife}
         brands={brands}
         onClose={() => setEditing(null)}
       />
@@ -320,6 +327,7 @@ function ProductSheet({
   kategoriId,
   kategoriler,
   admin,
+  tarife,
   brands,
   onClose,
 }: {
@@ -327,6 +335,7 @@ function ProductSheet({
   kategoriId: number | null;
   kategoriler: Category[];
   admin: boolean;
+  tarife: Tariff;
   brands: Brand[];
   onClose: () => void;
 }) {
@@ -340,6 +349,7 @@ function ProductSheet({
     }),
   );
   const [ovOpen, setOvOpen] = useState(() => !!p?.markalar.length);
+  const [paket, setPaket] = useState(() => draftOf(p?.paket));
   const [maliyet, setMaliyet] = useState({ m: showPrice(p?.maliyet ?? null), s: showPrice(p?.secenekMaliyet ?? null) });
   const [f, setF] = useState({
     kategoriId: p?.kategoriId ?? kategoriId ?? kategoriler[0]?.id ?? 0,
@@ -384,7 +394,7 @@ function ProductSheet({
     setBusy(true);
     const r = await urunKaydet({
       id: p?.id ?? null, kategoriId: f.kategoriId, ad: f.ad, aciklama: f.aciklama, gorsel: f.gorsel, toptan, perakende, uyari: f.uyari, aktif: f.aktif, renkSecimi: f.renkSecimi,
-      secenekAd: f.secenekAd, secenekToptan: sToptan, secenekPerakende: sPerakende,
+      secenekAd: f.secenekAd, secenekToptan: sToptan, secenekPerakende: sPerakende, paket: paketOf(paket),
       ...(admin ? { maliyet: mal, secenekMaliyet: sMal, markalar } : {}),
     });
     setBusy(false);
@@ -508,6 +518,10 @@ function ProductSheet({
             )}
           </div>
         )}
+        <div className="rounded-xl bg-muted/50 p-3">
+          <span className={label}>Koli (kargo hesabı) · teklif özetinde tahmini Yurtiçi kargo bu ölçülerle çıkar</span>
+          <PackageFields value={paket} onChange={setPaket} tarife={tarife} compact />
+        </div>
         <label className="block">
           <span className={label}>Satışçıya uyarı (isteğe bağlı)</span>
           <input value={f.uyari} onChange={(e) => setF({ ...f, uyari: e.target.value })} maxLength={500} className={input} placeholder="ör. Dolgu malzemesi fiyata dahil değildir." />

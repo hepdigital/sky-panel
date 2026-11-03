@@ -13,6 +13,8 @@ import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet } from "@/components/ui/sheet";
+import { CargoLine } from "@/components/shipping/package-fields";
+import type { Tariff } from "@/lib/cargo-tariff";
 import { toWebp } from "@/lib/image";
 import { priceFor, profitOf } from "@/lib/marketplace-profit";
 import { cn, formatDate } from "@/lib/utils";
@@ -149,7 +151,7 @@ function inChannel(i: ItemRow, k: KanalSuzgec, channels: Channel[]) {
 }
 
 /** Satış ürünleri: ortak ürün kartı + kanal başına bağlantı (WooCommerce) ya da kategori, özellik, marka ve gönderim (pazaryeri) */
-export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels: Channel[]; items: ItemRow[]; catalog: CatalogRow[]; logs: LogRow[] }) {
+export function MarketplaceAdmin({ channels, items, catalog, logs, tarife }: { channels: Channel[]; items: ItemRow[]; catalog: CatalogRow[]; logs: LogRow[]; tarife: Tariff }) {
   const [edit, setEdit] = useState<EditTarget>(null);
   const [ayar, setAyar] = useState<Channel | null>(null);
   const [aktar, setAktar] = useState(false);
@@ -292,6 +294,7 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
         item={edit}
         items={items}
         channels={channels}
+        tarife={tarife}
         catalog={catalog}
         onClose={() => setEdit(null)}
       />
@@ -688,7 +691,7 @@ type ListingForm = {
   disUrunId: number | null; disVaryantId: number | null; disAd: string | null; disFiyat: number | null;
 };
 
-function ItemSheet({ item, items, channels, catalog, onClose }: { item: EditTarget; items: ItemRow[]; channels: Channel[]; catalog: CatalogRow[]; onClose: () => void }) {
+function ItemSheet({ item, items, channels, catalog, tarife, onClose }: { item: EditTarget; items: ItemRow[]; channels: Channel[]; catalog: CatalogRow[]; tarife: Tariff; onClose: () => void }) {
   const router = useRouter();
   const it = item && item !== "yeni" && !("kopya" in item) ? item : null;
   // Yeni seçenek: ortak alanlar (ad, açıklama, grup, görseller, paket, pazaryeri kategorisi) gruptaki karttan gelir
@@ -943,6 +946,15 @@ function ItemSheet({ item, items, channels, catalog, onClose }: { item: EditTarg
             </label>
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">Desi = en × boy × yükseklik / 3000; ölçüler girilince kendiliğinden hesaplanır.</p>
+          <CargoLine
+            tarife={tarife}
+            paket={
+              desi !== null || numOrNull(f.desi) || numOrNull(f.agirlik)
+                ? { en: numOrNull(f.en), boy: numOrNull(f.boy), yukseklik: numOrNull(f.yukseklik), kg: numOrNull(f.agirlik), adet: 1, desi: numOrNull(f.desi) }
+                : null
+            }
+            className="mt-0.5 block"
+          />
         </section>
 
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
