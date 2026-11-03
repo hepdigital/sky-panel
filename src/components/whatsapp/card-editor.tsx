@@ -21,14 +21,14 @@ const seviyeOf = (k: Seviye) => SEVIYELER.find((x) => x.key === k) ?? SEVIYELER[
 
 type Medya = { id: string; tur: "image" | "video"; yol: string; aciklama: string };
 type Kart = {
-  kod: string; ad: string; siteId: number | null; disUrunId: number | null; url: string | null; anahtarKelimeler: string; asistanSeviyesi: Seviye;
+  kod: string; ad: string; siteId: number | null; disUrunId: number | null; disKategoriId: number | null; url: string | null; anahtarKelimeler: string; asistanSeviyesi: Seviye;
   bilgi: string; sss: { soru: string; cevap: string }[]; itirazlar: { itiraz: string; cevap: string }[]; medya: Medya[]; yasaklar: string; aktif: boolean;
 };
 
 const inputCls = "h-10 w-full rounded-xl border border-input bg-card px-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
 const areaCls = "w-full rounded-xl border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
 
-const BOS: Kart = { kod: "", ad: "", siteId: null, disUrunId: null, url: "", anahtarKelimeler: "", asistanSeviyesi: "devreder", bilgi: "", sss: [], itirazlar: [], medya: [], yasaklar: "", aktif: true };
+const BOS: Kart = { kod: "", ad: "", siteId: null, disUrunId: null, disKategoriId: null, url: "", anahtarKelimeler: "", asistanSeviyesi: "devreder", bilgi: "", sss: [], itirazlar: [], medya: [], yasaklar: "", aktif: true };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -130,11 +130,14 @@ function Editor({ kart, yeni, sites, onSaved }: { kart: Kart; yeni: boolean; sit
             ))}
           </select>
         </Field>
-        <Field label="Sitedeki ürün numarası" hint="WooCommerce ürün kimliği (ör. 20659)">
+        <Field label="Sitedeki ürün numarası" hint="WooCommerce ürün kimliği (ör. 20659); kategori kartında öne çıkan ürün">
           <input type="number" value={k.disUrunId ?? ""} onChange={(e) => set("disUrunId", Number(e.target.value) || null)} className={inputCls} />
         </Field>
+        <Field label="Sitedeki kategori numarası" hint="Doluysa asistan kategorideki ürünleri, ölçüleri ve fiyatları listeler (ör. 29 bayraklar)">
+          <input type="number" value={k.disKategoriId ?? ""} onChange={(e) => set("disKategoriId", Number(e.target.value) || null)} className={inputCls} />
+        </Field>
         <div className="sm:col-span-2">
-          <Field label="Ürün linki">
+          <Field label="Ürün ya da kategori linki">
             <input value={k.url ?? ""} onChange={(e) => set("url", e.target.value)} className={inputCls} placeholder="https://skygorselmarket.com/…" />
           </Field>
         </div>

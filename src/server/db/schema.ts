@@ -650,6 +650,8 @@ export const waUrunKartlari = mysqlTable("wa_urun_kartlari", {
   /** Canlı fiyatın okunduğu WooCommerce bağlantısı (yoksa fiyat verilmez) */
   siteId: int("site_id", { unsigned: true }),
   disUrunId: int("dis_urun_id", { unsigned: true }),
+  /** Kategori kartı: sitedeki WooCommerce kategorisi (asistan kategorideki ürünleri listeler; disUrunId öne çıkan ürün) */
+  disKategoriId: int("dis_kategori_id", { unsigned: true }),
   url: varchar("url", { length: 255 }),
   anahtarKelimeler: text("anahtar_kelimeler"),
   asistanSeviyesi: mysqlEnum("asistan_seviyesi", WA_ASISTAN_SEVIYELERI).notNull().default("devreder"),
