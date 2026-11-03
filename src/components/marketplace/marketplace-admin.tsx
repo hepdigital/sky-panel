@@ -128,21 +128,16 @@ const LOG_TUR: Record<string, string> = {
 };
 
 /**
- * Liste sekmeleri, ürünün kanal kayıtlarına göre: sitede (site bağlantısı açık), pazaryerinde (herhangi bir pazaryerinde kaydı
- * var, açık ya da kapalı), hiçbir kanalda değil. Ayrı işaret tutulmaz: pazaryerine eklenen ürün kendiliğinden sekmeye geçer.
+ * Kanal süzgeci, ürünün kanal kayıtlarına göre (ayrı işaret tutulmaz): pazaryerine tanımlı (herhangi bir pazaryerinde kaydı
+ * var, açık ya da kapalı), tek bir kanal ("k:<id>"; sitede bağlantı açık, pazaryerinde kayıt var) ya da hiçbir kanalda değil.
  */
-type Sekme = "tumu" | "site" | "pazaryeri" | "kanalsiz";
-const SEKMELER: { k: Sekme; ad: string }[] = [
-  { k: "tumu", ad: "Tümü" },
-  { k: "site", ad: "Sitede" },
-  { k: "pazaryeri", ad: "Pazaryerinde" },
-  { k: "kanalsiz", ad: "Kanalı yok" },
-];
-function inTab(i: ItemRow, k: Sekme, channels: Channel[]) {
+type KanalSuzgec = "" | "pazaryeri" | "kanalsiz" | `k:${number}`;
+function inChannel(i: ItemRow, k: KanalSuzgec, channels: Channel[]) {
   const pz = (l: ListingRow) => !!channels.find((c) => c.id === l.siteId)?.pazaryeri;
-  if (k === "site") return i.listelemeler.some((l) => !pz(l) && l.aktif);
+  const tanimli = (l: ListingRow) => pz(l) || l.aktif;
   if (k === "pazaryeri") return i.listelemeler.some(pz);
-  if (k === "kanalsiz") return !i.listelemeler.some((l) => (pz(l) ? true : l.aktif));
+  if (k === "kanalsiz") return !i.listelemeler.some(tanimli);
+  if (k.startsWith("k:")) return i.listelemeler.some((l) => l.siteId === Number(k.slice(2)) && tanimli(l));
   return true;
 }
 
@@ -154,11 +149,16 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
   const [tyAktar, setTyAktar] = useState<Channel | null>(null);
   const [acik, setAcik] = useState<Set<string>>(new Set());
   const [q, setQ] = useState("");
-  const [sekme, setSekme] = useState<Sekme>("tumu");
-  const sayilar = { tumu: items.length, ...Object.fromEntries((["site", "pazaryeri", "kanalsiz"] as const).map((k) => [k, items.filter((i) => inTab(i, k, channels)).length])) } as Record<Sekme, number>;
-  const satistaPazaryeri = items.filter((i) => i.listelemeler.some((l) => l.aktif && channels.find((c) => c.id === l.siteId)?.pazaryeri)).length;
+  const [kanal, setKanal] = useState<KanalSuzgec>("");
+  const say = (k: KanalSuzgec) => items.filter((i) => inChannel(i, k, channels)).length;
+  const secenekler: { k: KanalSuzgec; ad: string }[] = [
+    { k: "", ad: "Tüm ürünler" },
+    ...(channels.some((c) => c.pazaryeri) ? [{ k: "pazaryeri" as const, ad: "Pazaryerine tanımlı" }] : []),
+    ...channels.map((c) => ({ k: `k:${c.id}` as const, ad: c.ad })),
+    { k: "kanalsiz", ad: "Kanalı yok" },
+  ];
   const list = items.filter(
-    (i) => inTab(i, sekme, channels) && (!q.trim() || `${i.ad} ${i.stokKodu} ${i.barkod} ${i.renk} ${i.olcu}`.toLocaleLowerCase("tr").includes(q.trim().toLocaleLowerCase("tr"))),
+    (i) => inChannel(i, kanal, channels) && (!q.trim() || `${i.ad} ${i.stokKodu} ${i.barkod} ${i.renk} ${i.olcu}`.toLocaleLowerCase("tr").includes(q.trim().toLocaleLowerCase("tr"))),
   );
   // Aynı grup kodlu kartlar (seçenekler) tek ürün altında
   const groups = [...list.reduce((m, i) => m.set(i.grupKodu, [...(m.get(i.grupKodu) ?? []), i]), new Map<string, ItemRow[]>()).values()];
@@ -212,29 +212,25 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
 
       <Card className="mt-4 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
-          <div className="inline-flex flex-wrap rounded-full bg-muted p-1">
-            {SEKMELER.filter((s) => s.k === "tumu" || s.k === "kanalsiz" || channels.some((c) => (s.k === "pazaryeri") === c.pazaryeri)).map((s) => (
-              <button
-                key={s.k}
-                type="button"
-                onClick={() => setSekme(s.k)}
-                className={cn("flex h-9 items-center rounded-full px-3.5 text-sm font-semibold", sekme === s.k ? "bg-card shadow-card" : "text-muted-foreground")}
-              >
-                {s.ad} <span className="ml-1.5 font-normal text-muted-foreground">{sayilar[s.k]}</span>
-              </button>
-            ))}
-          </div>
-          <div className="relative w-full max-w-xs">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ad, stok kodu, barkod…" className={cn(input, "pl-9")} />
+          <h2 className="text-[15px] font-semibold">
+            Ürünler <span className="font-normal text-muted-foreground">· {kanal ? `${list.length} / ${items.length}` : items.length}</span>
+          </h2>
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            {channels.length > 0 && (
+              <select value={kanal} onChange={(e) => setKanal(e.target.value as KanalSuzgec)} className={cn(input, "w-full sm:w-56")} aria-label="Kanal">
+                {secenekler.map((s) => (
+                  <option key={s.k} value={s.k}>
+                    {s.ad} ({s.k ? say(s.k) : items.length})
+                  </option>
+                ))}
+              </select>
+            )}
+            <div className="relative w-full sm:w-64">
+              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ad, stok kodu, barkod…" className={cn(input, "pl-9")} />
+            </div>
           </div>
         </div>
-        {sekme === "pazaryeri" && (
-          <p className="border-b border-border bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
-            Pazaryerinde kaydı olan ürünler: {satistaPazaryeri} tanesi satışa açık, {sayilar.pazaryeri - satistaPazaryeri} tanesi kapalı. Bir ürünü pazaryerine eklemek için
-            kartını açıp pazaryeri bölümünü açın; ürün bu sekmeye geçer.
-          </p>
-        )}
         <div className="divide-y divide-border">
           {groups.map((g) =>
             g.length === 1 ? (
@@ -253,7 +249,7 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
           )}
           {!list.length && (
             <p className="p-10 text-center text-sm text-muted-foreground">
-              {!items.length ? "Henüz ürün yok. “Ürün ekle” ile başlayın; bir teklif ürününden doldurabilirsiniz." : q.trim() ? "Aramaya uyan ürün yok." : "Bu sekmede ürün yok."}
+              {!items.length ? "Henüz ürün yok. “Ürün ekle” ile başlayın; bir teklif ürününden doldurabilirsiniz." : q.trim() ? "Aramaya uyan ürün yok." : "Bu kanalda ürün yok."}
             </p>
           )}
         </div>
