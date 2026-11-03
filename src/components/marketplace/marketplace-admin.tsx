@@ -127,6 +127,25 @@ const LOG_TUR: Record<string, string> = {
   "site-oku": "Site fiyatları", "site-fiyat": "Siteye fiyat", "urun-aktar": "Pazaryerinden alındı",
 };
 
+/**
+ * Liste sekmeleri, ürünün kanal kayıtlarına göre: sitede (site bağlantısı açık), pazaryerinde (herhangi bir pazaryerinde kaydı
+ * var, açık ya da kapalı), hiçbir kanalda değil. Ayrı işaret tutulmaz: pazaryerine eklenen ürün kendiliğinden sekmeye geçer.
+ */
+type Sekme = "tumu" | "site" | "pazaryeri" | "kanalsiz";
+const SEKMELER: { k: Sekme; ad: string }[] = [
+  { k: "tumu", ad: "Tümü" },
+  { k: "site", ad: "Sitede" },
+  { k: "pazaryeri", ad: "Pazaryerinde" },
+  { k: "kanalsiz", ad: "Kanalı yok" },
+];
+function inTab(i: ItemRow, k: Sekme, channels: Channel[]) {
+  const pz = (l: ListingRow) => !!channels.find((c) => c.id === l.siteId)?.pazaryeri;
+  if (k === "site") return i.listelemeler.some((l) => !pz(l) && l.aktif);
+  if (k === "pazaryeri") return i.listelemeler.some(pz);
+  if (k === "kanalsiz") return !i.listelemeler.some((l) => (pz(l) ? true : l.aktif));
+  return true;
+}
+
 /** Satış ürünleri: ortak ürün kartı + kanal başına bağlantı (WooCommerce) ya da kategori, özellik, marka ve gönderim (pazaryeri) */
 export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels: Channel[]; items: ItemRow[]; catalog: CatalogRow[]; logs: LogRow[] }) {
   const [edit, setEdit] = useState<EditTarget>(null);
@@ -135,7 +154,12 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
   const [tyAktar, setTyAktar] = useState<Channel | null>(null);
   const [acik, setAcik] = useState<Set<string>>(new Set());
   const [q, setQ] = useState("");
-  const list = items.filter((i) => !q.trim() || `${i.ad} ${i.stokKodu} ${i.barkod} ${i.renk} ${i.olcu}`.toLocaleLowerCase("tr").includes(q.trim().toLocaleLowerCase("tr")));
+  const [sekme, setSekme] = useState<Sekme>("tumu");
+  const sayilar = { tumu: items.length, ...Object.fromEntries((["site", "pazaryeri", "kanalsiz"] as const).map((k) => [k, items.filter((i) => inTab(i, k, channels)).length])) } as Record<Sekme, number>;
+  const satistaPazaryeri = items.filter((i) => i.listelemeler.some((l) => l.aktif && channels.find((c) => c.id === l.siteId)?.pazaryeri)).length;
+  const list = items.filter(
+    (i) => inTab(i, sekme, channels) && (!q.trim() || `${i.ad} ${i.stokKodu} ${i.barkod} ${i.renk} ${i.olcu}`.toLocaleLowerCase("tr").includes(q.trim().toLocaleLowerCase("tr"))),
+  );
   // Aynı grup kodlu kartlar (seçenekler) tek ürün altında
   const groups = [...list.reduce((m, i) => m.set(i.grupKodu, [...(m.get(i.grupKodu) ?? []), i]), new Map<string, ItemRow[]>()).values()];
   const sites = channels.filter((c) => !c.pazaryeri);
@@ -188,14 +212,29 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
 
       <Card className="mt-4 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
-          <h2 className="text-[15px] font-semibold">
-            Ürünler <span className="font-normal text-muted-foreground">· {items.length}</span>
-          </h2>
+          <div className="inline-flex flex-wrap rounded-full bg-muted p-1">
+            {SEKMELER.filter((s) => s.k === "tumu" || s.k === "kanalsiz" || channels.some((c) => (s.k === "pazaryeri") === c.pazaryeri)).map((s) => (
+              <button
+                key={s.k}
+                type="button"
+                onClick={() => setSekme(s.k)}
+                className={cn("flex h-9 items-center rounded-full px-3.5 text-sm font-semibold", sekme === s.k ? "bg-card shadow-card" : "text-muted-foreground")}
+              >
+                {s.ad} <span className="ml-1.5 font-normal text-muted-foreground">{sayilar[s.k]}</span>
+              </button>
+            ))}
+          </div>
           <div className="relative w-full max-w-xs">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ad, stok kodu, barkod…" className={cn(input, "pl-9")} />
           </div>
         </div>
+        {sekme === "pazaryeri" && (
+          <p className="border-b border-border bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
+            Pazaryerinde kaydı olan ürünler: {satistaPazaryeri} tanesi satışa açık, {sayilar.pazaryeri - satistaPazaryeri} tanesi kapalı. Bir ürünü pazaryerine eklemek için
+            kartını açıp pazaryeri bölümünü açın; ürün bu sekmeye geçer.
+          </p>
+        )}
         <div className="divide-y divide-border">
           {groups.map((g) =>
             g.length === 1 ? (
@@ -212,7 +251,11 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
               />
             ),
           )}
-          {!list.length && <p className="p-10 text-center text-sm text-muted-foreground">{items.length ? "Aramaya uyan ürün yok." : "Henüz ürün yok. “Ürün ekle” ile başlayın; bir teklif ürününden doldurabilirsiniz."}</p>}
+          {!list.length && (
+            <p className="p-10 text-center text-sm text-muted-foreground">
+              {!items.length ? "Henüz ürün yok. “Ürün ekle” ile başlayın; bir teklif ürününden doldurabilirsiniz." : q.trim() ? "Aramaya uyan ürün yok." : "Bu sekmede ürün yok."}
+            </p>
+          )}
         </div>
       </Card>
 
