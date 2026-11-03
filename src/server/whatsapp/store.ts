@@ -31,6 +31,8 @@ export const ensureTables = (): Promise<unknown> =>
         son_mesaj timestamp NOT NULL DEFAULT current_timestamp(),
         okunmamis int unsigned NOT NULL DEFAULT 0,
         isleniyor_kadar timestamp NULL DEFAULT NULL,
+        odeme_linki_id int unsigned NULL,
+        odeme_taslak text NULL,
         asistan_gecmis longtext NULL,
         ozet text NULL,
         olusturma timestamp NOT NULL DEFAULT current_timestamp(),
@@ -66,7 +68,7 @@ export const ensureTables = (): Promise<unknown> =>
         dis_urun_id int unsigned NULL,
         url varchar(255) NULL,
         anahtar_kelimeler text NULL,
-        asistan_cevaplar tinyint(1) NOT NULL DEFAULT 0,
+        asistan_seviyesi enum('cevaplar','bilgi_verir','devreder') NOT NULL DEFAULT 'devreder',
         bilgi longtext NULL,
         sss longtext NULL,
         itirazlar longtext NULL,
@@ -105,6 +107,38 @@ export const ensureTables = (): Promise<unknown> =>
         CONSTRAINT wa_talepler_sohbet_id_wa_sohbetler_id_fk FOREIGN KEY (sohbet_id) REFERENCES wa_sohbetler (id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`),
     );
+    await db().execute(
+      sql.raw(`CREATE TABLE IF NOT EXISTS wa_ornekler (
+        id int unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        sohbet_id int unsigned NULL,
+        urun_kodu varchar(60) NULL,
+        musteri_mesaji text NOT NULL,
+        kotu_cevap text NULL,
+        dogru_cevap text NOT NULL,
+        durum enum('oneri','onayli','reddedildi') NOT NULL DEFAULT 'oneri',
+        fiyat tinyint(1) NOT NULL DEFAULT 0,
+        son_mesaj_id int unsigned NULL,
+        kullanici_id int unsigned NULL,
+        aktif tinyint(1) NOT NULL DEFAULT 0,
+        tarih timestamp NOT NULL DEFAULT current_timestamp(),
+        KEY wa_ornek_durum (durum),
+        KEY wa_ornek_sohbet (sohbet_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`),
+    );
+    // Faz 2'de oluşan tablolar: yeni alanlar (Faz 2.1). asistan_cevaplar → asistan_seviyesi (1: cevaplar, 0: devreder)
+    const [cols] = (await db().execute(
+      sql.raw(`SELECT TABLE_NAME t, COLUMN_NAME c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('wa_sohbetler', 'wa_urun_kartlari')`),
+    )) as unknown as [{ t: string; c: string }[]];
+    const has = (t: string, c: string) => cols.some((x) => x.t === t && x.c === c);
+    if (!has("wa_sohbetler", "odeme_linki_id")) await db().execute(sql.raw("ALTER TABLE wa_sohbetler ADD COLUMN odeme_linki_id int unsigned NULL AFTER isleniyor_kadar"));
+    if (!has("wa_sohbetler", "odeme_taslak")) await db().execute(sql.raw("ALTER TABLE wa_sohbetler ADD COLUMN odeme_taslak text NULL AFTER odeme_linki_id"));
+    if (!has("wa_urun_kartlari", "asistan_seviyesi")) {
+      await db().execute(sql.raw("ALTER TABLE wa_urun_kartlari ADD COLUMN asistan_seviyesi enum('cevaplar','bilgi_verir','devreder') NOT NULL DEFAULT 'devreder' AFTER anahtar_kelimeler"));
+      if (has("wa_urun_kartlari", "asistan_cevaplar")) {
+        await db().execute(sql.raw("UPDATE wa_urun_kartlari SET asistan_seviyesi = IF(asistan_cevaplar = 1, 'cevaplar', 'devreder')"));
+        await db().execute(sql.raw("ALTER TABLE wa_urun_kartlari DROP COLUMN asistan_cevaplar"));
+      }
+    }
     await db().execute(
       sql.raw(`CREATE TABLE IF NOT EXISTS wa_ai_kullanim (
         id int unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -312,6 +346,18 @@ export async function fetchMedia(cfg: WaConfig, list: PendingMedia[]) {
   }
 }
 
+/** Asistanın müşteriden topladığı ve müşterinin onayladığı sipariş özeti (ödeme linki; whatsapp/payment.ts) */
+export type PaymentDraft = { urunKodu: string; urun: string; renk: string; adet: number; adSoyad: string; adres: string; il: string; eposta: string; tutar: number };
+
+export function parseDraft(raw: string | null): PaymentDraft | null {
+  try {
+    const d = JSON.parse(raw ?? "") as PaymentDraft;
+    return d && typeof d.urunKodu === "string" && Number(d.adet) > 0 ? d : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Panel ──────────────────────────────────────────────────────────────────
 
 /** Asistanın araç çağrısı: gelen kutusunda katlanmış kısa satır olarak görünen kayıt (WhatsApp'a gitmez) */
@@ -361,7 +407,7 @@ export async function getChat(me: Me, id: number) {
   // Telefonla eşleşen müşteri ilk bulunduğunda sohbete yazılır
   const link = musteri && c.s.musteriId === null ? { musteriId: musteri.id } : {};
   if (c.s.okunmamis || "musteriId" in link) await db().update(sohbetler).set({ okunmamis: 0, ...link }).where(eq(sohbetler.id, id));
-  return { ...c.s, ilgilenen: c.ilgilenen, mesajlar: rows.reverse(), musteri, talep: talep ?? null, pencereAcik: windowOpen(c.s.sonMusteriMesaji) };
+  return { ...c.s, ilgilenen: c.ilgilenen, mesajlar: rows.reverse(), musteri, talep: talep ?? null, pencereAcik: windowOpen(c.s.sonMusteriMesaji), odemeTaslak: parseDraft(c.s.odemeTaslak) };
 }
 
 /** Menü rozeti: okunmamış mesajı olan açık sohbet sayısı */

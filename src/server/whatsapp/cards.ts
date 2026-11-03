@@ -12,8 +12,10 @@ export type Itiraz = { itiraz: string; cevap: string };
 /** yol: panelde yüklü görsel (/dosya/urun/<ad>.webp) ya da herkese açık https adresi (mp4 video) */
 export type Medya = { id: string; tur: "image" | "video"; yol: string; aciklama: string };
 
+export type Seviye = (typeof schema.WA_ASISTAN_SEVIYELERI)[number];
+
 export type Kart = {
-  kod: string; ad: string; siteId: number | null; disUrunId: number | null; url: string | null; anahtarKelimeler: string; asistanCevaplar: boolean;
+  kod: string; ad: string; siteId: number | null; disUrunId: number | null; url: string | null; anahtarKelimeler: string; asistanSeviyesi: Seviye;
   bilgi: string; sss: Sss[]; itirazlar: Itiraz[]; medya: Medya[]; yasaklar: string; aktif: boolean;
 };
 
@@ -29,12 +31,12 @@ const s = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0
 
 function toKart(r: typeof kartlar.$inferSelect): Kart {
   return {
-    kod: r.kod, ad: r.ad, siteId: r.siteId, disUrunId: r.disUrunId, url: r.url, anahtarKelimeler: r.anahtarKelimeler ?? "", asistanCevaplar: r.asistanCevaplar,
+    kod: r.kod, ad: r.ad, siteId: r.siteId, disUrunId: r.disUrunId, url: r.url, anahtarKelimeler: r.anahtarKelimeler ?? "", asistanSeviyesi: r.asistanSeviyesi,
     bilgi: r.bilgi ?? "", sss: parse<Sss>(r.sss), itirazlar: parse<Itiraz>(r.itirazlar), medya: parse<Medya>(r.medya), yasaklar: r.yasaklar ?? "", aktif: r.aktif,
   };
 }
 
-// ── İlk içerik: 3x3 kış bahçesi (şartname §8). Tablo boşken bir kez eklenir; sonra panelden düzenlenir. ─────────
+// ── İlk içerik: 3x3 kış bahçesi (şartname §8) tablo boşken bir kez; bilgi kartları yoksa. Sonra panelden düzenlenir. ─────────
 
 const KIS_BAHCESI_BILGI = `- 3x3 m kış bahçesi çadırı.
 - 40 mm güçlendirilmiş çelik iskelet.
@@ -55,11 +57,28 @@ const KIS_BAHCESI_ITIRAZLAR: Itiraz[] = [
   { itiraz: "Kurulumu zor mu?", cevap: "1-2 kişiyle yaklaşık 10 dakikada kurulur; istenirse kurulum videosu gönderilir." },
 ];
 
+/** Fiyat ve özellik verip devredilen ürünler (Faz 2.1). Site ürün numarası ve bilgi panelden girilir. */
+const BILGI_KARTLARI = [
+  {
+    kod: "bayrak",
+    ad: "Reklam bayrakları (yelken, damla, olta bayrak)",
+    anahtarKelimeler: "bayrak, yelken bayrak, damla bayrak, olta bayrak, reklam bayrağı, plaj bayrağı, kırlangıç bayrak, dış mekan bayrak",
+    yasaklar: "\"Plaj bayrağı\" ifadesini asla kullanma (müşteri kullansa bile). Doğru adlar: yelken bayrak, damla bayrak, olta bayrak.",
+  },
+  { kod: "orumcek-stand", ad: "Örümcek stand", anahtarKelimeler: "örümcek stand, orumcek stand, katlanır stand, fuar standı, pop up stand, popup stand", yasaklar: null },
+  { kod: "roll-up", ad: "Roll-up banner", anahtarKelimeler: "roll up, rollup, roll-up, roll up banner, banner stand, afiş standı", yasaklar: null },
+];
+
 let seeded: Promise<unknown> | null = null;
 const ensureSeed = (): Promise<unknown> =>
   (seeded ??= (async () => {
     await ensureTables();
     const [r] = await db().select({ n: sql<number>`COUNT(*)`.mapWith(Number) }).from(kartlar);
+    // Bilgi verip devredilen ürün kartları yoksa eklenir (kod değiştirilmiş ya da silinmiş kart yeniden eklenir; kaldırmak için pasifleştirin)
+    await db()
+      .insert(kartlar)
+      .ignore()
+      .values(BILGI_KARTLARI.map((k) => ({ ...k, asistanSeviyesi: "bilgi_verir" as const, sss: "[]", itirazlar: "[]", medya: "[]" })));
     if (r?.n) return;
     // Canlı fiyat skygorselmarket bağlantısından okunur (bağlantı yoksa kartta site boş kalır, panelden seçilir)
     const [site] = await db().select({ id: schema.siteBaglantilari.id }).from(schema.siteBaglantilari).where(like(schema.siteBaglantilari.adres, "%skygorselmarket.com%")).limit(1);
@@ -73,7 +92,7 @@ const ensureSeed = (): Promise<unknown> =>
         disUrunId: 20659,
         url: "https://skygorselmarket.com/sky-3x3-profesyonel-dis-mekan-kis-bahcesi-cadiri/",
         anahtarKelimeler: "kış bahçesi, kış çadırı, kamelya, çardak, kapalı gazebo, soba çıkışlı çadır, balkon kapatma, teras kapatma, bahçe çadırı, karavan kış bahçesi",
-        asistanCevaplar: true,
+        asistanSeviyesi: "cevaplar",
         bilgi: KIS_BAHCESI_BILGI,
         sss: "[]",
         itirazlar: JSON.stringify(KIS_BAHCESI_ITIRAZLAR),
@@ -129,7 +148,8 @@ export async function saveCard(raw: Record<string, unknown>, eskiKod: string | n
   }
   if (new Set(medya.map((m) => m.id)).size !== medya.length) return { ok: false, hata: "Medya kimlikleri tekil olmalı." };
   const values = {
-    kod, ad, siteId, disUrunId, url: url || null, anahtarKelimeler: s(raw.anahtarKelimeler, 2000) || null, asistanCevaplar: raw.asistanCevaplar === true,
+    kod, ad, siteId, disUrunId, url: url || null, anahtarKelimeler: s(raw.anahtarKelimeler, 2000) || null,
+    asistanSeviyesi: schema.WA_ASISTAN_SEVIYELERI.find((v) => v === raw.asistanSeviyesi) ?? "devreder",
     bilgi: s(raw.bilgi, 20000) || null, sss: JSON.stringify(sss), itirazlar: JSON.stringify(itirazlar), medya: JSON.stringify(medya), yasaklar: s(raw.yasaklar, 4000) || null,
     aktif: raw.aktif !== false,
   };

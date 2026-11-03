@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SKY Konfigüratör
  * Description: SKY panelindeki gazebo konfigüratörünü siteye yerleştirir ve panelin imzaladığı tasarımı WooCommerce sepetine ekler. Fiyat panelde hesaplanır; site yalnızca imzayı doğrular.
- * Version: 1.7.1
+ * Version: 1.7.2
  * Author: SKY Görsel Çözümler
  * Requires Plugins: woocommerce
  * Text Domain: sky-konfigurator
@@ -19,6 +19,7 @@
  * Kategori banner'ı: gazebo kategorilerinin üstünde "Kendi gazebonu tasarla"; ölçü ve baskı kategoriden seçili gelir (?olcu=3x3&baski=baskisiz).
  * Ödeme linki: panelin açtığı ürünsüz siparişlerde (_sky_odeme_linki) misafir ödeme sayfası e-posta doğrulaması istemez. iyzico formunda teslimat adresi de gönderilir.
  * Taksit: GET /wp-json/sky/v1/taksit?tutar=&ts=&sig= (panelin imzası) → iyzico'nun kart ailesi bazında taksit tutarları (sitedeki iyzico anahtarlarıyla).
+ * Havale: GET /wp-json/sky/v1/havale?ts=&sig= (panelin imzası) → havaleindirim eklentisindeki havale/EFT indirim oranı (yüzde).
  * Kargo: panelin yazdığı _sky_kargo_firma / _sky_kargo_takip_no müşterinin sipariş sayfasında takip linkiyle gösterilir.
  * Ürün: stok kodu SKY-GAZEBO-TASARLA olan, katalogda gizli bir WooCommerce ürünü; yalnızca konfigüratörden sepete düşer.
  */
@@ -222,6 +223,37 @@ final class Sky_Konfigurator {
 				'permission_callback' => '__return_true',
 			)
 		);
+		register_rest_route(
+			'sky/v1',
+			'/havale',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( __CLASS__, 'transfer_discount' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+	}
+
+	/**
+	 * Panelin WhatsApp asistanı için havale/EFT indirim oranı (havaleindirim eklentisinin havaleindirim_discount_rate seçeneği).
+	 * İmza: base64url(HMAC-SHA256("havale|ts")), 5 dakika geçerli. Oran yüzde olarak döner; 0–1 arası kayıt yüzdeye çevrilir.
+	 */
+	public static function transfer_discount( WP_REST_Request $req ) {
+		$ts     = (int) $req->get_param( 'ts' );
+		$secret = self::secret();
+		$sig    = self::b64d( (string) $req->get_param( 'sig' ) );
+		if ( '' === $secret || abs( time() - $ts ) > 300 || false === $sig || ! hash_equals( hash_hmac( 'sha256', "havale|{$ts}", $secret, true ), $sig ) ) {
+			return new WP_REST_Response( array( 'hata' => 'İmza geçersiz.' ), 403 );
+		}
+		$raw = get_option( 'havaleindirim_discount_rate', null );
+		if ( null === $raw || '' === $raw || ! is_numeric( str_replace( ',', '.', (string) $raw ) ) ) {
+			return new WP_REST_Response( array( 'hata' => 'Havale indirim oranı bulunamadı.' ), 404 );
+		}
+		$oran = (float) str_replace( ',', '.', (string) $raw );
+		if ( $oran > 0 && $oran < 1 ) {
+			$oran *= 100;
+		}
+		return new WP_REST_Response( array( 'oran' => round( $oran, 2 ) ) );
 	}
 
 	/**

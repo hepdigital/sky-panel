@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bot, Clock, Lock, MessageCircle, Package, Send, Settings2, UserCheck, X } from "lucide-react";
-import { waAsistanaBirak, waDevral, waGonder, waKapat } from "@/app/panel/whatsapp/actions";
+import { ArrowLeft, Bot, Clock, CreditCard, GraduationCap, Lock, MessageCircle, Package, Send, Settings2, UserCheck, X } from "lucide-react";
+import { waAsistanaBirak, waDevral, waGonder, waKapat, waOdemeLinkiGonder } from "@/app/panel/whatsapp/actions";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -39,6 +39,7 @@ export type ChatDetail = {
   urunKodu: string | null;
   ozet: string | null;
   aiMaliyet: { usd: number; cagri: number } | null;
+  odemeTaslak: { urun: string; renk: string; adet: number; adSoyad: string; adres: string; il: string; eposta: string; tutar: number } | null;
   ilgilenen: string | null;
   pencereAcik: boolean;
   sonMusteriMesaji: string | null;
@@ -125,6 +126,9 @@ export function Inbox({
               </Link>
               <Link href="/panel/whatsapp/urunler" className="inline-flex items-center gap-1 text-primary hover:underline">
                 <Package className="size-3.5" /> Ürün kartları
+              </Link>
+              <Link href="/panel/whatsapp/ornekler" className="inline-flex items-center gap-1 text-primary hover:underline">
+                <GraduationCap className="size-3.5" /> Öğrenilen cevaplar
               </Link>
             </p>
           )}
@@ -285,6 +289,7 @@ function CustomerCard({ chat, kur }: { chat: ChatDetail; kur: number | null }) {
   const m = chat.musteri;
   return (
     <Card className="hidden h-fit space-y-4 p-4 text-sm xl:block">
+      {chat.odemeTaslak && <PaymentDraftCard id={chat.id} d={chat.odemeTaslak} acik={chat.pencereAcik} />}
       <div>
         <p className="text-xs font-semibold text-muted-foreground">Kişi</p>
         <p className="font-semibold">{chat.ad || "—"}</p>
@@ -366,5 +371,54 @@ function CustomerCard({ chat, kur }: { chat: ChatDetail; kur: number | null }) {
         )}
       </div>
     </Card>
+  );
+}
+
+/** "Ekip onaylı" ödeme linki: asistanın hazırladığı, müşterinin onayladığı özet; ekip tek tıkla linki oluşturup gönderir */
+function PaymentDraftCard({ id, d, acik }: { id: number; d: NonNullable<ChatDetail["odemeTaslak"]>; acik: boolean }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <div className="rounded-xl border-2 border-primary/40 bg-primary-soft p-3">
+      <p className="flex items-center gap-1.5 text-xs font-bold">
+        <CreditCard className="size-3.5" /> Ödeme linki onay bekliyor
+      </p>
+      <dl className="mt-2 space-y-0.5 text-xs">
+        {(
+          [
+            ["Ad soyad", d.adSoyad],
+            ["Ürün", `${d.urun} × ${d.adet}`],
+            ["Renk", d.renk],
+            ["Adres", `${d.adres}, ${d.il}`],
+            ["E-posta", d.eposta || "—"],
+            ["Tutar", formatTRY(d.tutar)],
+          ] as const
+        ).map(([k, v]) => (
+          <div key={k} className="flex gap-2">
+            <dt className="w-16 shrink-0 text-muted-foreground">{k}</dt>
+            <dd className="min-w-0 break-words font-medium">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      {err && <p className="mt-2 text-xs text-danger">{err}</p>}
+      <Button
+        size="sm"
+        className="mt-3 w-full"
+        disabled={pending || !acik}
+        title={acik ? undefined : "24 saat penceresi kapalı"}
+        onClick={() =>
+          start(async () => {
+            setErr(null);
+            const r = await waOdemeLinkiGonder(id);
+            if (!r.ok) return setErr(r.hata);
+            router.refresh();
+          })
+        }
+      >
+        <CreditCard /> Ödeme linkini oluştur ve gönder
+      </Button>
+      <p className="mt-1 text-[11px] text-muted-foreground">Sitedeki tutar onaylanandan farklıysa link oluşturulmaz.</p>
+    </div>
   );
 }

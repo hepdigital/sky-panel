@@ -33,7 +33,7 @@ async function WhatsappInbox({ searchParams }: { searchParams: Promise<{ s?: str
       chats={chats.map((c) => ({ ...c, sonMesaj: c.sonMesaj.toISOString(), sonMusteriMesaji: c.sonMusteriMesaji?.toISOString() ?? null }))}
       chat={
         chat && {
-          id: chat.id, telefon: chat.telefon, ad: chat.ad, durum: chat.durum, kaynak: chat.kaynak, reklamId: chat.reklamId, ctwaClid: chat.ctwaClid, urunKodu: chat.urunKodu, ozet: chat.ozet, aiMaliyet: sohbetMaliyet,
+          id: chat.id, telefon: chat.telefon, ad: chat.ad, durum: chat.durum, kaynak: chat.kaynak, reklamId: chat.reklamId, ctwaClid: chat.ctwaClid, urunKodu: chat.urunKodu, ozet: chat.ozet, aiMaliyet: sohbetMaliyet, odemeTaslak: chat.odemeTaslak,
           ilgilenen: chat.ilgilenen, pencereAcik: chat.pencereAcik, sonMusteriMesaji: chat.sonMusteriMesaji?.toISOString() ?? null, olusturma: chat.olusturma.toISOString(),
           musteri: chat.musteri && { ...chat.musteri, siparisler: chat.musteri.siparisler.map((o) => ({ ...o, dahil: Number(o.dahil), tarih: new Date(o.tarih).toISOString() })) },
           talep: chat.talep && { ad: chat.talep.ad, il: chat.talep.il, urun: chat.talep.urun, adet: chat.talep.adet, renk: chat.talep.renk, not: chat.talep.not, aranmaZamani: chat.talep.aranmaZamani, durum: chat.talep.durum },

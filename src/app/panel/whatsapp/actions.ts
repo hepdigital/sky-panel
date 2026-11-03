@@ -1,10 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { getMe, getSeller, isAdmin } from "@/server/auth";
 import { saveWebp } from "@/server/files";
 import { denemeGonder, denemeSifirla, type DenemeSecenek } from "@/server/whatsapp/asistan";
 import { saveCard } from "@/server/whatsapp/cards";
+import { learnFromChat, updateExample } from "@/server/whatsapp/learning";
+import { sendChatPaymentLink } from "@/server/whatsapp/payment";
 import { waEnabled } from "@/server/whatsapp/config";
 import { MODELLER, saveSettings } from "@/server/whatsapp/settings";
 import { closeChat, releaseToAssistant, sendFromPanel, takeOver } from "@/server/whatsapp/store";
@@ -49,6 +52,8 @@ export async function waAsistanaBirak(id: number): Promise<Result> {
   const me = await seller();
   if (!me) return { ok: false, hata: "Oturum kapanmış." };
   await releaseToAssistant(Number(id));
+  // Ekibin bu sohbetteki cevabından öneri çıkarılır (cevaptan sonra, Haiku ile)
+  after(() => learnFromChat(Number(id)));
   refresh();
   return { ok: true };
 }
@@ -57,8 +62,27 @@ export async function waKapat(id: number): Promise<Result> {
   const me = await seller();
   if (!me) return { ok: false, hata: "Oturum kapanmış." };
   await closeChat(Number(id));
+  after(() => learnFromChat(Number(id)));
   refresh();
   return { ok: true };
+}
+
+/** "Ekip onaylı" modda asistanın hazırladığı özetten ödeme linkini oluşturup müşteriye gönderir */
+export async function waOdemeLinkiGonder(id: number): Promise<Result> {
+  const me = await seller();
+  if (!me) return { ok: false, hata: "Oturum kapanmış." };
+  const r = await sendChatPaymentLink(me, Number(id));
+  refresh();
+  return r;
+}
+
+/** Öğrenilen örnek: düzenle, onayla, reddet ya da pasifleştir (yalnız yönetici) */
+export async function waOrnekGuncelle(id: number, v: { musteriMesaji?: string; dogruCevap?: string; urunKodu?: string | null; durum?: string; aktif?: boolean }): Promise<Result> {
+  const me = await admin();
+  if (!me) return { ok: false, hata: "Bu işlem yalnızca yöneticiye açık." };
+  const r = await updateExample(me.id, Number(id), v ?? {});
+  revalidatePath("/panel/whatsapp/ornekler");
+  return r;
 }
 
 export async function waAyarKaydet(veri: unknown): Promise<Result> {

@@ -11,16 +11,24 @@ import { Card } from "@/components/ui/card";
 import { toWebp } from "@/lib/image";
 import { cn } from "@/lib/utils";
 
+type Seviye = "cevaplar" | "bilgi_verir" | "devreder";
+const SEVIYELER: { key: Seviye; label: string; aciklama: string; tone: "success" | "info" | "neutral" }[] = [
+  { key: "cevaplar", label: "Asistan satar", aciklama: "Baştan sona cevaplar, sipariş aşamasına kadar götürür (ödeme linki ayara bağlı).", tone: "success" },
+  { key: "bilgi_verir", label: "Bilgi verip devreder", aciklama: "Fiyatı (\"X TL'den başlayan\"), özellikleri ve linki verir; ölçü/adet/baskı/il/ad toplayıp ekibe devreder. Sipariş, ödeme linki, IBAN, teslim süresi sözü vermez.", tone: "info" },
+  { key: "devreder", label: "Ekibe devreder", aciklama: "Fiyat vermez; bilgileri toplayıp ekibe devreder.", tone: "neutral" },
+];
+const seviyeOf = (k: Seviye) => SEVIYELER.find((x) => x.key === k) ?? SEVIYELER[2];
+
 type Medya = { id: string; tur: "image" | "video"; yol: string; aciklama: string };
 type Kart = {
-  kod: string; ad: string; siteId: number | null; disUrunId: number | null; url: string | null; anahtarKelimeler: string; asistanCevaplar: boolean;
+  kod: string; ad: string; siteId: number | null; disUrunId: number | null; url: string | null; anahtarKelimeler: string; asistanSeviyesi: Seviye;
   bilgi: string; sss: { soru: string; cevap: string }[]; itirazlar: { itiraz: string; cevap: string }[]; medya: Medya[]; yasaklar: string; aktif: boolean;
 };
 
 const inputCls = "h-10 w-full rounded-xl border border-input bg-card px-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
 const areaCls = "w-full rounded-xl border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
 
-const BOS: Kart = { kod: "", ad: "", siteId: null, disUrunId: null, url: "", anahtarKelimeler: "", asistanCevaplar: false, bilgi: "", sss: [], itirazlar: [], medya: [], yasaklar: "", aktif: true };
+const BOS: Kart = { kod: "", ad: "", siteId: null, disUrunId: null, url: "", anahtarKelimeler: "", asistanSeviyesi: "devreder", bilgi: "", sss: [], itirazlar: [], medya: [], yasaklar: "", aktif: true };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -44,7 +52,7 @@ export function CardEditor({ cards, sites }: { cards: Kart[]; sites: { id: numbe
         </Link>
         <h1 className="mt-1 text-2xl font-bold tracking-tight md:text-[28px]">Ürün kartları</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Asistan &quot;cevaplasın&quot; açık kartları baştan sona satar; diğerlerini tanıyıp bilgileri toplar ve ekibe devreder. Fiyat kartta tutulmaz, bağlı site ürününden canlı okunur.
+          Her kartta asistanın görevi seçilir: satar, bilgi verip devreder ya da yalnızca devreder. Fiyat kartta tutulmaz, bağlı site ürününden canlı okunur.
         </p>
       </div>
       <div className="mt-5 grid items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
@@ -55,7 +63,7 @@ export function CardEditor({ cards, sites }: { cards: Kart[]; sites: { id: numbe
                 <button type="button" onClick={() => setSel(c.kod)} className={cn("w-full px-4 py-3 text-left hover:bg-muted/50", sel === c.kod && "bg-muted")}>
                   <span className="block truncate text-sm font-semibold">{c.ad}</span>
                   <span className="mt-1 flex flex-wrap gap-1">
-                    {c.asistanCevaplar ? <Badge tone="success">Asistan cevaplar</Badge> : <Badge dot={false}>Ekibe devreder</Badge>}
+                    <Badge tone={seviyeOf(c.asistanSeviyesi).tone}>{seviyeOf(c.asistanSeviyesi).label}</Badge>
                     {!c.aktif && <Badge tone="neutral">Pasif</Badge>}
                   </span>
                 </button>
@@ -132,10 +140,24 @@ function Editor({ kart, yeni, sites, onSaved }: { kart: Kart; yeni: boolean; sit
         </div>
       </div>
 
+      <div>
+        <p className="text-xs font-semibold text-muted-foreground">Asistanın görevi</p>
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          {SEVIYELER.map((x) => (
+            <button
+              key={x.key}
+              type="button"
+              onClick={() => set("asistanSeviyesi", x.key)}
+              className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold", k.asistanSeviyesi === x.key ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted")}
+            >
+              {x.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-[11px] text-muted-foreground">{seviyeOf(k.asistanSeviyesi).aciklama}</p>
+      </div>
+
       <div className="flex flex-wrap gap-5">
-        <label className="flex items-center gap-2 text-sm font-semibold">
-          <input type="checkbox" className="size-4 accent-primary" checked={k.asistanCevaplar} onChange={(e) => set("asistanCevaplar", e.target.checked)} /> Asistan cevaplasın (kapsamda)
-        </label>
         <label className="flex items-center gap-2 text-sm font-semibold">
           <input type="checkbox" className="size-4 accent-primary" checked={k.aktif} onChange={(e) => set("aktif", e.target.checked)} /> Aktif
         </label>

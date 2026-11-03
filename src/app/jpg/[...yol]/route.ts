@@ -7,7 +7,7 @@ import { readUpload } from "@/server/files";
 /**
  * Pazaryerleri için JPEG görsel: paneldeki webp görsel 1200 × 1200 beyaz zemine ortalanır.
  * /jpg/dosya/urun/<ad>.jpg → yüklenen görsel · /jpg/terminal/img/<ad>.jpg → terminal ürün görseli
- * /jpg/kartela/renkler.jpg → stoktaki kumaş renklerinin kartelası (WhatsApp asistanı gönderir)
+ * /jpg/kartela/renkler.jpg → üretebildiğimiz kumaş renkleri (WhatsApp asistanı "renk seçeneklerimiz" diye gönderir)
  */
 export async function GET(_req: NextRequest, ctx: RouteContext<"/jpg/[...yol]">) {
   const { yol } = await ctx.params;
@@ -38,9 +38,9 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/jpg/[...yol]">)
 
 const esc = (v: string) => v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c]!);
 
-/** Stoktaki renkler: numaralı renk kutuları ve adları (numaralar asistanın mesajındaki listeyle aynı sırada) */
+/** Renk seçenekleri: numaralı renk kutuları ve adları (numaralar asistanın mesajındaki listeyle aynı sırada). Renk kodu boşsa gri kutu. */
 async function colorCard() {
-  const colors = (await listColors()).filter((c) => c.aktif && /^#[0-9a-fA-F]{6}$/.test(c.hex));
+  const colors = (await listColors()).filter((c) => c.aktif);
   if (!colors.length) return new Response("Bulunamadı", { status: 404 });
   const cols = 4;
   const cell = 270;
@@ -52,13 +52,14 @@ async function colorCard() {
     .map((c, i) => {
       const x = 30 + (i % cols) * cell + (cell - sw) / 2;
       const y = 110 + Math.floor(i / cols) * (sw + 90);
-      return `<rect x="${x}" y="${y}" width="${sw}" height="${sw}" rx="18" fill="${c.hex}" stroke="#d9dde3" stroke-width="2"/>
+      const kodlu = /^#[0-9a-fA-F]{6}$/.test(c.hex);
+      return `<rect x="${x}" y="${y}" width="${sw}" height="${sw}" rx="18" fill="${kodlu ? c.hex : "#d1d5db"}" stroke="${kodlu ? "#d9dde3" : "#9ca3af"}" stroke-width="2"${kodlu ? "" : ' stroke-dasharray="10 8"'}/>
 <text x="${x + sw / 2}" y="${y + sw + 38}" font-size="26" font-weight="700" text-anchor="middle" fill="#111a26">${i + 1}. ${esc(c.ad)}</text>`;
     })
     .join("");
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" font-family="DejaVu Sans, Arial, Helvetica, sans-serif">
 <rect width="100%" height="100%" fill="#ffffff"/>
-<text x="${w / 2}" y="66" font-size="36" font-weight="700" text-anchor="middle" fill="#111a26">Stoktaki renkler</text>${items}</svg>`;
+<text x="${w / 2}" y="66" font-size="36" font-weight="700" text-anchor="middle" fill="#111a26">Renk seçeneklerimiz</text>${items}</svg>`;
   try {
     const { default: sharp } = await import("sharp");
     const jpg = await sharp(Buffer.from(svg)).jpeg({ quality: 90 }).toBuffer();
