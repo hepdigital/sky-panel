@@ -128,16 +128,16 @@ const LOG_TUR: Record<string, string> = {
 };
 
 /**
- * Kanal süzgeci, ürünün kanal kayıtlarına göre (ayrı işaret tutulmaz): pazaryerine tanımlı (herhangi bir pazaryerinde kaydı
- * var, açık ya da kapalı), tek bir kanal ("k:<id>"; sitede bağlantı açık, pazaryerinde kayıt var) ya da hiçbir kanalda değil.
+ * Kanal süzgeci, ürünün kanal kayıtlarına göre (ayrı işaret tutulmaz). Satışta = kanal kaydı açık (sitede bağlantı açık,
+ * pazaryerinde "kanalında sat" işaretli). Pazaryerinde kapalı: pazaryerinde kartı var ama satışa kapalı (ör. pazaryerinden alınanlar).
  */
-type KanalSuzgec = "" | "pazaryeri" | "kanalsiz" | `k:${number}`;
+type KanalSuzgec = "" | "pazaryeri" | "kapali" | "kanalsiz" | `k:${number}`;
 function inChannel(i: ItemRow, k: KanalSuzgec, channels: Channel[]) {
   const pz = (l: ListingRow) => !!channels.find((c) => c.id === l.siteId)?.pazaryeri;
-  const tanimli = (l: ListingRow) => pz(l) || l.aktif;
-  if (k === "pazaryeri") return i.listelemeler.some(pz);
-  if (k === "kanalsiz") return !i.listelemeler.some(tanimli);
-  if (k.startsWith("k:")) return i.listelemeler.some((l) => l.siteId === Number(k.slice(2)) && tanimli(l));
+  if (k === "pazaryeri") return i.listelemeler.some((l) => pz(l) && l.aktif);
+  if (k === "kapali") return i.listelemeler.some((l) => pz(l) && !l.aktif);
+  if (k === "kanalsiz") return !i.listelemeler.some((l) => l.aktif);
+  if (k.startsWith("k:")) return i.listelemeler.some((l) => l.siteId === Number(k.slice(2)) && l.aktif);
   return true;
 }
 
@@ -153,9 +153,10 @@ export function MarketplaceAdmin({ channels, items, catalog, logs }: { channels:
   const say = (k: KanalSuzgec) => items.filter((i) => inChannel(i, k, channels)).length;
   const secenekler: { k: KanalSuzgec; ad: string }[] = [
     { k: "", ad: "Tüm ürünler" },
-    ...(channels.some((c) => c.pazaryeri) ? [{ k: "pazaryeri" as const, ad: "Pazaryerine tanımlı" }] : []),
-    ...channels.map((c) => ({ k: `k:${c.id}` as const, ad: c.ad })),
-    { k: "kanalsiz", ad: "Kanalı yok" },
+    ...(channels.some((c) => c.pazaryeri) ? [{ k: "pazaryeri" as const, ad: "Pazaryerinde satışta" }] : []),
+    ...channels.map((c) => ({ k: `k:${c.id}` as const, ad: `${c.ad} · satışta` })),
+    ...(channels.some((c) => c.pazaryeri) ? [{ k: "kapali" as const, ad: "Pazaryerinde kapalı" }] : []),
+    { k: "kanalsiz", ad: "Hiçbir kanalda satışta değil" },
   ];
   const list = items.filter(
     (i) => inChannel(i, kanal, channels) && (!q.trim() || `${i.ad} ${i.stokKodu} ${i.barkod} ${i.renk} ${i.olcu}`.toLocaleLowerCase("tr").includes(q.trim().toLocaleLowerCase("tr"))),
