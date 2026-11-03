@@ -1,12 +1,16 @@
 import "server-only";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { FABRICS, SIZES, SZ, gzRows, gzTotal, plan, val, type Gazebo } from "@/lib/terminal/calc";
-import { FRAME_MAT, FRAME_NAME, KONF_KDV, KONF_MODE, SIDE_NAMES, cleanConfig, framesOf } from "@/lib/konfigurator";
+import { FRAME_MAT, FRAME_NAME, KONF_KDV, KONF_MODE, SIDE_NAMES, cleanConfig, cleanExtras, framesOf } from "@/lib/konfigurator";
 import { priceTable, withPriceTable } from "@/lib/terminal/price-table";
-import { wallName, wallPrice, type Wall } from "@/modules/gazebo/walls";
+import { wallImage, wallName, wallPrice, type Wall } from "@/modules/gazebo/walls";
 import { fold, type Kart } from "./cards";
 import { getCatalog } from "../catalog";
 import { listColors } from "../colors";
+import { saveWebp } from "../files";
 import { gazeboTables } from "../gazebo-prices";
+import { konfExtras } from "../konfigurator";
 
 // Asistanın gazebo araçları: sitedeki "Kendin Tasarla" konfigüratörüyle aynı kurallar ve fiyatlar (markanın modüler gazebo tablosu,
 // perakende, tavan ve duvarlar aynı kumaştan, kenarlar bölünmez). Asistanın söylediği fiyat, müşterinin tasarım linkinde göreceği fiyattır.
@@ -108,6 +112,18 @@ export async function gazeboSecenekleri(markaId: number, card: Kart | null, site
   });
 }
 
+/** Ayak sayısı: sabitleme ürünlerinde önerilen adet (ayak başına bir) */
+const AYAK: Record<string, number> = { "2x2": 4, "2x3": 4, "3x3": 4, "3x4.5": 4, "4x4": 4, "3x6": 6, "4x8": 6, "4x6": 8 };
+
+/** Konfigüratörün son adımındaki ek ürünler (taşıma çantası sitenin fiyatıyla, sabitleme panelden), o ölçüye uyanlar */
+async function ekUrunler(markaId: number, size: string) {
+  const list = (await konfExtras(markaId).catch(() => [])).filter((e) => !e.olculer || e.olculer.includes(size));
+  return list.map((e) => ({
+    kod: e.kod, grup: e.grup, ad: e.ad, aciklama: e.aciklama || null, fiyat_kdv_dahil: kdv(e.fiyat),
+    ...(fold(e.grup) === "sabitleme" ? { onerilen_adet: AYAK[size] ?? 4 } : {}),
+  }));
+}
+
 export type GazeboInput = { olcu: string; iskelet: string | null; kumas: string; on: string; arka: string; sol: string; sag: string; adet: number | null };
 
 /** Bir gazebo tasarımının konfigüratördeki fiyatı; iskelet verilmezse (ya da görselden anlaşılamadıysa) her iskelet için */
@@ -124,7 +140,7 @@ export async function gazeboFiyatla(markaId: number, card: Kart | null, siteAdre
   // Renk fiyatı etkilemez; doğrulama için stokta olan ilk renk kullanılır
   const color = f === 2 ? undefined : active[0];
   const adet = Math.max(1, Math.min(99, Math.round(Number(i.adet) || 1)));
-  return withPriceTable(t, () => {
+  const r = withPriceTable(t, () => {
     const frames = i.iskelet ? [i.iskelet] : framesOf(size);
     const sonuclar = [];
     for (const frame of frames) {
@@ -143,9 +159,118 @@ export async function gazeboFiyatla(markaId: number, card: Kart | null, siteAdre
       adet,
       sonuclar,
       tasarim_linki: designLink(card, siteAdres, size, f),
-      not: `${sonuclar.length > 1 ? "İskelet belli olmadığı için her iskeletin fiyatı verildi; müşteriye seçenek olarak sun. " : ""}Fiyat sitedeki Kendin Tasarla ekranındaki fiyattır (KDV dahil). Müşteri tasarım linkinden aynı seçimle sepete ekleyip ödeyebilir.`,
+      not: `${sonuclar.length > 1 ? "İskelet belli olmadığı için her iskeletin fiyatı verildi; müşteriye seçenek olarak sun. " : ""}Fiyat sitedeki Kendin Tasarla ekranındaki fiyattır (KDV dahil). Müşteri tasarım linkinden aynı seçimle sepete ekleyip ödeyebilir. Ek ürünleri (taşıma çantası, sabitleme: ayak sayısı kadar önerilir) ek_urunler'den öner.`,
     };
   });
+  return r.hata ? r : { ...r, ayak_sayisi: AYAK[size], ek_urunler: await ekUrunler(markaId, size) };
+}
+
+/** Onaya ve ödeme linkine giden tek tasarım: iskelet ve renk belli (baskılıda renk yok), ek ürünler kodla */
+export type GazeboSecim = GazeboInput & { iskelet: string; renk: string; ekler: { kod: string; adet: number }[] };
+
+/** Tasarımı doğrular ve fiyatlar (onay görseli ve ödeme linki aynı hesaptan geçer) */
+export async function priceGazebo(markaId: number, i: GazeboSecim) {
+  const size = sizeOf(i.olcu);
+  if (!size) return { ok: false as const, hata: `Bu ölçü yok. Ölçüler: ${SIZES.join(", ")}.` };
+  if (!(i.kumas in KUMASLAR)) return { ok: false as const, hata: `Kumaş şunlardan biri olmalı: ${KUMAS_SECENEKLERI.join(", ")}` };
+  const f = KUMASLAR[i.kumas as Kumas];
+  const keys = [i.on, i.arka, i.sol, i.sag];
+  if (keys.some((k) => !(k in DUVARLAR))) return { ok: false as const, hata: `Duvar seçenekleri: ${DUVAR_SECENEKLERI.join(", ")}` };
+  const [t, colors, extras] = await Promise.all([table(markaId), listColors(), konfExtras(markaId).catch(() => [])]);
+  const active = colors.filter((c) => c.aktif);
+  const renk = f === 2 ? null : active.find((c) => fold(c.ad) === fold(i.renk ?? ""));
+  if (f !== 2 && !renk) return { ok: false as const, hata: `Renk gerekli; üretebildiğimiz renkler: ${active.map((c) => c.ad).join(", ")}.` };
+  const adet = Math.max(1, Math.min(99, Math.round(Number(i.adet) || 1)));
+  const r = withPriceTable(t, () => {
+    const c = cleanConfig({ size, frame: i.iskelet, roofFab: f, color: renk?.hex, sides: keys.map((k) => ({ walls: [{ ...DUVARLAR[k], f }] })) }, active.map((x) => x.hex));
+    if (!c.ok) return c;
+    const rows = gzRows(c.g, KONF_MODE);
+    if (rows.some((x) => x.bad)) return { ok: false as const, hata: "Seçimde fiyatı olmayan bir parça var." };
+    return { ok: true as const, g: c.g, birim: kdv(gzTotal(c.g, KONF_MODE)) };
+  });
+  if (!r.ok) return r;
+  const ex = cleanExtras(Object.fromEntries((i.ekler ?? []).map((e) => [e.kod, e.adet])), extras, size);
+  if (!ex.ok) return ex;
+  const ekler = ex.list.map((x) => ({ ad: x.ek.ad, adet: x.adet, tutar: kdv(x.ek.fiyat) * x.adet }));
+  const duvarlar = keys.map((k, n) => `${SIDE_NAMES[n]}: ${k === "yok" ? "açık" : wallName({ ...DUVARLAR[k], f } as Wall)}`);
+  const ozet = [
+    `Gazebo Çadır ${SZ[size]} m${adet > 1 ? ` × ${adet}` : ""}`,
+    `İskelet: ${FRAME_NAME[i.iskelet] ?? i.iskelet}`,
+    `Kumaş: ${f === 2 ? "Dijital baskılı (baskı tasarımı ekibimizle)" : `${FABRICS[f].n} · Renk: ${renk!.ad}`}`,
+    ...duvarlar,
+    ...ekler.map((e) => `Ek: ${e.ad} × ${e.adet}`),
+  ];
+  const toplam = r.birim * adet + ekler.reduce((a, e) => a + e.tutar, 0);
+  return { ok: true as const, g: r.g, size, f, renk: renk?.ad ?? null, hex: renk?.hex ?? null, adet, birim: r.birim, ekler, duvarlar, ozet, toplam };
+}
+
+/**
+ * Ölçü görsellerindeki kırmızı kumaş seçilen renge boyanır; gölge ve kıvrımlar korunur, direk ve beyaz zemin kalır
+ * (lib/terminal/recolor.ts'nin sunucu karşılığı; o sarı kaynak görseller içindir).
+ */
+async function recolorRed(sharp: (typeof import("sharp"))["default"], input: Buffer, hex: string) {
+  const { data, info } = await sharp(input).flatten({ background: "#ffffff" }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const T = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const red = (r: number, g: number, b: number) => {
+    const mx = Math.max(r, g, b);
+    const c = mx - Math.min(r, g, b);
+    if (mx !== r || c < 15) return 0;
+    const h = (((g - b) / c) * 60 + 360) % 360;
+    return h < 25 || h > 335 ? Math.min(1, (c - 15) / 45) : 0;
+  };
+  let ref = 0;
+  for (let i = 0; i < data.length; i += 3) if (red(data[i], data[i + 1], data[i + 2]) > 0.9) ref = Math.max(ref, data[i]);
+  if (!ref) return input;
+  for (let i = 0; i < data.length; i += 3) {
+    const w = red(data[i], data[i + 1], data[i + 2]);
+    if (!w) continue;
+    const k = Math.min(1.15, data[i] / ref);
+    for (let c = 0; c < 3; c++) data[i + c] = Math.round(data[i + c] * (1 - w) + Math.min(255, T[c] * k) * w);
+  }
+  return sharp(data, { raw: { width: info.width, height: info.height, channels: 3 } }).png().toBuffer();
+}
+
+const esc = (v: string) => v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c]!);
+const IMG_DIR = () => path.join(/* turbopackIgnore: true */ process.cwd(), "public", "terminal", "img");
+
+/** Onay görseli: ölçü görseli, dört kenarın duvar görselleri (Ön, Arka, Sol, Sağ), özet ve toplam. Panelde /dosya/gazebo/… olarak saklanır. */
+export async function gazeboOnayGorseli(p: Extract<Awaited<ReturnType<typeof priceGazebo>>, { ok: true }>) {
+  const { default: sharp } = await import("sharp");
+  const W = 1200;
+  const tile = 270;
+  const gap = 30;
+  const top = 120;
+  const roofH = 470;
+  const tilesY = top + roofH + 40;
+  const textY = tilesY + tile + 110;
+  const H = textY + p.ozet.length * 44 + 110;
+  const layers: { input: Buffer; left: number; top: number }[] = [];
+  const read = (key: string) => readFile(path.join(/* turbopackIgnore: true */ IMG_DIR(), `${key.replace(":", "-")}.webp`)).catch(() => null);
+  const roofRaw = await read(`r:${p.size}`);
+  const roof = roofRaw && p.hex ? await recolorRed(sharp, roofRaw, p.hex).catch(() => roofRaw) : roofRaw;
+  if (roof) layers.push({ input: await sharp(roof).resize(W - 120, roofH, { fit: "contain", background: "#ffffff" }).flatten({ background: "#ffffff" }).png().toBuffer(), left: 60, top });
+  const startX = (W - (4 * tile + 3 * gap)) / 2;
+  for (let n = 0; n < 4; n++) {
+    const w = p.g.sides[n].walls[0];
+    const img = w.kind === "yok" ? null : await read(wallImage(w));
+    if (img) layers.push({ input: await sharp(img).resize(tile, tile, { fit: "contain", background: "#ffffff" }).flatten({ background: "#ffffff" }).png().toBuffer(), left: startX + n * (tile + gap), top: tilesY });
+  }
+  const lines = p.ozet.map((l, n) => `<text x="60" y="${textY + n * 44}" font-size="${n ? 26 : 32}" font-weight="${n ? 400 : 700}" fill="#111a26">${esc(l)}</text>`).join("");
+  const labels = SIDE_NAMES.map((s, n) => {
+    const x = startX + n * (tile + gap);
+    const w = p.g.sides[n].walls[0];
+    const box = w.kind === "yok" ? `<rect x="${x}" y="${tilesY}" width="${tile}" height="${tile}" rx="16" fill="#f3f4f6" stroke="#d1d5db" stroke-dasharray="10 8"/><text x="${x + tile / 2}" y="${tilesY + tile / 2 + 9}" font-size="26" text-anchor="middle" fill="#6b7280">Açık</text>` : "";
+    return `${box}<text x="${x + tile / 2}" y="${tilesY + tile + 40}" font-size="26" font-weight="700" text-anchor="middle" fill="#111a26">${s}</text>`;
+  }).join("");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" font-family="DejaVu Sans, Arial, Helvetica, sans-serif">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="60" y="78" font-size="40" font-weight="700" fill="#111a26">Gazebo tasarımınız</text>
+<text x="${W - 60}" y="78" font-size="22" text-anchor="end" fill="#6b7280">${p.f === 2 ? "Görsel temsilidir, baskı tasarımı ekibimizle" : "Görsel temsilidir"}</text>
+${labels}${lines}
+<text x="60" y="${H - 50}" font-size="34" font-weight="700" fill="#128c4a">Toplam: ${p.toplam.toLocaleString("tr-TR")} TL (KDV dahil, kargo ücretsiz)</text>
+</svg>`;
+  const out = await sharp(Buffer.from(svg)).composite(layers).webp({ quality: 85 }).toBuffer();
+  return saveWebp("gazebo", out);
 }
 
 /** Panel kataloğu (teklif ürünleri): ad, açıklama ya da kategoride arama; perakende KDV dahil */

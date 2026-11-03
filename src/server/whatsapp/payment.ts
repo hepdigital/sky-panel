@@ -2,8 +2,9 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import type { Me } from "../auth";
 import { db, schema } from "../db";
-import { cancelPaymentLink, createProductPaymentLink } from "../payment-links";
+import { cancelPaymentLink, createPaymentLink, createProductPaymentLink } from "../payment-links";
 import { getCard } from "./cards";
+import { priceGazebo, type GazeboSecim } from "./gazebo";
 import { parseDraft, sendFromPanel, type PaymentDraft } from "./store";
 
 // WhatsApp sohbetinden ödeme linki (Faz 2.1): sipariş ürün satırıyla açılır, sohbet başına tek açık link.
@@ -22,14 +23,14 @@ const SYSTEM: Me = { id: 0, kullaniciAdi: "whatsapp-asistani", adSoyad: "WhatsAp
  */
 export async function createChatPaymentLink(sohbetId: number, telefon: string, d: PaymentDraft, kullaniciId: number | null, satisci: string) {
   const card = await getCard(d.urunKodu);
-  if (!card?.aktif || !card.siteId || !card.disUrunId) return { ok: false as const, hata: "Ürün kartında site ürünü tanımlı değil." };
+  if (!card?.aktif || !card.siteId || (!card.disUrunId && !d.gazebo)) return { ok: false as const, hata: "Ürün kartında site ürünü tanımlı değil." };
   const [s] = await db().select({ link: sohbetler.odemeLinkiId }).from(sohbetler).where(eq(sohbetler.id, sohbetId));
   if (s?.link) {
     const c = await cancelPaymentLink(SYSTEM, s.link).catch(() => null);
     if (c && !c.ok) console.log("[wa-asistan] önceki link iptal edilmedi", sohbetId, c.hata);
   }
-  const r = await createProductPaymentLink({
-    siteId: card.siteId, urunId: card.disUrunId, urunAd: card.ad, renk: d.renk, adet: d.adet, musteri: d.adSoyad, telefon, eposta: d.eposta, adres: d.adres, il: d.il,
+  const r = d.gazebo ? await gazeboLink(card.siteId, telefon, d, kullaniciId, satisci) : await createProductPaymentLink({
+    siteId: card.siteId, urunId: card.disUrunId!, urunAd: card.ad, renk: d.renk, adet: d.adet, musteri: d.adSoyad, telefon, eposta: d.eposta, adres: d.adres, il: d.il,
     kullaniciId, satisci,
   });
   if (!r.ok) return r;
@@ -40,6 +41,22 @@ export async function createChatPaymentLink(sohbetId: number, telefon: string, d
   }
   await db().update(sohbetler).set({ odemeLinkiId: r.id, odemeTaslak: null }).where(eq(sohbetler.id, sohbetId));
   return r;
+}
+
+/**
+ * Gazebo (Kendin Tasarla): tutar konfigüratörün fiyat tablosundan yeniden hesaplanır, sipariş tasarım özetiyle tutar satırı olarak açılır
+ * (sitede tek tek parça ürünü yok). Özet sipariş notunda; ekip üretimi buradan görür.
+ */
+async function gazeboLink(siteId: number, telefon: string, d: PaymentDraft, kullaniciId: number | null, satisci: string) {
+  const [site] = await db().select({ markaId: schema.siteBaglantilari.markaId }).from(schema.siteBaglantilari).where(eq(schema.siteBaglantilari.id, siteId));
+  const p = site ? await priceGazebo(site.markaId, d.gazebo as GazeboSecim) : { ok: false as const, hata: "Site bağlantısı bulunamadı." };
+  if (!p.ok) return p;
+  const me: Me = { ...SYSTEM, adSoyad: satisci };
+  return createPaymentLink(
+    me,
+    { siteId, musteri: d.adSoyad, telefon, eposta: d.eposta, adres: d.adres, il: d.il, aciklama: `WhatsApp · ${p.ozet[0]} · ${p.ozet[1]}`.slice(0, 200), tutar: p.toplam, komisyon: false },
+    { kullaniciId, not: p.ozet.join("\n") },
+  );
 }
 
 /** Ekip onaylı mod: hazırlanan özetten linki oluşturur ve panelden (ekip mesajı olarak) müşteriye gönderir */

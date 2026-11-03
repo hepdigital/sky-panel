@@ -72,7 +72,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export type NewPaymentLink = { siteId: number; musteri: string; telefon: string; eposta?: string; adres: string; il: string; aciklama?: string; tutar: number; komisyon: boolean };
 
-export async function createPaymentLink(me: Me, input: NewPaymentLink) {
+export async function createPaymentLink(me: Me, input: NewPaymentLink, opts?: { kullaniciId: number | null; not?: string }) {
   const site = (await paymentSites(me)).find((s) => s.id === Number(input.siteId));
   if (!site) return { ok: false as const, hata: "Site seçin." };
   const musteri = String(input.musteri ?? "").trim().replace(/\s+/g, " ").slice(0, 160);
@@ -108,7 +108,7 @@ export async function createPaymentLink(me: Me, input: NewPaymentLink) {
         billing: { first_name: ad, last_name: soyad, phone: telefon, email: eposta || `odeme@${host}`, address_1: adres, city: il, country: "TR" },
         shipping: { first_name: ad, last_name: soyad, phone: telefon, address_1: adres, city: il, country: "TR" },
         fee_lines: [{ name: aciklama ? `Ödeme · ${aciklama}` : "Ödeme", total: toplam.toFixed(2), tax_status: "none" }],
-        customer_note: aciklama,
+        customer_note: opts?.not ?? aciklama,
         meta_data: [
           { key: "_sky_odeme_linki", value: "1" },
           { key: "_sky_satisci", value: me.adSoyad },
@@ -122,11 +122,11 @@ export async function createPaymentLink(me: Me, input: NewPaymentLink) {
   if (!order?.payment_url) return { ok: false as const, hata: "Site ödeme linki vermedi." };
 
   await ensureTable();
-  await db().execute(
+  const [r] = (await db().execute(
     sql`INSERT INTO odeme_linkleri (site_id, marka_id, kullanici_id, dis_id, dis_no, musteri, telefon, eposta, aciklama, tutar, komisyon, toplam, link)
-        VALUES (${site.id}, ${site.markaId}, ${me.id}, ${order.id}, ${String(order.number)}, ${musteri}, ${telefon}, ${eposta || null}, ${aciklama || null}, ${tutar}, ${komisyon}, ${toplam}, ${order.payment_url})`,
-  );
-  return { ok: true as const, link: order.payment_url, no: String(order.number), toplam };
+        VALUES (${site.id}, ${site.markaId}, ${opts ? opts.kullaniciId : me.id}, ${order.id}, ${String(order.number)}, ${musteri}, ${telefon}, ${eposta || null}, ${aciklama || null}, ${tutar}, ${komisyon}, ${toplam}, ${order.payment_url})`,
+  )) as unknown as [{ insertId: number }];
+  return { ok: true as const, id: r.insertId, link: order.payment_url, no: String(order.number), toplam };
 }
 
 /** Linkler ve ödeme durumu (eşitlenen site siparişinden): yönetici hepsini, satışçı kendi açtıklarını görür */
