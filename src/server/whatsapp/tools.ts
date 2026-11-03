@@ -613,7 +613,13 @@ async function odemeLinki(ctx: Ctx, telefon: string, i: LinkInput) {
     adres: String(i.adres ?? "").trim().slice(0, 400), il: String(i.il ?? "").trim().slice(0, 60), eposta: (i.eposta ?? "").trim().slice(0, 191), tutar: tl(live.v.fiyat * adet),
   };
   if (!taslak.adSoyad.includes(" ") || taslak.adres.length < 10 || taslak.il.length < 2 || !taslak.renk) return { hata: "Ad soyad, açık adres, il ve renk eksik; müşteriden iste." };
-  if (!ctx.cfg) return { deneme: "Deneme alanı: link oluşturulmadı.", mod, tutar_kdv_dahil: taslak.tutar, ozet: taslak };
+  // Deneme alanı: sipariş ve link oluşturulmaz, ama asistan gerçek sohbetteki sonucu görür (yoksa hata sanıp ekibe devrediyor)
+  if (!ctx.cfg) {
+    if (mod === "ekip_onayli") return { hazirlaniyor: true, tutar_kdv_dahil: taslak.tutar, not: "Müşteriye şunu söyle: \"Ödeme linkiniz hazırlanıyor, ekibimiz birazdan iletecek.\"" };
+    const d = await deliver(ctx, telefon, { tur: "text", metin: `[Deneme] Burada ödeme linki gönderilirdi: ${taslak.urun} × ${adet} · ${taslak.renk} · ${taslak.tutar} TL` });
+    if (!d.ok) return { hata: d.hata };
+    return { gonderildi: true, toplam_kdv_dahil: taslak.tutar, not: "Link ayrı mesajla gönderildi; linki tekrar yazma." };
+  }
   const ozet = `${taslak.adSoyad} · ${taslak.urun} × ${adet} · ${taslak.renk} · ${taslak.tutar} TL\n${taslak.adres}, ${taslak.il}`;
   if (mod === "ekip_onayli") {
     await db().update(sohbetler).set({ odemeTaslak: JSON.stringify(taslak) }).where(eq(sohbetler.id, ctx.sohbetId));
