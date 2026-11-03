@@ -604,6 +604,8 @@ export const waSohbetler = mysqlTable(
     odemeLinkiId: int("odeme_linki_id", { unsigned: true }),
     /** "Ekip onaylı" modda hazırlanan, ekibin onayını bekleyen ödeme linki özeti (JSON) */
     odemeTaslak: text("odeme_taslak"),
+    /** Müşteriye onaya gönderilen son gazebo tasarımı (JSON); kartla ödeme linki bundan oluşturulur */
+    gazeboTasarim: text("gazebo_tasarim"),
     asistanGecmis: longtext("asistan_gecmis"),
     ozet: text("ozet"),
     olusturma: timestamp("olusturma").notNull().defaultNow(),

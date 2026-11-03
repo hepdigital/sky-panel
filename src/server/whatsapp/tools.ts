@@ -12,6 +12,7 @@ import { orderCargo } from "../orders";
 import { siteInstallments, siteTransferRate } from "../payment-links";
 import { fold, getCard, listCards, type Kart } from "./cards";
 import type { WaConfig } from "./config";
+import { DUVAR_SECENEKLERI, KUMAS_SECENEKLERI, gazeboFiyatla, gazeboOnayGorseli, gazeboSecenekleri, panelUrunAra, priceGazebo, type GazeboInput, type GazeboSecim } from "./gazebo";
 import { sendMedia, sendText } from "./graph";
 import { createChatPaymentLink, paymentMessage, type PaymentDraft } from "./payment";
 import type { WaAyarlar } from "./settings";
@@ -41,6 +42,33 @@ export type Ctx = {
 
 const NULLABLE_STR = { anyOf: [{ type: "string" }, { type: "null" }] };
 
+const GEVSEK = new Set(["gazebo_secenekleri", "gazebo_fiyatla", "gazebo_onay_gonder", "panel_urun_ara"]);
+const DUVAR = { type: "string", enum: DUVAR_SECENEKLERI };
+const KUMAS = { type: "string", enum: KUMAS_SECENEKLERI };
+
+/** Tek gazebo tasarımı (onaya gönderilir; ödeme linki sohbete kaydedilen onaylı tasarımdan) */
+const GAZEBO_SECIM = {
+  type: "object" as const,
+  properties: {
+    olcu: { type: "string" },
+    iskelet: { type: "string", description: "İskelet kodu (ör. SH4)" },
+    kumas: KUMAS,
+    renk: { type: "string", description: "Kumaş rengi (renkleri_listele); baskılıda boş metin" },
+    on: DUVAR,
+    arka: DUVAR,
+    sol: DUVAR,
+    sag: DUVAR,
+    adet: { type: "integer" },
+    ekler: {
+      type: "array",
+      description: "Ek ürünler (gazebo_fiyatla'daki ek_urunler kodları): taşıma çantası, sabitleme",
+      items: { type: "object", properties: { kod: { type: "string" }, adet: { type: "integer" } }, required: ["kod", "adet"], additionalProperties: false },
+    },
+  },
+  required: ["olcu", "iskelet", "kumas", "renk", "on", "arka", "sol", "sag", "adet", "ekler"],
+  additionalProperties: false,
+};
+
 /** Araç tanımları sabit sırada (önbellek). odeme_bilgisi_gonder yalnızca ayar açıksa eklenir. */
 export function toolDefs(ayar: WaAyarlar): Anthropic.Beta.BetaTool[] {
   const defs: Anthropic.Beta.BetaTool[] = [
@@ -53,6 +81,52 @@ export function toolDefs(ayar: WaAyarlar): Anthropic.Beta.BetaTool[] {
     {
       name: "urun_bul",
       description: "Müşterinin ifadesine (ör. 'kamelya', 'bayrak') uyan ürün kartlarını bulur: kod, ad ve senin bu üründeki görevin (seviye: cevaplar / bilgi_verir / devreder).",
+      input_schema: { type: "object", properties: { sorgu: { type: "string" } }, required: ["sorgu"], additionalProperties: false },
+    },
+    {
+      name: "gazebo_secenekleri",
+      description:
+        "Gazebo çadır (Kendin Tasarla) seçenekleri ve fiyatları: olcu boşsa tüm ölçüler ve duvarsız başlangıç fiyatları; olcu verilirse o ölçüdeki iskeletler, kumaşlar ve her kenar için duvar seçenekleri fiyatlarıyla, ayrıca ölçüsü seçili tasarım linki. Gazebo sorularında site_urun_ara yerine bunu kullan.",
+      input_schema: {
+        type: "object",
+        properties: {
+          olcu: { ...NULLABLE_STR, description: "2x2, 2x3, 3x3, 3x4.5, 3x6, 4x4, 4x6, 4x8 ya da boş" },
+          kumas: { anyOf: [KUMAS, { type: "null" }], description: "Baskısız: 690D (su geçirmez) ya da 200D (su itici); baskılı: baskili. Bilinmiyorsa boş" },
+        },
+        required: ["olcu", "kumas"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "gazebo_fiyatla",
+      description:
+        "Bir gazebo tasarımının kesin fiyatı (sitedeki Kendin Tasarla ekranıyla aynı, KDV dahil) ve parça dökümü. iskelet boşsa o ölçüdeki her iskelet için ayrı fiyat döner (müşteri bilmiyorsa ya da görselden anlaşılamadıysa). Duvarlar: Ön, Arka, Sol, Sağ.",
+      input_schema: {
+        type: "object",
+        properties: {
+          olcu: { type: "string" },
+          iskelet: { ...NULLABLE_STR, description: "gazebo_secenekleri'ndeki iskelet kodu (ör. SH4) ya da boş" },
+          kumas: KUMAS,
+          on: DUVAR,
+          arka: DUVAR,
+          sol: DUVAR,
+          sag: DUVAR,
+          adet: { type: "integer" },
+        },
+        required: ["olcu", "iskelet", "kumas", "on", "arka", "sol", "sag", "adet"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "gazebo_onay_gonder",
+      description:
+        "Müşterinin seçtiği gazebo tasarımının görselini (ölçü, dört kenarın duvarları), özetini ve toplam fiyatını müşteriye gönderir. Ödeme bilgilerini istemeden önce müşteriye tasarımı bununla onaylat.",
+      input_schema: GAZEBO_SECIM,
+    },
+    {
+      name: "panel_urun_ara",
+      description:
+        "Paneldeki teklif kataloğunda (sitede olmayan aksesuar, sabitleme, yedek parça vb. dahil) ürün arar: ad, kategori, açıklama, KDV dahil perakende fiyat, uyarı. Sitede bulamadığın ya da ek bilgi gereken ürünlerde kullan.",
       input_schema: { type: "object", properties: { sorgu: { type: "string" } }, required: ["sorgu"], additionalProperties: false },
     },
     {
@@ -165,7 +239,8 @@ export function toolDefs(ayar: WaAyarlar): Anthropic.Beta.BetaTool[] {
       description: "Havale/EFT ile ödemek isteyen müşteriye şirketin kayıtlı banka ve IBAN bilgisini ayrı bir mesaj olarak gönderir. IBAN'ı asla kendin yazma, bu aracı kullan.",
       input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
     });
-  return defs.map((d) => ({ ...d, strict: true }));
+  // Gazebo araçları katı değil: dört kenarlı tasarım şeması katı dilbilgisini API sınırının üstüne çıkarıyor; girdiyi sunucu doğrular
+  return defs.map((d) => (GEVSEK.has(d.name) ? d : { ...d, strict: true }));
 }
 
 // ── Gönderme ───────────────────────────────────────────────────────────────
@@ -297,6 +372,7 @@ async function categoryInfo(card: Kart) {
 }
 
 async function urunBilgisi(kod: string) {
+  if (kod === "gazebo") return { kod, not: "Gazebo fiyatı gazebo_secenekleri ve gazebo_fiyatla ile alınır (sitedeki Kendin Tasarla fiyatları)." };
   const card = await getCard(kod);
   if (!card || !card.aktif) return { hata: `"${kod}" kodlu ürün kartı yok. urun_bul ile doğru kodu bul.` };
   const base = { kod: card.kod, ad: card.ad, seviye: card.asistanSeviyesi, link: card.url };
@@ -426,6 +502,14 @@ async function medyaGonder(ctx: Ctx, telefon: string, kod: string, id: string) {
 }
 
 /** Asistanın ürün sitesi: sohbetin ya da kartların sitesi */
+/** Gazebo araçları: ana sitenin markası (fiyat tablosu) ve "gazebo" kartı (tasarım linki, kartta düzenlenir) */
+async function gazeboCtx(ctx: Ctx) {
+  const site = await mainSite(ctx);
+  if (!site) return null;
+  const card = await getCard("gazebo");
+  return { markaId: site.markaId, adres: site.adres, card: card?.aktif ? card : null };
+}
+
 async function mainSite(ctx: Ctx) {
   return siteOf((await cardForChat(ctx))?.siteId ?? (await listCards()).find((c) => c.aktif && c.siteId)?.siteId ?? null);
 }
@@ -598,6 +682,28 @@ async function odemeBilgisi(ctx: Ctx, telefon: string) {
 
 type LinkInput = { urun_kodu: string; renk: string; adet: number; ad_soyad: string; adres: string; il: string; eposta: string | null };
 
+/** Gazebo onayı: tasarım görseli ve özeti müşteriye gider (tutar ve görsel ödeme linkiyle aynı hesaptan) */
+async function gazeboOnay(ctx: Ctx, telefon: string, i: GazeboSecim) {
+  const g = await gazeboCtx(ctx);
+  if (!g) return { hata: "Site bağlantısı yok; ekibe devret." };
+  const p = await priceGazebo(g.markaId, i);
+  if (!p.ok) return { hata: p.hata };
+  let yol: string;
+  try {
+    yol = await gazeboOnayGorseli(p);
+  } catch (e) {
+    console.error("[wa-asistan] gazebo görseli", e);
+    return { hata: "Tasarım görseli hazırlanamadı; özeti yazıyla gönder." };
+  }
+  const jpg = `/jpg${yol.replace(/\.webp$/, ".jpg")}`;
+  const metin = [...p.ozet, `Toplam: ${p.toplam.toLocaleString("tr-TR")} TL (KDV dahil, kargo ücretsiz)`].join("\n").slice(0, 1000);
+  const r = await deliver(ctx, telefon, { tur: "image", link: publicUrl(jpg), yol: jpg, metin });
+  if (r.ok) await db().update(sohbetler).set({ gazeboTasarim: JSON.stringify(i) }).where(eq(sohbetler.id, ctx.sohbetId));
+  return r.ok
+    ? { gonderildi: true, toplam_kdv_dahil: p.toplam, not: "Görsel ve özet gönderildi; tekrar yazma. Müşteriden tasarımı onaylamasını iste. Onaylarsa kartla ödeme için ad soyad, açık adres ve il topla; sonra odeme_linki_olustur'u urun_kodu \"gazebo\" ile çağır (link bu onaylı tasarımdan oluşur). Tasarım değişirse önce yeniden gazebo_onay_gonder." }
+    : { hata: r.hata };
+}
+
 /** Ödeme linki (ayara göre): ekip onaylı → özet ekibe; otomatik → link oluşturulup gönderilir; deneme → yalnızca tutar */
 async function odemeLinki(ctx: Ctx, telefon: string, i: LinkInput) {
   const mod = ctx.ayar.odeme_linki;
@@ -606,14 +712,30 @@ async function odemeLinki(ctx: Ctx, telefon: string, i: LinkInput) {
   if (!card?.aktif || card.asistanSeviyesi !== "cevaplar") return { hata: "Bu ürün için ödeme linkini ekip hazırlar; bilgileri kaydet ve ekibe devret." };
   const adet = Math.floor(Number(i.adet));
   if (!(adet >= 1 && adet <= 100)) return { hata: "Adet 1 ile 100 arasında olmalı; 100'den fazlası için ekibe devret." };
-  const live = await liveProduct(card).catch(() => null);
-  if (!live?.v.yayinda || live.v.fiyat === null) return { hata: "Fiyat okunamadı; ekibe devret." };
-  const taslak: PaymentDraft = {
-    urunKodu: card.kod, urun: card.ad, renk: String(i.renk ?? "").trim().slice(0, 60), adet, adSoyad: String(i.ad_soyad ?? "").trim().slice(0, 160),
-    adres: String(i.adres ?? "").trim().slice(0, 400), il: String(i.il ?? "").trim().slice(0, 60), eposta: (i.eposta ?? "").trim().slice(0, 191), tutar: tl(live.v.fiyat * adet),
-  };
+  const kisi = { adSoyad: String(i.ad_soyad ?? "").trim().slice(0, 160), adres: String(i.adres ?? "").trim().slice(0, 400), il: String(i.il ?? "").trim().slice(0, 60), eposta: (i.eposta ?? "").trim().slice(0, 191) };
+  let taslak: PaymentDraft;
+  if (card.kod === "gazebo") {
+    // Gazebo: tutar konfigüratörün tablosundan; link oluşturulurken yeniden hesaplanır
+    const g = await gazeboCtx(ctx);
+    const [s] = await db().select({ t: sohbetler.gazeboTasarim }).from(sohbetler).where(eq(sohbetler.id, ctx.sohbetId));
+    const secim = s?.t ? (JSON.parse(s.t) as GazeboSecim) : null;
+    const p = g && secim ? await priceGazebo(g.markaId, secim) : { ok: false as const, hata: "Önce gazebo_onay_gonder ile tasarımı müşteriye onaylat." };
+    if (!p.ok) return { hata: p.hata };
+    if (p.f === 2) return { hata: "Baskılı gazebonun ödeme linkini ekip hazırlar (baskı tasarımı ekiple); bilgileri kaydet ve ekibe devret." };
+    taslak = { urunKodu: card.kod, urun: p.ozet[0], renk: p.renk ?? "", adet: p.adet, ...kisi, tutar: p.toplam, gazebo: secim! };
+  } else {
+    const live = await liveProduct(card).catch(() => null);
+    if (!live?.v.yayinda || live.v.fiyat === null) return { hata: "Fiyat okunamadı; ekibe devret." };
+    taslak = { urunKodu: card.kod, urun: card.ad, renk: String(i.renk ?? "").trim().slice(0, 60), adet, ...kisi, tutar: tl(live.v.fiyat * adet) };
+  }
   if (!taslak.adSoyad.includes(" ") || taslak.adres.length < 10 || taslak.il.length < 2 || !taslak.renk) return { hata: "Ad soyad, açık adres, il ve renk eksik; müşteriden iste." };
-  if (!ctx.cfg) return { deneme: "Deneme alanı: link oluşturulmadı.", mod, tutar_kdv_dahil: taslak.tutar, ozet: taslak };
+  // Deneme alanı: sipariş ve link oluşturulmaz, ama asistan gerçek sohbetteki sonucu görür (yoksa hata sanıp ekibe devrediyor)
+  if (!ctx.cfg) {
+    if (mod === "ekip_onayli") return { hazirlaniyor: true, tutar_kdv_dahil: taslak.tutar, not: "Müşteriye şunu söyle: \"Ödeme linkiniz hazırlanıyor, ekibimiz birazdan iletecek.\"" };
+    const d = await deliver(ctx, telefon, { tur: "text", metin: `[Deneme] Burada ödeme linki gönderilirdi: ${taslak.urun} × ${adet} · ${taslak.renk} · ${taslak.tutar} TL` });
+    if (!d.ok) return { hata: d.hata };
+    return { gonderildi: true, toplam_kdv_dahil: taslak.tutar, not: "Link ayrı mesajla gönderildi; linki tekrar yazma." };
+  }
   const ozet = `${taslak.adSoyad} · ${taslak.urun} × ${adet} · ${taslak.renk} · ${taslak.tutar} TL\n${taslak.adres}, ${taslak.il}`;
   if (mod === "ekip_onayli") {
     await db().update(sohbetler).set({ odemeTaslak: JSON.stringify(taslak) }).where(eq(sohbetler.id, ctx.sohbetId));
@@ -660,6 +782,19 @@ export async function runTool(ctx: Ctx, telefon: string, name: string, input: Re
     case "site_urun_ara":
       sonuc = await siteUrunAra(ctx, str("sorgu"));
       break;
+    case "gazebo_onay_gonder":
+      sonuc = await gazeboOnay(ctx, telefon, input as GazeboSecim);
+      break;
+    case "gazebo_secenekleri":
+    case "gazebo_fiyatla":
+    case "panel_urun_ara": {
+      const g = await gazeboCtx(ctx);
+      if (!g) sonuc = { hata: "Site bağlantısı yok; bilgileri topla ve ekibe devret." };
+      else if (name === "gazebo_secenekleri") sonuc = await gazeboSecenekleri(g.markaId, g.card, g.adres, input.olcu ? str("olcu") : null, input.kumas ? str("kumas") : null);
+      else if (name === "gazebo_fiyatla") sonuc = await gazeboFiyatla(g.markaId, g.card, g.adres, input as GazeboInput);
+      else sonuc = await panelUrunAra(g.markaId, str("sorgu"));
+      break;
+    }
     case "site_urun_detay":
       sonuc = await siteUrunDetay(ctx, Number(input.urun_id));
       break;

@@ -23,7 +23,7 @@ export const timeText = (iso: string) => formatDate(iso, { day: "numeric", month
 export function mediaUrl(yol: string | null) {
   const ad = yol?.match(/^whatsapp\/([a-z0-9]+\.(?:jpg|png|webp))$/)?.[1];
   if (ad) return `/panel/whatsapp/medya/${ad}`;
-  if (yol && /^\/jpg\/(dosya\/urun\/[a-z0-9]+\.jpg|kartela\/renkler\.jpg\?v=[a-f0-9]+|site\/\d+\/\d+\.jpg)$/.test(yol)) return yol;
+  if (yol && /^\/jpg\/(dosya\/(?:urun|gazebo)\/[a-z0-9]+\.jpg|kartela\/renkler\.jpg\?v=[a-f0-9]+|site\/\d+\/\d+\.jpg)$/.test(yol)) return yol;
   return null;
 }
 
