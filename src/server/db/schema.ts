@@ -2,7 +2,7 @@
 // terminaldeki kayıtlar tek seferde aktarılabilir. Her teklif o anki halini (fiyatlar dahil) "veri" alanında eksiksiz saklar.
 //
 // Görünürlük: satışçı yalnızca kendi teklif, sipariş ve carilerini görür (sahip/kullanici_id); yönetici hepsini.
-import { type AnyMySqlColumn, boolean, date, decimal, index, int, json, longtext, mysqlEnum, mysqlTable, primaryKey, smallint, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { type AnyMySqlColumn, bigint, boolean, date, decimal, index, int, json, longtext, mysqlEnum, mysqlTable, primaryKey, smallint, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 export const kullanicilar = mysqlTable("kullanicilar", {
   id: int("id", { unsigned: true }).autoincrement().primaryKey(),
@@ -513,6 +513,8 @@ export const pazaryeriListelemeleri = mysqlTable(
     fiyat: decimal("fiyat", { precision: 12, scale: 2, mode: "number" }),
     /** Ürüne özel kanal fiyat farkı (%); boşsa kanalın farkı geçerli */
     fiyatFarki: decimal("fiyat_farki", { precision: 6, scale: 2, mode: "number" }),
+    /** Ürüne özel komisyon oranı (%); boşsa geçmiş satışlardan öğrenilen ya da kanalın varsayılanı (kârlılık hesabı için) */
+    komisyon: decimal("komisyon", { precision: 5, scale: 2, mode: "number" }),
     durum: mysqlEnum("durum", LISTELEME_DURUMLARI).notNull().default("taslak"),
     /** Kart pazaryerinde oluştu (sonraki gönderimler güncellemedir) */
     olustu: boolean("olustu").notNull().default(false),
@@ -554,6 +556,42 @@ export const pazaryeriAyarlari = mysqlTable("pazaryeri_ayarlari", {
     .references(() => siteBaglantilari.id, { onDelete: "cascade" }),
   veri: longtext("veri").notNull(),
   guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+});
+
+/**
+ * Pazaryeri cari hesap kayıtları (Trendyol ekstresi): satış ve iade satırları komisyon oranı/tutarıyla, kargo faturası
+ * kalemleri sipariş ve desiyle, platform hizmet bedeli. tutar işaretli: + gelir, − gider. kayit_id pazaryerindeki kimliktir.
+ */
+export const pazaryeriKesintileri = mysqlTable(
+  "pazaryeri_kesintileri",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    siteId: int("site_id", { unsigned: true })
+      .notNull()
+      .references(() => siteBaglantilari.id, { onDelete: "cascade" }),
+    kayitId: varchar("kayit_id", { length: 120 }).notNull(),
+    /** satis · iade · indirim · kargo · iade-kargo · hizmet · diger */
+    tur: varchar("tur", { length: 20 }).notNull(),
+    siparisNo: varchar("siparis_no", { length: 40 }),
+    barkod: varchar("barkod", { length: 60 }),
+    tutar: decimal("tutar", { precision: 12, scale: 2, mode: "number" }).notNull(),
+    /** Kesilen komisyon (iadede geri ödenen eksi) */
+    komisyon: decimal("komisyon", { precision: 12, scale: 2, mode: "number" }),
+    oran: decimal("oran", { precision: 5, scale: 2, mode: "number" }),
+    desi: decimal("desi", { precision: 8, scale: 2, mode: "number" }),
+    aciklama: varchar("aciklama", { length: 200 }),
+    tarih: timestamp("tarih").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("pk_site_kayit").on(t.siteId, t.kayitId), index("pk_site_siparis").on(t.siteId, t.siparisNo)],
+);
+
+/** Cari hesap taramasının kaldığı an (ms) ve son tam tarama */
+export const pazaryeriFinans = mysqlTable("pazaryeri_finans", {
+  siteId: int("site_id", { unsigned: true })
+    .primaryKey()
+    .references(() => siteBaglantilari.id, { onDelete: "cascade" }),
+  imlec: bigint("imlec", { mode: "number" }).notNull(),
+  son: timestamp("son"),
 });
 
 /** Pazaryerine yapılan gönderimlerin kaydı (ürün, fiyat/stok, kategori) */

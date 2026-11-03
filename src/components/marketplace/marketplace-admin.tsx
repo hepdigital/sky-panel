@@ -14,10 +14,16 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet } from "@/components/ui/sheet";
 import { toWebp } from "@/lib/image";
+import { priceFor, profitOf } from "@/lib/marketplace-profit";
 import { cn, formatDate } from "@/lib/utils";
 
-type Settings = { fiyatFarki: number; fiyatYaz: boolean; kargoFirmaId: number | null; markaId: number | null; markaAd: string | null };
-type Channel = { id: number; ad: string; tur: string; aktif: boolean; pazaryeri: boolean; ayarlar: Settings; kategoriSayisi: number };
+type Settings = {
+  fiyatFarki: number; fiyatYaz: boolean; kargoFirmaId: number | null; markaId: number | null; markaAd: string | null;
+  komisyon: number | null; desiKargo: number | null; hizmetBedeli: number | null;
+};
+/** Pazaryeri cari hesabından öğrenilen: barkod/kategori komisyonu (%), desi başı kargo ve hizmet bedeli (KDV dahil) */
+type FinanceRefs = { barkod: Record<string, number>; kategori: Record<string, number>; desiKargo: number | null; hizmet: number | null };
+type Channel = { id: number; ad: string; tur: string; aktif: boolean; pazaryeri: boolean; ayarlar: Settings; kategoriSayisi: number; finans: FinanceRefs | null };
 type Values = Record<string, { v?: number; c?: string }>;
 type ListingRow = {
   siteId: number;
@@ -29,6 +35,7 @@ type ListingRow = {
   ozellikler: Values;
   fiyat: number | null;
   fiyatFarki: number | null;
+  komisyon: number | null;
   durum: string;
   olustu: boolean;
   hata: string | null;
@@ -543,6 +550,7 @@ function SettingsSheet({ channel, onClose }: { channel: Channel | null; onClose:
   const [f, setF] = useState({
     fiyatFarki: String(channel?.ayarlar.fiyatFarki ?? 0), fiyatYaz: channel?.ayarlar.fiyatYaz ?? false,
     kargoFirmaId: channel?.ayarlar.kargoFirmaId ? String(channel.ayarlar.kargoFirmaId) : "",
+    komisyon: channel?.ayarlar.komisyon?.toString() ?? "", desiKargo: channel?.ayarlar.desiKargo?.toString() ?? "", hizmetBedeli: channel?.ayarlar.hizmetBedeli?.toString() ?? "",
   });
   const [marka, setMarka] = useState<{ id: number; ad: string } | null>(channel?.ayarlar.markaId ? { id: channel.ayarlar.markaId, ad: channel.ayarlar.markaAd ?? "" } : null);
   const [err, setErr] = useState<string | null>(null);
@@ -552,6 +560,7 @@ function SettingsSheet({ channel, onClose }: { channel: Channel | null; onClose:
     setBusy(true);
     const r = await pyAyarKaydet(channel!.id, {
       fiyatFarki: Number(f.fiyatFarki.replace(",", ".")) || 0, fiyatYaz: f.fiyatYaz, kargoFirmaId: numOrNull(f.kargoFirmaId), markaId: marka?.id ?? null, markaAd: marka?.ad ?? null,
+      komisyon: numOrNull(f.komisyon), desiKargo: numOrNull(f.desiKargo), hizmetBedeli: numOrNull(f.hizmetBedeli),
     });
     setBusy(false);
     if (!r.ok) return setErr(r.hata);
@@ -578,6 +587,27 @@ function SettingsSheet({ channel, onClose }: { channel: Channel | null; onClose:
               <input value={f.kargoFirmaId} onChange={(e) => setF({ ...f, kargoFirmaId: e.target.value.replace(/\D/g, "") })} inputMode="numeric" className={input} placeholder="Boş: Trendyol'daki varsayılan" />
               <span className="mt-1 block text-[11px] text-muted-foreground">Trendyol’un kargo firması listesindeki numara. Boş bırakılırsa satıcı panelindeki varsayılan kullanılır.</span>
             </label>
+            <div>
+              <p className={label}>Kârlılık hesabı</p>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ["komisyon", "Varsayılan komisyon %", null],
+                    ["desiKargo", "Desi başı kargo ₺", channel.finans?.desiKargo],
+                    ["hizmetBedeli", "Hizmet bedeli ₺", channel.finans?.hizmet],
+                  ] as const
+                ).map(([k, t, ogrenilen]) => (
+                  <label key={k} className="block">
+                    <span className="mb-1 block text-[11px] text-muted-foreground">{t}</span>
+                    <input value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} inputMode="decimal" className={input} placeholder={ogrenilen ? `${ogrenilen.toLocaleString("tr-TR")} (son fatura)` : "—"} />
+                  </label>
+                ))}
+              </div>
+              <span className="mt-1 block text-[11px] text-muted-foreground">
+                Komisyon önce ürüne özel orandan, sonra ürünün ya da kategorisinin geçmiş satışından alınır; ikisi de yoksa bu varsayılan kullanılır.
+                Kargo ve hizmet bedeli boşsa Trendyol’un son faturasındaki değer kullanılır. Tutarlar KDV dahil.
+              </span>
+            </div>
           </>
         ) : (
           <label className="flex items-start gap-2.5 rounded-xl border border-border p-3 text-sm">
@@ -654,7 +684,7 @@ function BrandPicker({ siteId, value, onChange, hint }: { siteId: number; value:
 type NumField = "desi" | "agirlik" | "en" | "boy" | "yukseklik" | "fiyat" | "maliyet" | "stok" | "hazirlikGun";
 type Form = Omit<ItemRow, "id" | "katalogAd" | "katalogFiyat" | "katalogMaliyet" | "listelemeler" | NumField> & Record<NumField, string>;
 type ListingForm = {
-  siteId: number; aktif: boolean; kategoriId: number | null; kategoriYol: string | null; markaId: number | null; markaAd: string | null; ozellikler: Values; fiyat: string; fiyatFarki: string;
+  siteId: number; aktif: boolean; kategoriId: number | null; kategoriYol: string | null; markaId: number | null; markaAd: string | null; ozellikler: Values; fiyat: string; fiyatFarki: string; komisyon: string;
   disUrunId: number | null; disVaryantId: number | null; disAd: string | null; disFiyat: number | null;
 };
 
@@ -677,7 +707,7 @@ function ItemSheet({ item, items, channels, catalog, onClose }: { item: EditTarg
       return {
         siteId: c.id, aktif: l ? l.aktif : false, kategoriId: l?.kategoriId ?? null, kategoriYol: l?.kategoriYol ?? null,
         markaId: l?.markaId ?? c.ayarlar.markaId, markaAd: l?.markaAd ?? c.ayarlar.markaAd, ozellikler: l?.ozellikler ?? {}, fiyat: it ? (l?.fiyat?.toString() ?? "") : "",
-        fiyatFarki: l?.fiyatFarki?.toString() ?? "",
+        fiyatFarki: l?.fiyatFarki?.toString() ?? "", komisyon: l?.komisyon?.toString() ?? "",
         disUrunId: it ? (l?.disUrunId ?? null) : null, disVaryantId: it ? (l?.disVaryantId ?? null) : null, disAd: it ? (l?.disAd ?? null) : null, disFiyat: it ? (l?.disFiyat ?? null) : null,
       };
     }),
@@ -732,7 +762,7 @@ function ItemSheet({ item, items, channels, catalog, onClose }: { item: EditTarg
     const r = await pyUrunKaydet({
       id: it?.id ?? null, ...f, desi: numOrNull(f.desi), agirlik: numOrNull(f.agirlik), en: numOrNull(f.en), boy: numOrNull(f.boy), yukseklik: numOrNull(f.yukseklik),
       fiyat: numOrNull(f.fiyat), maliyet: numOrNull(f.maliyet), stok: Number(f.stok) || 0, hazirlikGun: Number(f.hazirlikGun) || 3,
-      listelemeler: ls.map((l) => ({ ...l, fiyat: numOrNull(l.fiyat), fiyatFarki: numOrNull(l.fiyatFarki) })),
+      listelemeler: ls.map((l) => ({ ...l, fiyat: numOrNull(l.fiyat), fiyatFarki: numOrNull(l.fiyatFarki), komisyon: numOrNull(l.komisyon) })),
       grubaUygula: sibs.length > 0 && grubaUygula,
     });
     setBusy(false);
@@ -958,6 +988,9 @@ function ItemSheet({ item, items, channels, catalog, onClose }: { item: EditTarg
               base={base}
               kdv={f.kdv}
               status={it?.listelemeler.find((x) => x.siteId === c.id) ?? null}
+              maliyet={numOrNull(f.maliyet) ?? katalogMaliyet}
+              desi={desi ?? numOrNull(f.desi)}
+              barkod={f.barkod}
             />
           ) : null,
         )}
@@ -1146,8 +1179,11 @@ function PriceFields({
 }
 
 function ListingSection({
-  c, l, onChange, base, kdv, status,
-}: { c: Channel; l: ListingForm; onChange: (p: Partial<ListingForm>) => void; base: number | null; kdv: number; status: ListingRow | null }) {
+  c, l, onChange, base, kdv, status, maliyet, desi, barkod,
+}: {
+  c: Channel; l: ListingForm; onChange: (p: Partial<ListingForm>) => void; base: number | null; kdv: number; status: ListingRow | null;
+  maliyet: number | null; desi: number | null; barkod: string;
+}) {
   const [q, setQ] = useState("");
   const [res, setRes] = useState<{ id: number; yol: string }[]>([]);
   const [attrs, setAttrs] = useState<Attr[] | null>(null);
@@ -1203,6 +1239,7 @@ function ListingSection({
         )}
       </div>
       {status?.hata && <p className="mt-2 rounded-xl bg-danger-soft px-3 py-2 text-xs font-medium break-words text-danger">{status.hata}</p>}
+      <ProfitBox c={c} l={l} onChange={onChange} fiyat={numOrNull(l.fiyat) ?? hesap} kdv={kdv} maliyet={maliyet} desi={desi} barkod={barkod} />
       {l.aktif && (
         <div className="mt-3 space-y-3">
           <div>
@@ -1271,6 +1308,97 @@ function ListingSection({
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Kanaldaki kârlılık: satış fiyatından komisyon, kargo (desi × desi başı ücret) ve hizmet bedeli düşülür; KDV hariç kâr ve
+ * maliyet üzerine marj. Hedef kâr için gereken fiyat önerilir, istenirse kanala özel sabit fiyat olarak yazılır.
+ */
+function ProfitBox({
+  c, l, onChange, fiyat, kdv, maliyet, desi, barkod,
+}: { c: Channel; l: ListingForm; onChange: (p: Partial<ListingForm>) => void; fiyat: number | null; kdv: number; maliyet: number | null; desi: number | null; barkod: string }) {
+  const [hedef, setHedef] = useState("30");
+  const refs = c.finans;
+  const urunden = (barkod && refs?.barkod[barkod]) || null;
+  const ogrenilen = urunden ?? ((l.kategoriId && refs?.kategori[l.kategoriId]) || null);
+  const ozel = numOrNull(l.komisyon);
+  const oran = ozel ?? ogrenilen ?? c.ayarlar.komisyon;
+  const oranKaynak = ozel !== null ? "bu ürüne özel" : urunden ? "bu ürünün son satışından" : ogrenilen ? "kategorinin son satışından" : oran !== null ? "kanalın varsayılanı" : null;
+  const desiKargo = c.ayarlar.desiKargo ?? refs?.desiKargo ?? null;
+  const kargo = desi && desiKargo ? Math.round(desi * desiKargo * 100) / 100 : null;
+  const hizmet = c.ayarlar.hizmetBedeli ?? refs?.hizmet ?? 0;
+  const p = fiyat !== null && oran !== null ? profitOf({ fiyat, kdv, komisyonOran: oran, kargo: kargo ?? 0, hizmet, maliyet }) : null;
+  const h = numOrNull(hedef);
+  const oneri = maliyet !== null && oran !== null && h !== null ? priceFor({ kdv, komisyonOran: oran, kargo: kargo ?? 0, hizmet, maliyet, hedef: h }) : null;
+  const satir = (ad: string, v: string, not?: string | null) => (
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="text-muted-foreground">
+        {ad}
+        {not && <span className="ml-1 text-[11px]">· {not}</span>}
+      </span>
+      <span className="font-semibold whitespace-nowrap tabular-nums">{v}</span>
+    </div>
+  );
+  return (
+    <div className="mt-3 rounded-xl bg-muted/60 p-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-muted-foreground">Kârlılık (tahmini)</p>
+        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          Komisyon %
+          <input
+            value={l.komisyon}
+            onChange={(e) => onChange({ komisyon: e.target.value })}
+            inputMode="decimal"
+            className={cn(input, "h-8 w-20 px-2 text-xs")}
+            placeholder={ogrenilen !== null ? String(ogrenilen) : c.ayarlar.komisyon !== null ? String(c.ayarlar.komisyon) : "?"}
+          />
+        </label>
+      </div>
+      {fiyat === null ? (
+        <p className="mt-2 text-xs text-muted-foreground">Fiyat girilince hesaplanır.</p>
+      ) : !p || oran === null ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Bu ürünün ve kategorisinin geçmiş satışı yok: komisyon oranını yazın (Trendyol satıcı paneli › komisyon oranları) ya da kanal ayarlarına varsayılan girin.
+        </p>
+      ) : (
+        <div className="mt-2 space-y-1">
+          {satir("Satış fiyatı", tl(fiyat), "KDV dahil")}
+          {satir("Komisyon", `− ${tl(p.komisyon)}`, `%${oran.toLocaleString("tr-TR")}${oranKaynak ? `, ${oranKaynak}` : ""}`)}
+          {satir("Kargo", kargo === null ? "—" : `− ${tl(kargo)}`, kargo === null ? (desi ? "desi başı ücret bilinmiyor" : "desi girilmemiş") : `${desi!.toLocaleString("tr-TR")} desi × ${tl(desiKargo)}`)}
+          {hizmet > 0 && satir("Hizmet bedeli", `− ${tl(hizmet)}`)}
+          {satir(`${c.ad} ödemesi`, tl(p.hakedis))}
+          <div className="mt-1 border-t border-border pt-1.5">
+            {p.kar === null ? (
+              satir("Kâr", "—", "maliyet girilmemiş")
+            ) : (
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-semibold">
+                  Kâr <span className="text-[11px] font-normal text-muted-foreground">· KDV hariç, maliyet {tl(maliyet)}</span>
+                </span>
+                <span className={cn("font-bold whitespace-nowrap tabular-nums", p.kar < 0 ? "text-danger" : "text-success")}>
+                  {tl(p.kar)}
+                  {p.marj !== null && ` · %${p.marj.toLocaleString("tr-TR")}`}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {maliyet !== null && oran !== null && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border pt-2 text-xs">
+          <span className="text-muted-foreground">Maliyet üzerine</span>
+          <input value={hedef} onChange={(e) => setHedef(e.target.value)} inputMode="decimal" className={cn(input, "h-8 w-16 px-2 text-xs")} aria-label="Hedef kâr %" />
+          <span className="text-muted-foreground">% kâr için fiyat:</span>
+          <span className="font-bold">{tl(oneri)}</span>
+          {oneri !== null && oneri !== fiyat && (
+            <Button variant="outline" size="sm" className="h-8" onClick={() => onChange({ fiyat: String(oneri) })}>
+              Bu fiyatı kullan
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

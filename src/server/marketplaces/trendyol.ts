@@ -359,3 +359,49 @@ export async function tyProductState(c: Conn, barkod: string) {
   const neden = (p.rejectReasonDetails ?? []).map((r) => [r.rejectReason, r.rejectReasonDetail].filter(Boolean).join(": ")).join("; ");
   return { onayli: !!p.approved, reddedildi: !!p.rejected, satista: !!p.onSale, neden: neden || null };
 }
+
+/* ───────────── finans (hakediş, komisyon, kargo faturaları) ───────────── */
+
+/** Cari hesap ekstresi kaydı: satış/iade satırında komisyon oranı ve tutarı; kesinti faturasında sipariş yok */
+export type TyFinanceRow = {
+  id: string;
+  transactionDate: number;
+  transactionType: string;
+  barcode: string | null;
+  orderNumber: string | null;
+  debt: number;
+  credit: number;
+  commissionRate: number | null;
+  commissionAmount: number | null;
+  description?: string | null;
+};
+export type TyCargoItem = { shipmentPackageType: string; parcelUniqueId: number; orderNumber: string | null; amount: number; desi: number | null };
+
+/** Ekstre servisi bir istekte en çok 15 günlük aralık ve 500/1000'lik sayfa kabul eder */
+export const TY_FINANCE_WINDOW = 15 * 24 * 3600_000;
+
+async function financePages(c: Conn, path: string, q: Record<string, string>) {
+  const rows: TyFinanceRow[] = [];
+  for (let page = 0; page < 20; page++) {
+    // Ekstre servisi sık istekte 429 döner: istekler arası kısa bekleme
+    await new Promise((r) => setTimeout(r, 300));
+    const data = (await tyRequest(c, `${path}?${new URLSearchParams({ ...q, page: String(page), size: "500" })}`)) as { content?: TyFinanceRow[]; totalPages?: number };
+    rows.push(...(data.content ?? []));
+    if (page + 1 >= (data.totalPages ?? 0)) break;
+  }
+  return rows;
+}
+
+/** Satış, iade, indirim ve kupon kayıtları (transactionType: Sale, Return, Discount, Coupon…) */
+export const tySettlements = (c: Conn, type: string, start: number, end: number) =>
+  financePages(c, "/finance/che/sellers/{saticiId}/settlements", { transactionType: type, startDate: String(start), endDate: String(end) });
+
+/** Kesinti faturaları: kargo, platform hizmet bedeli, reklam… */
+export const tyDeductions = (c: Conn, start: number, end: number) =>
+  financePages(c, "/finance/che/sellers/{saticiId}/otherfinancials", { transactionType: "DeductionInvoices", startDate: String(start), endDate: String(end) });
+
+/** Kargo faturasının sipariş bazında kalemleri (gönderi ve iade kargo bedeli, desi) */
+export async function tyCargoItems(c: Conn, faturaNo: string) {
+  const data = (await tyRequest(c, `/finance/che/sellers/{saticiId}/cargo-invoice/${encodeURIComponent(faturaNo)}/items?page=0&size=500`)) as { content?: TyCargoItem[] };
+  return data.content ?? [];
+}

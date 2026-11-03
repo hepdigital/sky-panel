@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { MarketplaceAdmin } from "@/components/marketplace/marketplace-admin";
 import { requireAdmin } from "@/server/auth";
 import { listProducts } from "@/server/catalog";
+import { financeRefs } from "@/server/marketplaces/finance";
 import { categoryCount, channelPrice, listItems, recentLogs, salesChannels } from "@/server/marketplaces/listing";
 
 export const metadata: Metadata = { title: "Ürünler" };
@@ -16,10 +17,11 @@ async function Products() {
   await requireAdmin();
   const [channels, items, { urunler }, logs] = await Promise.all([salesChannels(), listItems(), listProducts(), recentLogs()]);
   const counts = Object.fromEntries(await Promise.all([...new Set(channels.filter((c) => c.pazaryeri).map((c) => c.tur))].map(async (t) => [t, await categoryCount(t)] as const)));
+  const finans = Object.fromEntries(await Promise.all(channels.filter((c) => c.pazaryeri).map(async (c) => [c.id, await financeRefs(c.id)] as const)));
   const iso = (d: Date | null) => d?.toISOString() ?? null;
   return (
     <MarketplaceAdmin
-      channels={channels.map((c) => ({ ...c, kategoriSayisi: counts[c.tur] ?? 0 }))}
+      channels={channels.map((c) => ({ ...c, kategoriSayisi: counts[c.tur] ?? 0, finans: finans[c.id] ?? null }))}
       catalog={urunler
         .filter((u) => u.aktif)
         .map((u) => ({
@@ -34,7 +36,7 @@ async function Products() {
         listelemeler: i.listelemeler.map((l) => {
           const ch = channels.find((c) => c.id === l.siteId);
           return {
-            siteId: l.siteId, aktif: l.aktif, kategoriId: l.kategoriId, kategoriYol: l.kategoriYol, markaId: l.markaId, markaAd: l.markaAd, ozellikler: l.ozellikler, fiyat: l.fiyat, fiyatFarki: l.fiyatFarki,
+            siteId: l.siteId, aktif: l.aktif, kategoriId: l.kategoriId, kategoriYol: l.kategoriYol, markaId: l.markaId, markaAd: l.markaAd, ozellikler: l.ozellikler, fiyat: l.fiyat, fiyatFarki: l.fiyatFarki, komisyon: l.komisyon,
             durum: l.durum, olustu: l.olustu, hata: l.hata, sonGonderim: iso(l.sonGonderim),
             disUrunId: l.disUrunId, disVaryantId: l.disVaryantId, disAd: l.disAd, disFiyat: l.disFiyat,
             satisFiyati: ch ? channelPrice(i, i.katalogFiyat, l, ch.ayarlar) : null,
