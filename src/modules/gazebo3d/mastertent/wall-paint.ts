@@ -1,4 +1,4 @@
-import { wallPrintTexture } from "./decal";
+import { badgeWidth, paintPrint, printBaseHex, wallPrintTexture, type PrintTheme } from "./decal";
 import { CanvasTexture, DoubleSide, EquirectangularReflectionMapping, MeshPhysicalMaterial, MeshStandardMaterial, RepeatWrapping, SRGBColorSpace } from "three";
 
 /**
@@ -73,9 +73,9 @@ function layout(wm: number, hm: number, hasWindow: boolean, hasDoor: boolean) {
 
 /** wm, hm: duvar yüzeyinin genişliği ve yüksekliği (m) */
 /** printed: duvar dijital baskılı kumaştan (zemin örnek baskı, açıklıklar yine kesilir) */
-export function wallPaint(design: WallDesign, fabricHex: string, printed = false) {
+export function wallPaint(design: WallDesign, fabricHex: string, printed = false, theme: PrintTheme = "ornek") {
   return (wm: number, hm: number) => {
-    const key = `${design}|${fabricHex}|${+printed}|${wm.toFixed(2)}x${hm.toFixed(2)}`;
+    const key = `${design}|${fabricHex}|${+printed}|${theme}|${wm.toFixed(2)}x${hm.toFixed(2)}`;
     const cached = textures.get(key);
     if (cached) return cached;
     const W = 1024;
@@ -92,7 +92,21 @@ export function wallPaint(design: WallDesign, fabricHex: string, printed = false
     /** metre → piksel */
     const m = (r: Rect): Rect => ({ x: (r.x / wm) * W, y: (r.y / hm) * H, w: (r.w / wm) * W, h: (r.h / hm) * H });
 
-    if (printed) ctx.drawImage(wallPrintTexture(wm / hm).image as CanvasImageSource, 0, 0, W, H);
+    const spec = parseDesign(design);
+    const at = layout(wm, hm, !!spec.pencere, !!spec.kapi);
+    const holes = [spec.pencere && at.win, spec.kapi && at.door].filter((r): r is Rect => !!r);
+    if (printed && holes.length) {
+      // Rozetler açıklıkların dışında kalan dikey şeritlerin ortasına; dar şeritte (≈25 cm altı rozet) konmaz
+      const badges: { x: number; y: number; r: number }[] = [];
+      const edges = [0, ...holes.flatMap((r) => [r.x, r.x + r.w]).sort((p, q) => p - q), wm];
+      for (let i = 0; i < edges.length; i += 2) {
+        const span = edges[i + 1] - edges[i];
+        const r = Math.min((span * 0.8) / badgeWidth(theme), hm * 0.16);
+        if (r < 0.12) continue;
+        badges.push({ x: ((edges[i] + span / 2) / wm) * W, y: H * 0.45, r: (r / wm) * W });
+      }
+      paintPrint(ctx, W, H, theme, badges);
+    } else if (printed) ctx.drawImage(wallPrintTexture(wm / hm, theme).image as CanvasImageSource, 0, 0, W, H);
     else {
       ctx.fillStyle = fabricHex;
       ctx.fillRect(0, 0, W, H);
@@ -107,8 +121,6 @@ export function wallPaint(design: WallDesign, fabricHex: string, printed = false
       ctx.fillStyle = ZIP;
       ctx.fillRect(W * 0.5 - tape * 0.6, H * 0.4, tape * 1.2, tape * 2.4); // çekecek
     }
-    const spec = parseDesign(design);
-    const at = layout(wm, hm, !!spec.pencere, !!spec.kapi);
     if (spec.pencere && at.win) opening(ctx, m(at.win), spec.pencere, false, tape);
     if (spec.kapi && at.door) opening(ctx, m(at.door), spec.kapi, true, tape);
 
@@ -120,8 +132,8 @@ export function wallPaint(design: WallDesign, fabricHex: string, printed = false
       glass: glassRects.length ? glassMask(W, H, glassRects) : undefined,
       rolls: rolls.map((r) => ({ x: r.x / W, w: r.w / W, y: r.y / H, h: r.h / H, fw: r.fw / W })),
       // Baskılı duvarda perde ve rulosu baskının koyu zemin renginde
-      rollMaterial: rollMaterial(printed ? "#1d1d1f" : fabricHex),
-      flapMaterial: flapMaterial(printed ? "#1d1d1f" : fabricHex),
+      rollMaterial: rollMaterial(printed ? printBaseHex(theme) : fabricHex),
+      flapMaterial: flapMaterial(printed ? printBaseHex(theme) : fabricHex),
     };
     textures.set(key, painted);
     return painted;

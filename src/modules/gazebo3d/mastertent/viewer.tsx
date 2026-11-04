@@ -5,7 +5,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Suspense, use, useDeferredValue, useEffect, useMemo, useRef } from "react";
 import { CanvasTexture, Color, DoubleSide, FrontSide, Group, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera as Camera, RepeatWrapping, SRGBColorSpace, Vector3, type Texture } from "three";
 import { configToParams, sides, wallSlotId, type GazeboConfig, type WallStyle } from "../model";
-import { buildDecals, decalFontReady, setCurtainOpen, type DecalOptions } from "./decal";
+import { buildDecals, decalFontReady, setCurtainOpen, type DecalOptions, type PrintTheme } from "./decal";
 import { flattenScene, footprint, placeWall, wallBays, type Part, type SceneFile } from "./scene";
 import { wallPaint, type WallDesign } from "./wall-paint";
 
@@ -189,9 +189,10 @@ type TentProps = {
   printedRoof?: boolean;
   /** Duvar kumaşının rengi; verilmezse tavanla aynı (fabricHex) */
   wallHex?: string;
+  printTheme?: PrintTheme;
 };
 
-function Tent({ sizeKey, width, depth, config, fabricHex, wallHex, frameColor, registerArSource, wallDesigns, printedWalls, printedRoof }: TentProps) {
+function Tent({ sizeKey, width, depth, config, fabricHex, wallHex, frameColor, registerArSource, wallDesigns, printedWalls, printedRoof, printTheme: theme = "ornek" }: TentProps) {
   // AR için ekrandaki çadır modeline erişim
   const groupRef = useRef<Group>(null);
   useEffect(() => {
@@ -284,10 +285,10 @@ function Tent({ sizeKey, width, depth, config, fabricHex, wallHex, frameColor, r
     return Object.fromEntries(
       [...keys].map((k) => {
         const [d, p] = k.split("|");
-        return [k, [{ bothSides: true, paint: wallPaint(d, wallFabric, p === "1") }]];
+        return [k, [{ bothSides: true, paint: wallPaint(d, wallFabric, p === "1", theme) }]];
       }),
     ) as Record<string, DecalOptions[]>;
-  }, [designsKey, printedWalls, config.printed, wallFabric]);
+  }, [designsKey, printedWalls, config.printed, wallFabric, theme]);
   const decalsFor = (part: Part & { key?: string; slot?: string }, isWall: boolean): DecalOptions[] | undefined => {
     const design = isWall && isWallFabric(part) ? part.key?.split("|")[4] : undefined;
     if (design) return paintSpecs[`${design}|${+wallPrinted(part.slot)}`];
@@ -295,16 +296,16 @@ function Tent({ sizeKey, width, depth, config, fabricHex, wallHex, frameColor, r
       if (!wallPrinted(part.slot)) return undefined;
       if (!isWallFabric(part)) return undefined;
       // Kapılı duvarda kapının iki yanına, pencereli duvarda pencerelerin altına
-      if (part.key?.endsWith("|tuer")) return decalSpecs([{ scale: 0.3, vCenter: 0.55, uCenters: [0.17, 0.83], bothSides: true }]);
+      if (part.key?.endsWith("|tuer")) return decalSpecs([{ scale: 0.3, vCenter: 0.55, uCenters: [0.17, 0.83], bothSides: true, theme }]);
       // Pencereli duvar şeffaf PVC'lidir, baskı yapılmaz (fiyat listesinde de baskılısı yok)
       if (part.key?.endsWith("|fenster")) return undefined;
-      return decalSpecs([{ scale: 0.62, vCenter: 0.52, bothSides: true }]);
+      return decalSpecs([{ scale: 0.62, vCenter: 0.52, bothSides: true, theme }]);
     }
     if (!(printedRoof ?? config.printed)) return undefined;
     if (!CANOPY.has(part.geometry)) return undefined;
     const specs: DecalOptions[] = [];
     // Tavan yüzü üçgen: etiket küçük ve saçağa yakın, geniş kısımda durur
-    specs.push({ scale: 0.6, vCenter: 0.36, faces: "slope" }, { scale: 0.78, vCenter: 0.5, faces: "band" });
+    specs.push({ scale: 0.6, vCenter: 0.36, faces: "slope", theme }, { scale: 0.78, vCenter: 0.5, faces: "band", theme });
     return decalSpecs(specs);
   };
 
@@ -453,6 +454,8 @@ export type ViewerProps = {
   wallHex?: string;
   /** Kodla çizilen duvarlarda perdeler açık mı (değişince animasyonla açılır/kapanır) */
   curtainsOpen?: boolean;
+  /** Baskılı yüzeylerin örnek deseni: "ornek" (varsayılan), "sky" (site konfigüratörü) ya da "panel" (teklif ekranı) */
+  printTheme?: PrintTheme;
   /** Çadırın tabanında siyah parlak pilsa zemin */
   floor?: boolean;
   /** Zemin işaretleri: kenar adları (ÖN, ARKA, SOL, SAĞ) ve ortada logo; etkin kenarın adı vurgu renginde */

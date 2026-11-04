@@ -312,7 +312,7 @@ function Preview({ g, focus, onCapture }: { g: Gazebo; focus: (typeof GROUND_SID
           </div>
         }
       >
-        <Viewer {...input} curtainsOpen registerCapture={onCapture} groundMarks={{ logo: GROUND_LOGO, active: focus, accent: ORANGE }} focusSide={focus} />
+        <Viewer {...input} curtainsOpen printTheme="sky" registerCapture={onCapture} groundMarks={{ logo: GROUND_LOGO, active: focus, accent: ORANGE }} focusSide={focus} />
       </ViewerBoundary>
       <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-[#555] shadow-sm ring-1 ring-black/5">
         <Rotate3d className="size-3.5" /> Sürükleyerek çevirin
