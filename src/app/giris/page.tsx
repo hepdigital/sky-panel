@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { FileText, ListChecks, PackageCheck } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { appMetadata } from "@/lib/app-meta";
 import { LoginForm } from "./login-form";
 
-export const metadata: Metadata = { title: "Giriş" };
+export const metadata: Metadata = { title: "Giriş", ...appMetadata };
 
 const highlights = [
   { icon: FileText, title: "Teklif", text: "Gazeboyu 3D kurun, ürün ekleyin; PDF ve müşteri linki tek tıkla." },

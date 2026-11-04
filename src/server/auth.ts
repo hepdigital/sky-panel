@@ -45,7 +45,11 @@ export async function createSession(userId: number) {
 export async function destroySession() {
   const store = await cookies();
   const token = store.get(COOKIE)?.value;
-  if (token) await db().delete(schema.oturumlar).where(eq(schema.oturumlar.tokenHash, sha256(token)));
+  if (token) {
+    await db().delete(schema.oturumlar).where(eq(schema.oturumlar.tokenHash, sha256(token)));
+    // Bu oturumdan açılan cihazlara artık bildirim gitmez
+    await (await import("./push")).dropSessionDevices(token);
+  }
   store.delete(COOKIE);
 }
 

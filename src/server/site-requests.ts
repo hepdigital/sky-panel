@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { isAdmin, type Me } from "./auth";
 import { brandsFor } from "./brands";
 import { db, schema } from "./db";
+import { notify, sellers } from "./push";
 
 // Sitelerden gelen form talepleri (GazeboTente toptan alım, bayilik, iletişim). Sipariş eşitlemesiyle birlikte çekilir;
 // takip (durum, not, ilgilenen) yalnızca panelde tutulur, siteye yazılmaz.
@@ -70,6 +71,16 @@ export async function syncRequests(site: Site, request: (path: string) => Promis
         .onDuplicateKeyUpdate({ set: { disId: sql`dis_id` } });
       after = rows.at(-1)!.id;
       count += rows.length;
+      // İlk bağlantıda eski talepler bildirilmez
+      const fresh = rows.filter((r) => Date.now() - new Date(r.tarih).getTime() < 3 * 86_400_000);
+      for (const r of fresh.length > 3 ? [] : fresh)
+        void notify("talep", sellers(site.markaId), {
+          title: `Yeni talep · ${r.turAd}`,
+          body: [r.firma || r.ad, r.il, r.mesaj.replace(/s+/g, " ").slice(0, 140)].filter(Boolean).join(" · "),
+          url: "/panel/talepler",
+          tag: `talep-${site.id}-${r.id}`,
+        });
+      if (fresh.length > 3) void notify("talep", sellers(site.markaId), { title: `${fresh.length} yeni talep · ${site.ad}`, body: fresh.map((r) => r.firma || r.ad).join(" · "), url: "/panel/talepler" });
     }
     if (rows.length < 50) break;
   }

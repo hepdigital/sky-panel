@@ -848,3 +848,35 @@ export const waOrnekler = mysqlTable(
   },
   (t) => [index("wa_ornek_durum").on(t.durum), index("wa_ornek_sohbet").on(t.sohbetId)],
 );
+
+/**
+ * Uygulama bildirimleri (Web Push): her cihaz/tarayıcı bir abonelik. Abonelik açıldığı oturuma bağlıdır: o oturumdan
+ * çıkış yapılınca cihaza bildirim gitmez.
+ */
+export const bildirimAbonelikleri = mysqlTable(
+  "bildirim_abonelikleri",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    kullaniciId: int("kullanici_id", { unsigned: true })
+      .notNull()
+      .references(() => kullanicilar.id, { onDelete: "cascade" }),
+    /** Uç adresin SHA-256 özeti (adres uzun olduğundan eşsizlik bunun üzerinden) */
+    ozet: varchar("ozet", { length: 64 }).notNull().unique(),
+    endpoint: text("endpoint").notNull(),
+    p256dh: varchar("p256dh", { length: 200 }).notNull(),
+    auth: varchar("auth", { length: 100 }).notNull(),
+    cihaz: varchar("cihaz", { length: 120 }),
+    oturum: varchar("oturum", { length: 64 }),
+    olusturma: timestamp("olusturma").notNull().defaultNow(),
+    sonGonderim: timestamp("son_gonderim"),
+  },
+  (t) => [index("ba_kullanici").on(t.kullaniciId), index("ba_oturum").on(t.oturum)],
+);
+
+/** Kullanıcının hangi bildirimleri almak istediği (JSON: tür → açık/kapalı; yazılmayan tür açıktır) */
+export const bildirimTercihleri = mysqlTable("bildirim_tercihleri", {
+  kullaniciId: int("kullanici_id", { unsigned: true })
+    .primaryKey()
+    .references(() => kullanicilar.id, { onDelete: "cascade" }),
+  veri: text("veri").notNull(),
+});

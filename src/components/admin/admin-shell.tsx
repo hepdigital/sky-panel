@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CheckSquare, ChevronDown, FilePlus2, FileText, LayoutDashboard, ListPlus, LogOut, Menu, Plus, UserPlus } from "lucide-react";
+import { AppBanner } from "@/components/app/app-banner";
+import { Bell, CheckSquare, ChevronDown, FilePlus2, FileText, LayoutDashboard, ListPlus, LogOut, Menu, Plus, UserPlus } from "lucide-react";
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";
@@ -86,7 +87,10 @@ function Layout({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onCreate={() => setCreateOpen(true)} />
-        <main className="flex-1 px-4 pt-2 pb-28 md:px-6 md:pb-10 lg:px-8">{children}</main>
+        <main className="flex-1 px-4 pt-2 pb-28 md:px-6 md:pb-10 lg:px-8">
+          {!focusRoutes.includes(pathname) && !["/panel", "/panel/bildirimler"].includes(pathname) && <AppBanner />}
+          {children}
+        </main>
       </div>
 
       {/* ── Mobil alt menü (form ekranlarında gizlenir) ── */}
@@ -141,11 +145,16 @@ function Layout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           ))}
-          <form action={cikisYap} className="border-t border-border pt-2">
-            <button type="submit" className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm hover:bg-muted/60">
-              <LogOut className="size-4" /> Çıkış yap
-            </button>
-          </form>
+          <div className="border-t border-border pt-2">
+            <Link href="/panel/bildirimler" onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm hover:bg-muted/60">
+              <Bell className="size-4" /> Bildirimler ve uygulama
+            </Link>
+            <form action={cikisYap}>
+              <button type="submit" className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm hover:bg-muted/60">
+                <LogOut className="size-4" /> Çıkış yap
+              </button>
+            </form>
+          </div>
         </div>
       </Sheet>
 
@@ -288,7 +297,14 @@ function UserMenu() {
         <div className="absolute top-full right-0 z-50 mt-2 w-72 rounded-2xl border border-border bg-card p-3 shadow-pop">
           <p className="px-1 text-sm font-semibold">{user.user}</p>
           <p className="px-1 text-xs text-muted-foreground">{user.label}</p>
-          <form action={cikisYap} className="mt-3 border-t border-border pt-2">
+          <Link
+            href="/panel/bildirimler"
+            onClick={() => setOpen(false)}
+            className="mt-3 flex w-full items-center gap-2 rounded-xl border-t border-border px-2.5 pt-3 pb-2 text-left text-sm hover:bg-muted/60"
+          >
+            <Bell className="size-4" /> Bildirimler ve uygulama
+          </Link>
+          <form action={cikisYap}>
             <button type="submit" className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm hover:bg-muted/60">
               <LogOut className="size-4" /> Çıkış yap
             </button>

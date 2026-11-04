@@ -1,0 +1,24 @@
+{
+  "id": "/panel",
+  "name": "Sky Yönetim",
+  "short_name": "Sky Yönetim",
+  "description": "Sky Görsel Çözümler yönetim paneli: teklif, sipariş, talep ve WhatsApp bildirimleri",
+  "lang": "tr",
+  "dir": "ltr",
+  "start_url": "/panel?kaynak=uygulama",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f3f5f9",
+  "theme_color": "#002C72",
+  "icons": [
+    { "src": "/app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/app/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Yeni teklif", "url": "/panel/teklifler/yeni", "icons": [{ "src": "/app/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Siparişler", "url": "/panel/siparisler", "icons": [{ "src": "/app/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Talepler", "url": "/panel/talepler", "icons": [{ "src": "/app/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
