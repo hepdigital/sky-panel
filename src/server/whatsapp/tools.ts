@@ -13,7 +13,8 @@ import { siteInstallments, siteTransferRate } from "../payment-links";
 import { fold, getCard, listCards, type Kart } from "./cards";
 import type { WaConfig } from "./config";
 import {
-  DUVAR_SECENEKLERI, KUMAS_SECENEKLERI, designLink, gazeboFiyatla, gazeboOnayGorseli, gazeboSecenekleri, panelCategoryInfo, panelUrunAra, priceGazebo, type GazeboInput, type GazeboSecim,
+  DUVAR_SECENEKLERI, KUMAS_SECENEKLERI, designLink, gazeboFiyatla, gazeboOnayGorseli, gazeboSecenekleri, panelCategoryInfo, panelKalem, panelUrunAra, priceGazebo, type GazeboInput,
+  type GazeboSecim,
 } from "./gazebo";
 import { sendMedia, sendText } from "./graph";
 import { createChatPaymentLink, paymentMessage, type PaymentDraft } from "./payment";
@@ -225,19 +226,22 @@ export function toolDefs(ayar: WaAyarlar): Anthropic.Beta.BetaTool[] {
     defs.push({
       name: "odeme_linki_olustur",
       description:
-        "Kartla ödeme için sitede sipariş ve ödeme linki hazırlar. Tutarı sunucu hesaplar (sitedeki fiyat × adet). YALNIZCA müşteri sipariş özetini (ad soyad, adres, ürün, renk, adet, tutar) tek mesajda gördükten sonra açıkça onayladıysa çağır. Yalnız senin baştan sona sattığın ürünler için.",
+        "Kartla ödeme için sitede sipariş ve ödeme linki hazırlar. Tutarı sunucu hesaplar (fiyat × adet; panel kategorisi kartında panel fiyatı). YALNIZCA müşteri sipariş özetini (ad soyad, adres, ürün, renk, adet, tutar, fatura) tek mesajda gördükten sonra açıkça onayladıysa çağır. Yalnız senin baştan sona sattığın ürünler için.",
       input_schema: {
         type: "object",
         properties: {
           urun_kodu: { type: "string" },
-          renk: { type: "string" },
+          renk: { type: "string", description: "Renk; renk seçilmeyen üründe boş metin" },
+          kalem_kodu: { ...NULLABLE_STR, description: "Panel kategorisi kartında urun_bilgisi'ndeki kalem_kodu; diğer kartlarda boş" },
+          secenek_dahil: { type: "boolean", description: "Panel ürününün ek seçeneği (ör. kumaş baskı) dahil mi; seçeneksizde false" },
           adet: { type: "integer" },
           ad_soyad: { type: "string" },
           adres: { type: "string", description: "Açık adres: mahalle, sokak, no, ilçe" },
           il: { type: "string" },
           eposta: NULLABLE_STR,
+          fatura: { ...NULLABLE_STR, description: "Kurumsal faturada unvan, vergi dairesi ve vergi no (adres farklıysa fatura adresi); bireysel faturada boş" },
         },
-        required: ["urun_kodu", "renk", "adet", "ad_soyad", "adres", "il", "eposta"],
+        required: ["urun_kodu", "renk", "kalem_kodu", "secenek_dahil", "adet", "ad_soyad", "adres", "il", "eposta", "fatura"],
         additionalProperties: false,
       },
     });
@@ -388,7 +392,10 @@ async function urunBilgisi(kod: string) {
   if (card.panelKategoriId) {
     const site = await siteOf(card.siteId);
     if (!site) return { ...base, fiyat: null, not: "Kartın sitesi seçili değil; fiyat söyleme, ekibe devret." };
-    return panelCategoryInfo(card, site);
+    const info = await panelCategoryInfo(card, site);
+    if (card.asistanSeviyesi !== "cevaplar") return info;
+    const oran = await siteTransferRate(site);
+    return { ...info, havale_eft_indirim_orani: oran, kargo: "Ücretsiz" };
   }
   if (card.disKategoriId) return categoryInfo(card);
   let live: Awaited<ReturnType<typeof liveProduct>>;
@@ -734,7 +741,9 @@ async function odemeBilgisi(ctx: Ctx, telefon: string) {
   return r.ok ? { gonderildi: true } : { hata: r.hata };
 }
 
-type LinkInput = { urun_kodu: string; renk: string; adet: number; ad_soyad: string; adres: string; il: string; eposta: string | null };
+type LinkInput = {
+  urun_kodu: string; renk: string; kalem_kodu: string | null; secenek_dahil: boolean; adet: number; ad_soyad: string; adres: string; il: string; eposta: string | null; fatura: string | null;
+};
 
 /** Gazebo onayı: tasarım görseli ve özeti müşteriye gider (tutar ve görsel ödeme linkiyle aynı hesaptan) */
 async function gazeboOnay(ctx: Ctx, telefon: string, i: GazeboSecim) {
@@ -767,8 +776,13 @@ async function odemeLinki(ctx: Ctx, telefon: string, i: LinkInput) {
   if (!card?.aktif || card.asistanSeviyesi !== "cevaplar") return { hata: "Bu ürün için ödeme linkini ekip hazırlar; bilgileri kaydet ve ekibe devret." };
   const adet = Math.floor(Number(i.adet));
   if (!(adet >= 1 && adet <= 100)) return { hata: "Adet 1 ile 100 arasında olmalı; 100'den fazlası için ekibe devret." };
-  const kisi = { adSoyad: String(i.ad_soyad ?? "").trim().slice(0, 160), adres: String(i.adres ?? "").trim().slice(0, 400), il: String(i.il ?? "").trim().slice(0, 60), eposta: (i.eposta ?? "").trim().slice(0, 191) };
+  const fatura = (i.fatura ?? "").trim().slice(0, 500);
+  const kisi = {
+    adSoyad: String(i.ad_soyad ?? "").trim().slice(0, 160), adres: String(i.adres ?? "").trim().slice(0, 400), il: String(i.il ?? "").trim().slice(0, 60), eposta: (i.eposta ?? "").trim().slice(0, 191),
+    ...(fatura ? { fatura } : {}),
+  };
   let taslak: PaymentDraft;
+  let renkGerekli = true;
   if (card.kod === "gazebo") {
     // Gazebo: tutar konfigüratörün tablosundan; link oluşturulurken yeniden hesaplanır
     const g = await gazeboCtx(ctx);
@@ -778,20 +792,28 @@ async function odemeLinki(ctx: Ctx, telefon: string, i: LinkInput) {
     if (!p.ok) return { hata: p.hata };
     if (p.f === 2) return { hata: "Baskılı gazebonun ödeme linkini ekip hazırlar (baskı tasarımı ekiple); bilgileri kaydet ve ekibe devret." };
     taslak = { urunKodu: card.kod, urun: p.ozet[0], renk: p.renk ?? "", adet: p.adet, ...kisi, tutar: p.toplam, gazebo: secim! };
+  } else if (card.panelKategoriId) {
+    // Panel kategorisi: tutar panel fiyatından (sitedeki fiyat farkı ya da hatası müşteriye yansımaz)
+    const site = await siteOf(card.siteId);
+    const k = site && i.kalem_kodu ? await panelKalem(site.markaId, card.panelKategoriId, i.kalem_kodu, !!i.secenek_dahil) : { ok: false as const, hata: "kalem_kodu gerekli (urun_bilgisi'ndeki ürün)." };
+    if (!k.ok) return { hata: k.hata };
+    renkGerekli = k.renk;
+    taslak = { urunKodu: card.kod, urun: k.ad, renk: String(i.renk ?? "").trim().slice(0, 60), adet, ...kisi, tutar: tl(k.birim * adet), panel: { kalem: i.kalem_kodu!, secenek: !!i.secenek_dahil } };
   } else {
     const live = await liveProduct(card).catch(() => null);
     if (!live?.v.yayinda || live.v.fiyat === null) return { hata: "Fiyat okunamadı; ekibe devret." };
     taslak = { urunKodu: card.kod, urun: card.ad, renk: String(i.renk ?? "").trim().slice(0, 60), adet, ...kisi, tutar: tl(live.v.fiyat * adet) };
   }
-  if (!taslak.adSoyad.includes(" ") || taslak.adres.length < 10 || taslak.il.length < 2 || !taslak.renk) return { hata: "Ad soyad, açık adres, il ve renk eksik; müşteriden iste." };
+  if (!taslak.adSoyad.includes(" ") || taslak.adres.length < 10 || taslak.il.length < 2 || (renkGerekli && !taslak.renk))
+    return { hata: `Ad soyad, açık adres, il${renkGerekli ? " ve renk" : ""} eksik; müşteriden iste.` };
   // Deneme alanı: sipariş ve link oluşturulmaz, ama asistan gerçek sohbetteki sonucu görür (yoksa hata sanıp ekibe devrediyor)
   if (!ctx.cfg) {
     if (mod === "ekip_onayli") return { hazirlaniyor: true, tutar_kdv_dahil: taslak.tutar, not: "Müşteriye şunu söyle: \"Ödeme linkiniz hazırlanıyor, ekibimiz birazdan iletecek.\"" };
-    const d = await deliver(ctx, telefon, { tur: "text", metin: `[Deneme] Burada ödeme linki gönderilirdi: ${taslak.urun} × ${adet} · ${taslak.renk} · ${taslak.tutar} TL` });
+    const d = await deliver(ctx, telefon, { tur: "text", metin: `[Deneme] Burada ödeme linki gönderilirdi: ${taslak.urun} × ${adet}${taslak.renk ? ` · ${taslak.renk}` : ""} · ${taslak.tutar} TL${taslak.fatura ? ` · Fatura: ${taslak.fatura}` : ""}` });
     if (!d.ok) return { hata: d.hata };
     return { gonderildi: true, toplam_kdv_dahil: taslak.tutar, not: "Link ayrı mesajla gönderildi; linki tekrar yazma." };
   }
-  const ozet = `${taslak.adSoyad} · ${taslak.urun} × ${adet} · ${taslak.renk} · ${taslak.tutar} TL\n${taslak.adres}, ${taslak.il}`;
+  const ozet = `${taslak.adSoyad} · ${taslak.urun} × ${adet}${taslak.renk ? ` · ${taslak.renk}` : ""} · ${taslak.tutar} TL\n${taslak.adres}, ${taslak.il}${taslak.fatura ? `\nFatura: ${taslak.fatura}` : ""}`;
   if (mod === "ekip_onayli") {
     await db().update(sohbetler).set({ odemeTaslak: JSON.stringify(taslak) }).where(eq(sohbetler.id, ctx.sohbetId));
     await handOff(ctx, "Ödeme linki ekip onayı bekliyor", ozet, "yuksek");
@@ -864,7 +886,7 @@ export async function runTool(ctx: Ctx, telefon: string, name: string, input: Re
       break;
     case "ekibe_devret":
       await handOff(ctx, str("sebep"), str("ozet"), input.oncelik === "yuksek" ? "yuksek" : "normal");
-      sonuc = { devredildi: true, not: "Müşteriye ekibimizin en kısa sürede döneceğini kısaca söyle; yeni soru sorma." };
+      sonuc = { devredildi: true, not: "Müşteriye ekibimizin mesai saatleri içinde (hafta içi 08:00-18:00) kendisine ulaşacağını kısaca söyle; yeni soru sorma." };
       break;
     case "odeme_linki_olustur":
       sonuc = await odemeLinki(ctx, telefon, input as LinkInput);

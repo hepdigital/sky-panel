@@ -351,7 +351,13 @@ export async function fetchMedia(cfg: WaConfig, list: PendingMedia[]) {
 
 /** Asistanın müşteriden topladığı ve müşterinin onayladığı sipariş özeti (ödeme linki; whatsapp/payment.ts) */
 /** gazebo: konfigüratör tasarımı (gazebo.ts GazeboSecim); ödeme linki tutarı onu yeniden fiyatlar */
-export type PaymentDraft = { urunKodu: string; urun: string; renk: string; adet: number; adSoyad: string; adres: string; il: string; eposta: string; tutar: number; gazebo?: Record<string, unknown> };
+export type PaymentDraft = {
+  urunKodu: string; urun: string; renk: string; adet: number; adSoyad: string; adres: string; il: string; eposta: string; tutar: number; gazebo?: Record<string, unknown>;
+  /** Panel kategorisi kartında seçilen katalog ürünü (tutar link açılırken panel fiyatından yeniden hesaplanır) */
+  panel?: { kalem: string; secenek: boolean };
+  /** Fatura bilgisi (kurumsal: unvan, vergi dairesi, vergi no); sipariş notuna yazılır */
+  fatura?: string;
+};
 
 export function parseDraft(raw: string | null): PaymentDraft | null {
   try {

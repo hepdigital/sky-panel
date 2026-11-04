@@ -4,7 +4,7 @@ import type { Me } from "../auth";
 import { db, schema } from "../db";
 import { cancelPaymentLink, createPaymentLink, createProductPaymentLink } from "../payment-links";
 import { getCard } from "./cards";
-import { priceGazebo, type GazeboSecim } from "./gazebo";
+import { panelKalem, priceGazebo, type GazeboSecim } from "./gazebo";
 import { parseDraft, sendFromPanel, type PaymentDraft } from "./store";
 
 // WhatsApp sohbetinden ödeme linki (Faz 2.1): sipariş ürün satırıyla açılır, sohbet başına tek açık link.
@@ -23,16 +23,20 @@ const SYSTEM: Me = { id: 0, kullaniciAdi: "whatsapp-asistani", adSoyad: "WhatsAp
  */
 export async function createChatPaymentLink(sohbetId: number, telefon: string, d: PaymentDraft, kullaniciId: number | null, satisci: string) {
   const card = await getCard(d.urunKodu);
-  if (!card?.aktif || !card.siteId || (!card.disUrunId && !d.gazebo)) return { ok: false as const, hata: "Ürün kartında site ürünü tanımlı değil." };
+  if (!card?.aktif || !card.siteId || (!card.disUrunId && !d.gazebo && !d.panel)) return { ok: false as const, hata: "Ürün kartında site ürünü tanımlı değil." };
   const [s] = await db().select({ link: sohbetler.odemeLinkiId }).from(sohbetler).where(eq(sohbetler.id, sohbetId));
   if (s?.link) {
     const c = await cancelPaymentLink(SYSTEM, s.link).catch(() => null);
     if (c && !c.ok) console.log("[wa-asistan] önceki link iptal edilmedi", sohbetId, c.hata);
   }
-  const r = d.gazebo ? await gazeboLink(card.siteId, telefon, d, kullaniciId, satisci) : await createProductPaymentLink({
-    siteId: card.siteId, urunId: card.disUrunId!, urunAd: card.ad, renk: d.renk, adet: d.adet, musteri: d.adSoyad, telefon, eposta: d.eposta, adres: d.adres, il: d.il,
-    kullaniciId, satisci,
-  });
+  const r = d.gazebo
+    ? await gazeboLink(card.siteId, telefon, d, kullaniciId, satisci)
+    : d.panel && card.panelKategoriId
+      ? await panelLink(card.siteId, card.panelKategoriId, telefon, d, kullaniciId, satisci)
+      : await createProductPaymentLink({
+          siteId: card.siteId, urunId: card.disUrunId!, urunAd: card.ad, renk: d.renk, adet: d.adet, musteri: d.adSoyad, telefon, eposta: d.eposta, adres: d.adres, il: d.il,
+          not: d.fatura ? `Fatura: ${d.fatura}` : undefined, kullaniciId, satisci,
+        });
   if (!r.ok) return r;
   // Müşterinin onayladığı tutardan farklıysa (fiyat değişmiş) link gönderilmez
   if (Math.abs(r.toplam - d.tutar) > 1) {
@@ -55,7 +59,20 @@ async function gazeboLink(siteId: number, telefon: string, d: PaymentDraft, kull
   return createPaymentLink(
     me,
     { siteId, musteri: d.adSoyad, telefon, eposta: d.eposta, adres: d.adres, il: d.il, aciklama: `WhatsApp · ${p.ozet[0]} · ${p.ozet[1]}`.slice(0, 200), tutar: p.toplam, komisyon: false },
-    { kullaniciId, not: p.ozet.join("\n") },
+    { kullaniciId, not: [...p.ozet, d.fatura && `Fatura: ${d.fatura}`].filter(Boolean).join("\n") },
+  );
+}
+
+/** Panel kategorisi ürünü: tutar panel fiyatından yeniden hesaplanır, sipariş tutar satırıyla açılır; ürün, renk ve fatura sipariş notunda */
+async function panelLink(siteId: number, kategoriId: number, telefon: string, d: PaymentDraft, kullaniciId: number | null, satisci: string) {
+  const [site] = await db().select({ markaId: schema.siteBaglantilari.markaId }).from(schema.siteBaglantilari).where(eq(schema.siteBaglantilari.id, siteId));
+  const k = site ? await panelKalem(site.markaId, kategoriId, d.panel!.kalem, d.panel!.secenek) : { ok: false as const, hata: "Site bağlantısı bulunamadı." };
+  if (!k.ok) return k;
+  const satir = `${k.ad} × ${d.adet}${d.renk ? ` · ${d.renk}` : ""}`;
+  return createPaymentLink(
+    { ...SYSTEM, adSoyad: satisci },
+    { siteId, musteri: d.adSoyad, telefon, eposta: d.eposta, adres: d.adres, il: d.il, aciklama: `WhatsApp · ${satir}`.slice(0, 200), tutar: Math.round(k.birim * d.adet * 100) / 100, komisyon: false },
+    { kullaniciId, not: [satir, d.fatura && `Fatura: ${d.fatura}`].filter(Boolean).join("\n") },
   );
 }
 

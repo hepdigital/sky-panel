@@ -247,6 +247,8 @@ export type ProductLinkInput = {
   eposta: string;
   adres: string;
   il: string;
+  /** Sipariş notuna eklenir (ör. fatura bilgisi) */
+  not?: string;
   /** Linki açan panel kullanıcısı (WhatsApp asistanı: null) */
   kullaniciId: number | null;
   satisci: string;
@@ -308,7 +310,7 @@ export async function createProductPaymentLink(i: ProductLinkInput) {
         billing: { first_name: ad, last_name: soyad, phone: telefon, email: eposta || `odeme@${host}`, address_1: adres, city: il, country: "TR" },
         shipping: { first_name: ad, last_name: soyad, phone: telefon, address_1: adres, city: il, country: "TR" },
         line_items: [{ product_id: i.urunId, ...(variationId ? { variation_id: variationId } : {}), quantity: adet, meta_data: i.renk ? [{ key: "Renk", value: i.renk }] : [] }],
-        customer_note: i.renk ? `Renk: ${i.renk}` : "",
+        customer_note: [i.renk && `Renk: ${i.renk}`, i.not].filter(Boolean).join("\n"),
         meta_data: [
           { key: "_sky_odeme_linki", value: "1" },
           { key: "_sky_satisci", value: i.satisci },
