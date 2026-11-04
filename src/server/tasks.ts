@@ -3,6 +3,7 @@ import { and, asc, desc, eq, ne, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { isAdmin, type Me } from "./auth";
 import { db, schema } from "./db";
+import { notify } from "./push";
 
 const { gorevler, gorevKayitlari, kullanicilar, musteriler, teklifler, siparisler } = schema;
 export type TaskStatus = (typeof schema.GOREV_DURUMLARI)[number];
@@ -111,6 +112,11 @@ async function log(gorevId: number, me: Me, metin: string, tip: "yorum" | "olay"
   await db().insert(gorevKayitlari).values({ gorevId, kullaniciId: me.id, tip, metin });
 }
 
+/** Göreve atanan kişiye uygulama bildirimi (kendine atadıysa gitmez) */
+function notifyAssigned(me: Me, id: number, baslik: string, atananId: number | null) {
+  if (atananId) void notify("gorev", [atananId], { title: `Yeni görev · ${me.adSoyad}`, body: baslik, url: `/panel/gorevler/${id}`, tag: `gorev-${id}` }, me.id);
+}
+
 async function nameOf(id: number | null) {
   if (!id) return "kimse";
   const [u] = await db().select({ ad: kullanicilar.adSoyad }).from(kullanicilar).where(eq(kullanicilar.id, id));
@@ -131,7 +137,10 @@ export async function saveTask(me: Me, t: TaskInput): Promise<{ ok: true; id: nu
     const [old] = await db().select({ atananId: gorevler.atananId }).from(gorevler).where(and(eq(gorevler.id, t.id), canTouch(me)));
     if (!old) return { ok: false, hata: "Görev bulunamadı." };
     await db().update(gorevler).set(values).where(eq(gorevler.id, t.id));
-    if (old.atananId !== atananId) await log(t.id, me, `Görevi ${await nameOf(atananId)} kişisine atadı`);
+    if (old.atananId !== atananId) {
+      await log(t.id, me, `Görevi ${await nameOf(atananId)} kişisine atadı`);
+      notifyAssigned(me, t.id, baslik, atananId);
+    }
     return { ok: true, id: t.id };
   }
   const [r] = await db()
@@ -139,6 +148,7 @@ export async function saveTask(me: Me, t: TaskInput): Promise<{ ok: true; id: nu
     .values({ ...values, olusturanId: me.id, musteriId: t.musteriId || null, teklifId: t.teklifId || null, siparisId: t.siparisId || null })
     .$returningId();
   await log(r.id, me, atananId && atananId !== me.id ? `Görevi oluşturdu ve ${await nameOf(atananId)} kişisine atadı` : "Görevi oluşturdu");
+  notifyAssigned(me, r.id, baslik, atananId);
   return { ok: true, id: r.id };
 }
 
@@ -157,9 +167,15 @@ export async function setTaskStatus(me: Me, id: number, durum: TaskStatus) {
 export async function addComment(me: Me, id: number, metin: string) {
   const text = clip(metin, 5000);
   if (!text) return false;
-  const [t] = await db().select({ id: gorevler.id }).from(gorevler).where(and(eq(gorevler.id, id), canTouch(me)));
+  const [t] = await db()
+    .select({ id: gorevler.id, baslik: gorevler.baslik, atananId: gorevler.atananId, olusturanId: gorevler.olusturanId })
+    .from(gorevler)
+    .where(and(eq(gorevler.id, id), canTouch(me)));
   if (!t) return false;
   await log(id, me, text, "yorum");
+  // Yorum görevin diğer tarafına (atanan ve oluşturan) gider
+  const kime = [t.atananId, t.olusturanId].filter((x): x is number => !!x);
+  void notify("gorev", kime, { title: `${me.adSoyad} yorum yazdı · ${t.baslik}`, body: text.replace(/s+/g, " ").slice(0, 300), url: `/panel/gorevler/${id}`, tag: `gorev-${id}` }, me.id);
   return true;
 }
 

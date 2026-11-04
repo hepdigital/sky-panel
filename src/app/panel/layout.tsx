@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { AdminShell } from "@/components/admin/admin-shell";
+import { appMetadata } from "@/lib/app-meta";
 import { canSell, requireMe } from "@/server/auth";
 import { newRequestCount } from "@/server/site-requests";
 import { newWaRequestCount } from "@/server/whatsapp/requests";
@@ -8,7 +9,7 @@ import { openTaskCount } from "@/server/tasks";
 import { waEnabled } from "@/server/whatsapp/config";
 import { unreadChatCount } from "@/server/whatsapp/store";
 
-export const metadata: Metadata = { title: { default: "Yönetim", template: "%s · Sky Yönetim" } };
+export const metadata: Metadata = { title: { default: "Yönetim", template: "%s · Sky Yönetim" }, ...appMetadata };
 
 /** Panel yalnızca giriş yapmış personele açıktır; rol ve görünürlük oturumdaki kullanıcıdan gelir */
 async function Guard({ children }: { children: React.ReactNode }) {

@@ -1,9 +1,10 @@
 import "server-only";
-import { and, desc, eq, gt, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import type { Me } from "../auth";
 import { customerByPhone } from "../customers";
 import { db, schema } from "../db";
 import { saveWhatsappMedia } from "../files";
+import { notify, sellers } from "../push";
 import { waConfig, windowOpen, type WaConfig } from "./config";
 import { downloadMedia, sendText } from "./graph";
 
@@ -432,6 +433,33 @@ export async function unreadChatCount() {
     return r?.n ?? 0;
   } catch {
     return 0;
+  }
+}
+
+/**
+ * Ekipteki sohbetlere gelen müşteri mesajı: ilgilenen kişiye (yoksa satış ekibine) uygulama bildirimi.
+ * Asistandaki sohbetler bildirilmez; asistan devrederse kendisi bildirir.
+ */
+export async function notifyIncoming(chats: number[]) {
+  if (!chats.length) return;
+  const rows = await db()
+    .select({ id: sohbetler.id, ad: sohbetler.ad, telefon: sohbetler.telefon, ilgilenenId: sohbetler.ilgilenenId })
+    .from(sohbetler)
+    .where(and(inArray(sohbetler.id, chats), eq(sohbetler.durum, "ekip"), realChat));
+  for (const c of rows) {
+    const [m] = await db()
+      .select({ metin: mesajlar.metin, tur: mesajlar.tur })
+      .from(mesajlar)
+      .where(and(eq(mesajlar.sohbetId, c.id), eq(mesajlar.yon, "gelen")))
+      .orderBy(desc(mesajlar.id))
+      .limit(1);
+    if (!m) continue;
+    await notify("whatsapp", c.ilgilenenId ? [c.ilgilenenId] : sellers(), {
+      title: `WhatsApp · ${c.ad || `+${c.telefon}`}`,
+      body: m.metin?.replace(/s+/g, " ").slice(0, 300) || (m.tur === "image" ? "Görsel gönderdi" : m.tur === "audio" ? "Sesli mesaj gönderdi" : "Yeni mesaj"),
+      url: `/panel/whatsapp?s=${c.id}`,
+      tag: `wa-${c.id}`,
+    });
   }
 }
 

@@ -11,6 +11,7 @@ import { db, schema } from "./db";
 import { saveWebp } from "./files";
 import { gazeboTables } from "./gazebo-prices";
 import { wcRequest, wcVariations } from "./marketplaces/woocommerce";
+import { notify, sellers } from "./push";
 import { ensureRequestTable } from "./site-requests";
 
 // Site konfigüratörünün sepeti: tarayıcıdan gelen tasarım sunucuda yeniden doğrulanıp fiyatlanır ve imzalanır.
@@ -279,6 +280,11 @@ export async function saveLead(input: { marka: string; g: unknown; adet: unknown
     const [last] = await db().select({ m: sql<number>`COALESCE(MAX(${t.disId}), 0)`.mapWith(Number) }).from(t).where(eq(t.siteId, site.id));
     try {
       await db().insert(t).values({ siteId: site.id, markaId: brand.id, disId: (last?.m ?? 0) + 1, tur: "konfigurator", turAd: "Gazebo tasarımı (ödemeye geçerken)", ad, eposta: "", telefon, mesaj, disTarih: new Date() });
+      void notify("talep", sellers(brand.id), {
+        title: "Konfigüratörde ödemeye geçti",
+        body: `${ad} · ${telefon} · Gazebo ${SZ[r.g.size]} m · ${tl(r.fiyat * adet + ekToplam)}`,
+        url: "/panel/siparisler",
+      });
       return;
     } catch (e) {
       // Aynı anda gelen iki kayıt aynı kimliği almışsa yeniden dene

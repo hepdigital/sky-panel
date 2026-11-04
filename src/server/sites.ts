@@ -1,9 +1,10 @@
 import "server-only";
 import { and, asc, eq, or, sql } from "drizzle-orm";
 import { KARGOLAR, kargoAd, takipLinki } from "@/lib/cargo";
-import type { PdfData } from "@/lib/terminal/calc";
+import { TL, type PdfData } from "@/lib/terminal/calc";
 import { db, schema } from "./db";
 import { paymentLinkOwner } from "./payment-links";
+import { notify, sellers } from "./push";
 import { ensureMarketplaceSchema } from "./db/ensure";
 import { marketplaceTick } from "./marketplaces/listing";
 import { financeTick } from "./marketplaces/finance";
@@ -301,8 +302,17 @@ async function customerFor(site: Site, o: SiteOrder) {
   return r.id;
 }
 
-/** Siparişi panelde oluşturur ya da günceller (site + site sipariş no eşsiz) */
-async function upsert(site: Site, o: SiteOrder, vocab?: Vocabulary | null) {
+/** Eşitlemede yakalanan olay: yeni sipariş ya da bekleyen siparişin ödemesi (uygulama bildirimi) */
+type OrderEvent = { tur: "siparis" | "odeme"; id: number; no: string; musteri: string; toplam: number; odendi: boolean; yontem: string; satisci: number | null };
+
+/** Yeni sipariş bildirimi yalnızca son günlerin siparişleri için (ilk bağlantıda ya da geçmiş yeniden çekilirken eski siparişler bildirilmez) */
+const FRESH_MS = 3 * 86_400_000;
+
+/**
+ * Siparişi panelde oluşturur ya da günceller (site + site sipariş no eşsiz).
+ * events: eşitlemede verilirse yeni sipariş ve ödeme alındı olayları buraya yazılır (paneldeki işlemlerde bildirim yok).
+ */
+async function upsert(site: Site, o: SiteOrder, vocab?: Vocabulary | null, events?: OrderEvent[]) {
   // Ödeme yönteminin sitedeki adı ("havale" → "Havale / EFT")
   const yontem = o.odemeYontemiAd || vocab?.odemeYontemleri.find((m) => m.key === o.odemeYontemi)?.label || o.odemeYontemi || "";
   const values = {
@@ -312,14 +322,18 @@ async function upsert(site: Site, o: SiteOrder, vocab?: Vocabulary | null) {
   };
   const disNo = o.disNo ?? o.no;
   const [ex] = await db()
-    .select({ id: siparisler.id, siteVeri: siparisler.siteVeri, kullaniciId: siparisler.kullaniciId })
+    .select({ id: siparisler.id, siteVeri: siparisler.siteVeri, kullaniciId: siparisler.kullaniciId, odemeDurumu: siparisler.odemeDurumu })
     .from(siparisler)
     .where(and(eq(siparisler.siteId, site.id), eq(siparisler.disNo, disNo)));
+  const event = (tur: OrderEvent["tur"], id: number, no: string, satisci: number | null): OrderEvent => ({
+    tur, id, no, musteri: values.musteriAdi, toplam: o.toplam, odendi: o.odemeDurumu === "odendi", yontem: values.odemeYontemi, satisci,
+  });
   // Panelden açılan ödeme linkinin siparişi linki açan satışçıya bağlanır (satış raporu ve satışçının sipariş listesi)
   const satisci = site.tur === "woocommerce" && !ex?.kullaniciId ? await paymentLinkOwner(site.id, o.disId) : null;
   if (ex) {
     if (!o.gecmis.length && ex.siteVeri) values.siteVeri = JSON.stringify({ ...o, gecmis: (JSON.parse(ex.siteVeri) as SiteOrder).gecmis ?? [] });
     await db().update(siparisler).set({ ...values, ...(satisci ? { kullaniciId: satisci } : {}) }).where(eq(siparisler.id, ex.id));
+    if (events && ex.odemeDurumu !== "odendi" && o.odemeDurumu === "odendi") events.push(event("odeme", ex.id, o.no, satisci ?? ex.kullaniciId));
     return ex.id;
   }
   const musteriId = await customerFor(site, o);
@@ -333,7 +347,31 @@ async function upsert(site: Site, o: SiteOrder, vocab?: Vocabulary | null) {
       markaId: site.markaId, musteriId, kullaniciId: satisci,
     })
     .$returningId();
+  if (events && Date.now() - d.getTime() < FRESH_MS) events.push(event("siparis", r.id, o.no, satisci));
   return r.id;
+}
+
+/** Eşitlemede yakalanan siparişleri bildirir: türü başına üçten fazlaysa tek özet bildirim */
+async function notifyOrders(site: Site, events: OrderEvent[]) {
+  for (const tur of ["siparis", "odeme"] as const) {
+    const list = events.filter((e) => e.tur === tur);
+    const baslik = tur === "siparis" ? "Yeni sipariş" : "Ödeme alındı";
+    if (list.length > 3) {
+      await notify(tur, sellers(site.markaId, list.map((e) => e.satisci)), {
+        title: `${list.length} ${baslik.toLocaleLowerCase("tr")} · ${site.ad}`,
+        body: list.slice(0, 5).map((e) => `${e.no} ${e.musteri}`).join(" · "),
+        url: "/panel/siparisler",
+      });
+      continue;
+    }
+    for (const e of list)
+      await notify(tur, sellers(site.markaId, [e.satisci]), {
+        title: `${baslik} · ${site.ad}`,
+        body: [e.no, e.musteri, TL(e.toplam), tur === "odeme" ? e.yontem : e.odendi ? "ödendi" : "ödeme bekleniyor"].filter(Boolean).join(" · "),
+        url: `/panel/siparisler/${e.id}`,
+        tag: `siparis-${e.id}`,
+      });
+  }
 }
 
 /* ───────────── çekme ───────────── */
@@ -366,6 +404,7 @@ export async function syncSite(siteId: number) {
   await db().update(sites).set({ sonDeneme: new Date() }).where(eq(sites.id, site.id));
   let cursor = site.imlec;
   let count = 0;
+  const events: OrderEvent[] = [];
   const started = Date.now();
   try {
     // En çok ~25 sn çalışır; kalan sayfalar bir sonraki eşitlemede imleçten sürer
@@ -373,7 +412,7 @@ export async function syncSite(siteId: number) {
       const r = await fetchPage(site, cursor);
       if (!r) break;
       if (page === 0) await db().update(sites).set({ sozluk: JSON.stringify(r.vocab) }).where(eq(sites.id, site.id));
-      for (const o of r.orders) await upsert(site, o, r.vocab);
+      for (const o of r.orders) await upsert(site, o, r.vocab, events);
       count += r.orders.length;
       cursor = r.cursor;
       await db().update(sites).set({ imlec: cursor }).where(eq(sites.id, site.id));
@@ -388,10 +427,13 @@ export async function syncSite(siteId: number) {
     // Pazaryeri cari hesabı (komisyon, kargo, hizmet bedeli): üç saatte bir; hata sipariş eşitlemesini bozmaz
     if (site.tur === "trendyol") await financeTick(site).catch((e) => console.error("financeTick", e));
     await db().update(sites).set({ sonBasari: new Date(), sonHata: null }).where(eq(sites.id, site.id));
+    if (events.length) void notifyOrders(site, events);
     return { ok: true as const, count };
   } catch (e) {
     const hata = e instanceof Error ? (e.name === "TimeoutError" ? "Site zamanında yanıt vermedi." : e.message) : "Bilinmeyen hata";
     await db().update(sites).set({ sonHata: hata.slice(0, 1000) }).where(eq(sites.id, site.id));
+    // Hatadan önce kaydedilen siparişler sonraki eşitlemede "yeni" görünmez: bildirimleri şimdi gider
+    if (events.length) void notifyOrders(site, events);
     return { ok: false as const, hata, count };
   }
 }

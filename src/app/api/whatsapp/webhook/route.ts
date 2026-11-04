@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { scheduleChat } from "@/server/whatsapp/asistan";
 import { signatureValid, waConfig } from "@/server/whatsapp/config";
-import { fetchMedia, saveWebhook, type WebhookBody } from "@/server/whatsapp/store";
+import { fetchMedia, notifyIncoming, saveWebhook, type WebhookBody } from "@/server/whatsapp/store";
 
 /**
  * WhatsApp Cloud API webhook'u (Meta panelinde: https://panel.skygorselmarket.com/api/whatsapp/webhook).
@@ -37,6 +37,8 @@ export async function POST(request: Request) {
     // Cevaptan sonra: görseller indirilir; yeni mesaj gelen sohbetler birleştirme süresinden sonra asistana verilir
     if (media.length) after(() => fetchMedia(cfg, media));
     if (chats.length) after(() => Promise.all(chats.map((id) => scheduleChat(id).catch((e) => console.error("whatsapp asistan", e)))));
+    // Ekipteki sohbete müşteri yazdıysa ilgilenene uygulama bildirimi
+    if (chats.length) after(() => notifyIncoming(chats).catch((e) => console.error("whatsapp bildirim", e)));
   } catch (e) {
     // Kayıt başarısızsa 500: Meta bildirimi bir süre sonra yeniden gönderir (wamid tekil olduğu için çift kayıt olmaz)
     console.error("whatsapp webhook", e);

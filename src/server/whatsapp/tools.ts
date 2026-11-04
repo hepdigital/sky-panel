@@ -10,6 +10,7 @@ import { mailReady, sendMail } from "../mail";
 import { wcCategoryProducts, wcProductDetail, wcProductInfo, wcSearch, wcVariations } from "../marketplaces/woocommerce";
 import { orderCargo } from "../orders";
 import { siteInstallments, siteTransferRate } from "../payment-links";
+import { notify, sellers } from "../push";
 import { fold, getCard, listCards, type Kart } from "./cards";
 import type { WaConfig } from "./config";
 import {
@@ -700,7 +701,15 @@ async function bilgiKaydet(ctx: Ctx, i: BilgiInput) {
     .limit(1);
   if (open) {
     if (Object.keys(filled).length) await db().update(talepler).set(filled).where(eq(talepler.id, open.id));
-  } else await db().insert(talepler).values({ sohbetId: ctx.sohbetId, telefon: ctx.telefon ?? "", ...filled });
+  } else {
+    await db().insert(talepler).values({ sohbetId: ctx.sohbetId, telefon: ctx.telefon ?? "", ...filled });
+    void notify("talep", sellers(), {
+      title: "Yeni talep · WhatsApp",
+      body: [set.ad || (ctx.telefon ? `+${ctx.telefon}` : null), set.il, set.urun, set.adet ? `${set.adet} adet` : null].filter(Boolean).join(" · ") || "Asistan yeni bir talep kaydetti",
+      url: "/panel/talepler",
+      tag: `wa-talep-${ctx.sohbetId}`,
+    });
+  }
   return { kaydedildi: true, bilgiler: filled };
 }
 
@@ -712,12 +721,20 @@ async function etiketle(ctx: Ctx, kod: string) {
   return { etiketlendi: card.kod };
 }
 
-/** Ekibe bildirim: menü rozeti (okunmamış) ve ayarda adres varsa e-posta (deneme alanında yok) */
+/** Ekibe bildirim: menü rozeti (okunmamış), uygulama bildirimi ve ayarda adres varsa e-posta (deneme alanında yok) */
 async function notifyTeam(ctx: Ctx, konu: string, metin: string, oncelikli = false) {
   await db().update(sohbetler).set({ okunmamis: sql`GREATEST(${sohbetler.okunmamis}, 1)` }).where(eq(sohbetler.id, ctx.sohbetId));
+  if (!ctx.cfg) return;
+  const [c] = await db().select({ telefon: sohbetler.telefon, ad: sohbetler.ad, ilgilenenId: sohbetler.ilgilenenId }).from(sohbetler).where(eq(sohbetler.id, ctx.sohbetId));
+  // Sohbetle ilgilenen biri varsa ona, yoksa satış ekibine
+  void notify("whatsapp", c?.ilgilenenId ? [c.ilgilenenId] : sellers(), {
+    title: `${oncelikli ? "Öncelikli · " : ""}WhatsApp · ${konu.charAt(0).toLocaleUpperCase("tr")}${konu.slice(1)}`,
+    body: `${c?.ad || `+${c?.telefon ?? ""}`} · ${metin.replace(/^[Öncelikli] /, "").replace(/s+/g, " ").slice(0, 300)}`,
+    url: `/panel/whatsapp?s=${ctx.sohbetId}`,
+    tag: `wa-${ctx.sohbetId}`,
+  });
   const to = ctx.ayar.bildirim_eposta;
-  if (!ctx.cfg || !to || !mailReady()) return;
-  const [c] = await db().select({ telefon: sohbetler.telefon, ad: sohbetler.ad }).from(sohbetler).where(eq(sohbetler.id, ctx.sohbetId));
+  if (!to || !mailReady()) return;
   const link = publicUrl(`/panel/whatsapp?s=${ctx.sohbetId}`);
   const esc = (v: string) => v.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]!);
   await sendMail({

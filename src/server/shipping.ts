@@ -2,6 +2,7 @@ import "server-only";
 import { and, desc, eq, inArray, isNull, like, sql } from "drizzle-orm";
 import { YURTICI_DEFAULT, packageKeyValid, type Paket, type Tariff } from "@/lib/cargo-tariff";
 import { db, schema } from "./db";
+import { admins, notify } from "./push";
 import { ykShipments, ykTest, type YkCredentials } from "./yurtici";
 
 // Kargo: anlaşmalı tarife (Sevkiyat ekranında düzenlenir) ve koli ölçüleri (modüler gazebo parçaları, teklif ürünleri).
@@ -174,6 +175,13 @@ export async function syncYurtici(): Promise<{ ok: true; count: number } | { ok:
   const st = await readRow<{ son: string | null }>(SYNC_KEY);
   const now = Date.now();
   let count = 0;
+  // Önceki durumlar: teslim edilen ya da iade/ret olan giden gönderiler bildirilir (ilk eşitlemede bildirim yok)
+  const before = st?.son
+    ? new Map(
+        (await db().select({ belgeId: shipments.belgeId, durumKodu: shipments.durumKodu, red: shipments.red }).from(shipments).where(eq(shipments.firma, "yurtici"))).map((r) => [r.belgeId, r]),
+      )
+    : null;
+  const changed: { belgeId: string; olay: "teslim" | "red" }[] = [];
   try {
     for (let end = now; end > now - (st?.son ? 45 : 180) * DAY; end -= 30 * DAY) {
       const list = await ykShipments(api, ymd(end - 30 * DAY + DAY), ymd(end));
@@ -185,16 +193,46 @@ export async function syncYurtici(): Promise<{ ok: true; count: number } | { ok:
           durum: s.durum.slice(0, 80) || null, red: s.red, takipUrl: s.takipUrl?.slice(0, 255) ?? null, tahminiTeslim: s.tahminiTeslim,
         };
         await db().insert(shipments).values({ firma: "yurtici", belgeId: s.belgeId, ...v }).onDuplicateKeyUpdate({ set: v });
+        const old = before?.get(s.belgeId);
+        if (old && v.yon === "giden") {
+          if (v.red && !old.red) changed.push({ belgeId: s.belgeId, olay: "red" });
+          else if (v.durumKodu === "OK" && old.durumKodu !== "OK") changed.push({ belgeId: s.belgeId, olay: "teslim" });
+        }
       }
       count += list.length;
     }
     await matchShipments();
     await writeRow(SYNC_KEY, { son: new Date(now).toISOString(), hata: null });
+    if (changed.length) void notifyShipments(changed);
     return { ok: true, count };
   } catch (e) {
     const hata = e instanceof Error ? (e.name === "TimeoutError" ? "Yurtiçi zamanında yanıt vermedi." : e.message) : "Bilinmeyen hata";
     await writeRow(SYNC_KEY, { son: st?.son ?? null, hata });
     return { ok: false, hata };
+  }
+}
+
+/** Teslim edilen / iade olan gönderiler: yöneticilere ve siparişin satışçısına */
+async function notifyShipments(changed: { belgeId: string; olay: "teslim" | "red" }[]) {
+  const rows = await db()
+    .select({ belgeId: shipments.belgeId, alici: shipments.alici, siparisId: shipments.siparisId, no: schema.siparisler.no, satisci: schema.siparisler.kullaniciId })
+    .from(shipments)
+    .leftJoin(schema.siparisler, eq(schema.siparisler.id, shipments.siparisId))
+    .where(and(eq(shipments.firma, "yurtici"), inArray(shipments.belgeId, changed.map((c) => c.belgeId))));
+  const olay = new Map(changed.map((c) => [c.belgeId, c.olay]));
+  if (rows.length > 5) {
+    const teslim = rows.filter((r) => olay.get(r.belgeId) === "teslim").length;
+    const parts = [teslim && `${teslim} teslim edildi`, rows.length - teslim && `${rows.length - teslim} iade/ret`].filter(Boolean);
+    return notify("kargo", admins(), { title: "Kargo güncellemeleri", body: parts.join(" · "), url: "/panel/sevkiyat" });
+  }
+  for (const r of rows) {
+    const red = olay.get(r.belgeId) === "red";
+    await notify("kargo", admins([r.satisci]), {
+      title: red ? "Kargo iade/ret" : "Kargo teslim edildi",
+      body: [r.no, r.alici].filter(Boolean).join(" · ") || r.belgeId,
+      url: r.siparisId ? `/panel/siparisler/${r.siparisId}` : "/panel/sevkiyat",
+      tag: `kargo-${r.belgeId}`,
+    });
   }
 }
 
