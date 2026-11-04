@@ -88,7 +88,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onCreate={() => setCreateOpen(true)} />
         <main className="flex-1 px-4 pt-2 pb-28 md:px-6 md:pb-10 lg:px-8">
-          {!focusRoutes.includes(pathname) && pathname !== "/panel/bildirimler" && <AppBanner />}
+          {!focusRoutes.includes(pathname) && !["/panel", "/panel/bildirimler"].includes(pathname) && <AppBanner />}
           {children}
         </main>
       </div>

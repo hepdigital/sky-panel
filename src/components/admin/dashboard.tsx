@@ -6,6 +6,7 @@ import { OrderBadge, ORDER_STATUS, type OrderStatus } from "@/components/orders/
 import { ASAMA } from "@/components/terminal/quote-flow";
 import { Avatar, PriorityTag, STATUS, dueText } from "@/components/tasks/task-meta";
 import type { TaskRow } from "@/components/tasks/task-board";
+import { AppSetupCard } from "@/components/app/app-banner";
 import { BrandFilter, type BrandOption } from "@/components/brand/brand-filter";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -78,6 +79,8 @@ export function Dashboard({ greeting, role, period, brands, activeBrand, sites, 
           )}
         </div>
       </section>
+
+      <AppSetupCard />
 
       {data && (
         <>

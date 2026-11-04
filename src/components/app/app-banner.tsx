@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BellRing, Download, Share, SquarePlus, X } from "lucide-react";
+import { BellRing, Check, Download, Settings, Share, Smartphone, SquarePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 import { useApp } from "./use-app";
 
 const HIDE_KEY = "sky-uygulama-gizle";
@@ -78,6 +79,111 @@ export function AppBanner() {
         </Link>
       </Sheet>
     </>
+  );
+}
+
+const CARD_KEY = "sky-uygulama-panel-gizle";
+const CARD_DAYS = 30;
+
+/**
+ * Dashboard kartı: 1) uygulamayı yükle, 2) bildirimleri aç. İkisi de tamamlanınca görünmez.
+ * Bilgisayarda yükleme yalnızca tarayıcı öneriyorsa adım olarak çıkar.
+ */
+export function AppSetupCard() {
+  const { platform, state, busy, canInstall, enable, install } = useApp();
+  const [hidden, setHidden] = useState(true);
+  const [guide, setGuide] = useState(false);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      try {
+        setHidden(Number(localStorage.getItem(CARD_KEY) ?? 0) > Date.now());
+      } catch {
+        setHidden(false);
+      }
+    });
+  }, []);
+
+  if (!platform || hidden || state === "yukleniyor") return null;
+  const installStep = platform.standalone || platform.mobile || canInstall;
+  const installed = platform.standalone;
+  const pushDone = state === "acik";
+  // Bilgisayarda bildirim desteklenmiyorsa yapılacak bir şey yok
+  const pushPossible = state !== "desteklenmiyor" || (platform.ios && !installed);
+  if ((!installStep || installed) && (pushDone || !pushPossible)) return null;
+
+  const dismiss = () => {
+    try {
+      localStorage.setItem(CARD_KEY, String(Date.now() + CARD_DAYS * 86_400_000));
+    } catch {}
+    setHidden(true);
+  };
+
+  const pushText =
+    state === "acik"
+      ? "Bu cihaza bildirim geliyor."
+      : state === "engellendi"
+        ? "Bildirim izni engellenmiş: tarayıcının site ayarlarından bu siteye izin verin."
+        : state === "desteklenmiyor"
+          ? "Önce uygulamayı yükleyin, ana ekrandaki simgeden açıp buradan bildirimleri açın."
+          : "Yeni sipariş, ödeme, talep, WhatsApp mesajı ve görevler anında gelsin.";
+
+  return (
+    <>
+      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
+        <div data-panel="admin" className="flex items-start gap-3 bg-sidebar p-4 text-white md:items-center md:p-5">
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/10">
+            <Smartphone className="size-[22px]" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-bold md:text-lg">Sky Yönetim’i telefonunuza kurun</h2>
+            <p className="text-sm text-white/75">Mağazaya gerek yok: panel uygulama olarak ana ekrana eklenir, işler bildirim olarak gelir.</p>
+          </div>
+          <button type="button" onClick={dismiss} className="grid size-8 shrink-0 place-items-center rounded-full text-white/70 hover:bg-white/10" aria-label="Kapat">
+            <X className="size-4" />
+          </button>
+        </div>
+        <ol className="divide-y divide-border">
+          {installStep && (
+            <Step n={1} done={installed} title={installed ? "Uygulama yüklü" : "Uygulamayı yükleyin"} text={installed ? "Panel bu cihazda uygulama olarak açık." : platform.ios ? "Safari’de Paylaş → Ana Ekrana Ekle." : "Tek dokunuşla ana ekrana eklenir."}>
+              {!installed && (
+                <Button size="sm" onClick={() => (canInstall ? install() : setGuide(true))}>
+                  {canInstall ? "Yükle" : "Nasıl?"}
+                </Button>
+              )}
+            </Step>
+          )}
+          <Step n={installStep ? 2 : 1} done={pushDone} title={pushDone ? "Bildirimler açık" : "Bildirimleri açın"} text={pushText}>
+            {state === "kapali" && (
+              <Button size="sm" onClick={enable} disabled={busy}>
+                Aç
+              </Button>
+            )}
+            {(state === "engellendi" || pushDone) && (
+              <Link href="/panel/bildirimler" className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-primary hover:bg-muted">
+                <Settings className="size-3.5" /> Ayarlar
+              </Link>
+            )}
+          </Step>
+        </ol>
+      </section>
+      <Sheet open={guide} onClose={() => setGuide(false)} title="Uygulamayı yükleyin">
+        <InstallSteps ios={platform.ios} />
+      </Sheet>
+    </>
+  );
+}
+
+function Step({ n, done, title, text, children }: { n: number; done: boolean; title: string; text: string; children?: React.ReactNode }) {
+  return (
+    <li className="flex items-center gap-3 px-4 py-3 md:px-5">
+      <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold", done ? "bg-success text-white" : "bg-muted")}>{done ? <Check className="size-4" /> : n}</span>
+      <div className="min-w-0 flex-1">
+        <p className={cn("text-sm font-semibold", done && "text-muted-foreground")}>{title}</p>
+        <p className="text-xs text-muted-foreground">{text}</p>
+      </div>
+      {children}
+    </li>
   );
 }
 
