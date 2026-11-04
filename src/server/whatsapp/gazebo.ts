@@ -4,7 +4,7 @@ import path from "node:path";
 import { FABRICS, SIZES, SZ, gzRows, gzTotal, plan, val, type Gazebo } from "@/lib/terminal/calc";
 import { FRAME_MAT, FRAME_NAME, KONF_KDV, KONF_MODE, SIDE_NAMES, cleanConfig, cleanExtras, framesOf } from "@/lib/konfigurator";
 import { priceTable, withPriceTable } from "@/lib/terminal/price-table";
-import { wallImage, wallName, wallPrice, type Wall } from "@/modules/gazebo/walls";
+import { wallImage, wallName, wallPrice, type PrintSide, type Wall } from "@/modules/gazebo/walls";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { fold, type Kart } from "./cards";
 import { getCatalog } from "../catalog";
@@ -107,11 +107,14 @@ export async function gazeboSecenekleri(markaId: number, card: Kart | null, site
           if (key === "yok") return [];
           const w = { ...DUVARLAR[key], f: fab } as Wall;
           const p = wallPrice(k.grup, w, KONF_MODE);
-          return p === null ? [] : [{ duvar: key, ad: wallName(w), fiyat_kdv_dahil: kdv(p) }];
+          if (p === null) return [];
+          // Baskılıda fiyat dış (ya da iç) yüze tek taraflı baskıdır; çift taraflının fiyatı ayrıca
+          const cift = fab === 2 ? wallPrice(k.grup, { ...w, y: "cift" }, KONF_MODE) : null;
+          return [{ duvar: key, ad: wallName(w), fiyat_kdv_dahil: kdv(p), ...(cift !== null ? { cift_tarafli_fiyat_kdv_dahil: kdv(cift) } : {}) }];
         }),
       })),
       tasarim_linki: designLink(card, siteAdres, size, f),
-      not: "Toplam = iskelet + tavan + seçilen duvarlar (her kenar ayrı). Kesin toplam için gazebo_fiyatla. Duvarlar tavanla aynı kumaştan yapılır.",
+      not: "Toplam = iskelet + tavan + seçilen duvarlar (her kenar ayrı). Kesin toplam için gazebo_fiyatla. Duvarlar tavanla aynı kumaştan yapılır." + (fab === 2 ? " Baskılı duvar fiyatı tek yüze (dış ya da iç) baskıdır; iki yüzde baskı istenirse çift taraflı fiyatı geçerli (duvar iki kez basılıp dikilir), gazebo_fiyatla'da baski_yuzu: cift." : ""),
     };
   });
 }
@@ -128,7 +131,9 @@ async function ekUrunler(markaId: number, size: string) {
   }));
 }
 
-export type GazeboInput = { olcu: string; iskelet: string | null; kumas: string; on: string; arka: string; sol: string; sag: string; adet: number | null };
+export type GazeboInput = { olcu: string; iskelet: string | null; kumas: string; on: string; arka: string; sol: string; sag: string; baski_yuzu?: string | null; adet: number | null };
+/** Baskı yüzü (asistandan): bilinmeyen ya da boşsa dış yüz */
+const yuzOf = (v?: string | null): PrintSide => (v === "ic" || v === "cift" ? v : "dis");
 
 /** Bir gazebo tasarımının konfigüratördeki fiyatı; iskelet verilmezse (ya da görselden anlaşılamadıysa) her iskelet için */
 export async function gazeboFiyatla(markaId: number, card: Kart | null, siteAdres: string, i: GazeboInput) {
@@ -136,6 +141,7 @@ export async function gazeboFiyatla(markaId: number, card: Kart | null, siteAdre
   if (!size) return { hata: `Bu ölçü yok. Ölçüler: ${SIZES.join(", ")}.` };
   if (!(i.kumas in KUMASLAR)) return { hata: `Kumaş şunlardan biri olmalı: ${KUMAS_SECENEKLERI.join(", ")}` };
   const f = KUMASLAR[i.kumas as Kumas];
+  const y = yuzOf(i.baski_yuzu);
   const keys = [i.on, i.arka, i.sol, i.sag];
   const bad = keys.find((k) => !(k in DUVARLAR));
   if (bad) return { hata: `Bilinmeyen duvar: ${bad}. Seçenekler: ${DUVAR_SECENEKLERI.join(", ")}` };
@@ -148,7 +154,7 @@ export async function gazeboFiyatla(markaId: number, card: Kart | null, siteAdre
     const frames = i.iskelet ? [i.iskelet] : framesOf(size);
     const sonuclar = [];
     for (const frame of frames) {
-      const c = cleanConfig({ size, frame, roofFab: f, color, sides: keys.map((k) => ({ walls: [{ ...DUVARLAR[k], f }] })) }, active);
+      const c = cleanConfig({ size, frame, roofFab: f, color, sides: keys.map((k) => ({ walls: [{ ...DUVARLAR[k], f, y }] })) }, active);
       if (!c.ok) return { hata: `${c.hata} gazebo_secenekleri ile bu ölçüdeki iskelet ve duvarlara bak.` };
       const g: Gazebo = c.g;
       const rows = gzRows(g, KONF_MODE);
@@ -159,7 +165,7 @@ export async function gazeboFiyatla(markaId: number, card: Kart | null, siteAdre
     return {
       olcu: `${SZ[size]} m`,
       kumas: kumasAd(f),
-      duvarlar: keys.map((k, n) => `${SIDE_NAMES[n]}: ${k === "yok" ? "yok" : wallName({ ...DUVARLAR[k], f } as Wall)}`).join(" · "),
+      duvarlar: keys.map((k, n) => `${SIDE_NAMES[n]}: ${k === "yok" ? "yok" : wallName({ ...DUVARLAR[k], f, y } as Wall)}`).join(" · "),
       adet,
       sonuclar,
       tasarim_linki: designLink(card, siteAdres, size, f),
@@ -178,6 +184,7 @@ export async function priceGazebo(markaId: number, i: GazeboSecim) {
   if (!size) return { ok: false as const, hata: `Bu ölçü yok. Ölçüler: ${SIZES.join(", ")}.` };
   if (!(i.kumas in KUMASLAR)) return { ok: false as const, hata: `Kumaş şunlardan biri olmalı: ${KUMAS_SECENEKLERI.join(", ")}` };
   const f = KUMASLAR[i.kumas as Kumas];
+  const y = yuzOf(i.baski_yuzu);
   const keys = [i.on, i.arka, i.sol, i.sag];
   if (keys.some((k) => !(k in DUVARLAR))) return { ok: false as const, hata: `Duvar seçenekleri: ${DUVAR_SECENEKLERI.join(", ")}` };
   const [t, colors, extras] = await Promise.all([table(markaId), listColors(), konfExtras(markaId).catch(() => [])]);
@@ -186,7 +193,7 @@ export async function priceGazebo(markaId: number, i: GazeboSecim) {
   if (f !== 2 && !renk) return { ok: false as const, hata: `Renk gerekli; üretebildiğimiz renkler: ${active.map((c) => c.ad).join(", ")}.` };
   const adet = Math.max(1, Math.min(99, Math.round(Number(i.adet) || 1)));
   const r = withPriceTable(t, () => {
-    const c = cleanConfig({ size, frame: i.iskelet, roofFab: f, color: renk?.hex, sides: keys.map((k) => ({ walls: [{ ...DUVARLAR[k], f }] })) }, active.map((x) => x.hex));
+    const c = cleanConfig({ size, frame: i.iskelet, roofFab: f, color: renk?.hex, sides: keys.map((k) => ({ walls: [{ ...DUVARLAR[k], f, y }] })) }, active.map((x) => x.hex));
     if (!c.ok) return c;
     const rows = gzRows(c.g, KONF_MODE);
     if (rows.some((x) => x.bad)) return { ok: false as const, hata: "Seçimde fiyatı olmayan bir parça var." };
@@ -196,7 +203,7 @@ export async function priceGazebo(markaId: number, i: GazeboSecim) {
   const ex = cleanExtras(Object.fromEntries((i.ekler ?? []).map((e) => [e.kod, e.adet])), extras, size);
   if (!ex.ok) return ex;
   const ekler = ex.list.map((x) => ({ ad: x.ek.ad, adet: x.adet, tutar: kdv(x.ek.fiyat) * x.adet }));
-  const duvarlar = keys.map((k, n) => `${SIDE_NAMES[n]}: ${k === "yok" ? "açık" : wallName({ ...DUVARLAR[k], f } as Wall)}`);
+  const duvarlar = keys.map((k, n) => `${SIDE_NAMES[n]}: ${k === "yok" ? "açık" : wallName({ ...DUVARLAR[k], f, y } as Wall)}`);
   const ozet = [
     `Gazebo Çadır ${SZ[size]} m${adet > 1 ? ` × ${adet}` : ""}`,
     `İskelet: ${FRAME_NAME[i.iskelet] ?? i.iskelet}`,

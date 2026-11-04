@@ -71,6 +71,11 @@ function decalSpecs(specs: DecalOptions[]) {
   return decalSpecCache.get(key)!;
 }
 
+/** Baskılı duvarın baskı yüzü: dış, iç ya da çift taraflı (true: çift taraflı) */
+export type WallPrint = boolean | "dis" | "ic" | "cift";
+/** Tek taraflı baskılı duvarın baskısız yüzü beyaz kumaştır */
+const BLANK_FACE = "#ffffff";
+
 const sceneCache = new Map<string, Promise<SceneFile>>();
 const placedWalls = new Map<string, Part[]>();
 /** Sahne dosyasını yükler; yoksa (ör. ölçüye özel duvar sahnesi) yedek adresi dener */
@@ -183,8 +188,8 @@ type TentProps = {
   registerArSource?: (source: (() => Group | null) | null) => void;
   /** Duvar yuvası → kodla çizilen duvar tipi (hazır 3D modeli olmayan duvarlar; standart duvarın üstüne çizilir) */
   wallDesigns?: Partial<Record<string, WallDesign>>;
-  /** Duvar duvar baskı (yuva → baskılı mı); verilmezse config.printed tüm duvarlara uygulanır */
-  printedWalls?: Partial<Record<string, boolean>>;
+  /** Duvar duvar baskı (yuva → baskı yüzü; true çift taraflı); verilmezse config.printed tüm duvarlara (çift taraflı) uygulanır */
+  printedWalls?: Partial<Record<string, WallPrint>>;
   /** Tavan baskılı mı; verilmezse config.printed */
   printedRoof?: boolean;
   /** Duvar kumaşının rengi; verilmezse tavanla aynı (fabricHex) */
@@ -273,33 +278,42 @@ function Tent({ sizeKey, width, depth, config, fabricHex, wallHex, frameColor, r
   });
 
   const center = useMemo(() => new Vector3(fp.minX + fp.spanX / 2, 1, fp.minZ + fp.spanZ / 2), [fp]);
-  // Çizilmiş duvarların katmanı: tasarım ve renk başına bir dizi (mesh'ler gereksiz yeniden kurulmaz)
-  const wallPrinted = (slot?: string) => (printedWalls ? !!(slot && printedWalls[slot]) : config.printed);
-  const designsKey = JSON.stringify(designs);
-  // Çizilmiş duvarların katmanı: tasarım, baskı ve renk başına bir dizi (mesh'ler gereksiz yeniden kurulmaz)
+  /** Yuvanın baskı yüzü; baskısızsa null */
+  const wallPrint = (slot?: string): "dis" | "ic" | "cift" | null => {
+    const v = printedWalls ? slot && printedWalls[slot] : config.printed;
+    return !v ? null : v === true ? "cift" : v;
+  };
+  // Çizilmiş duvarların katmanı: tasarım, baskı yüzü ve renk başına bir dizi (mesh'ler gereksiz yeniden kurulmaz).
+  // designs her çizimde yeniden kurulur: anahtarlar (paintKeys) değişmedikçe katmanlar yeniden üretilmez
+  const paintKeys = JSON.stringify([...new Set(Object.entries(designs).map(([slot, d]) => `${d}|${wallPrint(slot) ?? ""}`))].sort());
   const paintSpecs = useMemo(() => {
-    // designs her çizimde yeniden kurulur: içerik (designsKey) değişmedikçe katmanlar yeniden üretilmez
-    const keys = new Set(
-      Object.entries(JSON.parse(designsKey) as Record<string, WallDesign>).map(([slot, d]) => `${d}|${+(printedWalls ? !!printedWalls[slot] : config.printed)}`),
-    );
     return Object.fromEntries(
-      [...keys].map((k) => {
-        const [d, p] = k.split("|");
-        return [k, [{ bothSides: true, paint: wallPaint(d, wallFabric, p === "1", theme) }]];
+      (JSON.parse(paintKeys) as string[]).map((k) => {
+        const [d, y] = k.split("|");
+        if (!y) return [k, [{ bothSides: true, paint: wallPaint(d, wallFabric, false, theme) }]];
+        if (y === "cift") return [k, [{ bothSides: true, paint: wallPaint(d, wallFabric, true, theme) }]];
+        // Tek taraflı: baskılı yüz ve beyaz kumaştan baskısız yüz ayrı katman; perde rulosu dış yüzdeki katmandan
+        const printed = wallPaint(d, wallFabric, true, theme);
+        const plain = wallPaint(d, BLANK_FACE, false, theme);
+        return [k, y === "dis" ? [{ paint: printed }, { paint: plain, backOnly: true, noRolls: true }] : [{ paint: plain }, { paint: printed, backOnly: true, noRolls: true }]];
       }),
     ) as Record<string, DecalOptions[]>;
-  }, [designsKey, printedWalls, config.printed, wallFabric, theme]);
+  }, [paintKeys, wallFabric, theme]);
   const decalsFor = (part: Part & { key?: string; slot?: string }, isWall: boolean): DecalOptions[] | undefined => {
     const design = isWall && isWallFabric(part) ? part.key?.split("|")[4] : undefined;
-    if (design) return paintSpecs[`${design}|${+wallPrinted(part.slot)}`];
+    if (design) return paintSpecs[`${design}|${wallPrint(part.slot) ?? ""}`];
     if (isWall) {
-      if (!wallPrinted(part.slot)) return undefined;
+      const y = wallPrint(part.slot);
+      if (!y) return undefined;
       if (!isWallFabric(part)) return undefined;
+      // Baskı yüzü: çift taraflıda iki yüze, tek taraflıda seçilen yüze; diğer yüz beyaz kumaş
+      const sided = (spec: DecalOptions): DecalOptions[] =>
+        y === "cift" ? [{ ...spec, bothSides: true }] : y === "dis" ? [spec, { blank: BLANK_FACE, backOnly: true }] : [{ ...spec, backOnly: true }, { blank: BLANK_FACE }];
       // Kapılı duvarda kapının iki yanına, pencereli duvarda pencerelerin altına
-      if (part.key?.endsWith("|tuer")) return decalSpecs([{ scale: 0.3, vCenter: 0.55, uCenters: [0.17, 0.83], bothSides: true, theme }]);
+      if (part.key?.endsWith("|tuer")) return decalSpecs(sided({ scale: 0.3, vCenter: 0.55, uCenters: [0.17, 0.83], theme }));
       // Pencereli duvar şeffaf PVC'lidir, baskı yapılmaz (fiyat listesinde de baskılısı yok)
       if (part.key?.endsWith("|fenster")) return undefined;
-      return decalSpecs([{ scale: 0.62, vCenter: 0.52, bothSides: true, theme }]);
+      return decalSpecs(sided({ scale: 0.62, vCenter: 0.52, theme }));
     }
     if (!(printedRoof ?? config.printed)) return undefined;
     if (!CANOPY.has(part.geometry)) return undefined;
@@ -446,8 +460,8 @@ export type ViewerProps = {
   registerArSource?: (source: (() => Group | null) | null) => void;
   /** Duvar yuvası → kodla çizilen duvar tipi (bkz. wall-paint.ts) */
   wallDesigns?: Partial<Record<string, WallDesign>>;
-  /** Duvar duvar baskı (yuva → baskılı mı); verilmezse config.printed tüm duvarlara uygulanır */
-  printedWalls?: Partial<Record<string, boolean>>;
+  /** Duvar duvar baskı (yuva → baskı yüzü; true çift taraflı); verilmezse config.printed tüm duvarlara (çift taraflı) uygulanır */
+  printedWalls?: Partial<Record<string, WallPrint>>;
   /** Tavan baskılı mı; verilmezse config.printed */
   printedRoof?: boolean;
   /** Duvar kumaşının rengi; verilmezse tavanla aynı (fabricHex) */

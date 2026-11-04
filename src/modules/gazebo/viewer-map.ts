@@ -2,7 +2,8 @@
 // Düz tam ve yarım duvar hazır modelden, diğerleri kodla çizilmiş duvardan (gazebo3d/mastertent/wall-paint.ts).
 import type { Gazebo } from "@/lib/terminal/calc";
 import type { GazeboConfig, WallStyle } from "@/modules/gazebo3d/model";
-import { hasDoor, wallDesign, type Wall } from "./walls";
+import type { WallPrint } from "@/modules/gazebo3d/mastertent/viewer";
+import { hasDoor, printSide, wallDesign, type Wall } from "./walls";
 
 /** Gazebo ölçüsü (en × uzun kenar) → sahne anahtarı (ön kenar × derinlik) */
 const SCENE: Record<string, string> = { "2x2": "2x2", "2x3": "3x2", "3x3": "3x3", "3x4.5": "4.5x3", "3x6": "6x3", "4x4": "4x4", "4x6": "6x4", "4x8": "8x4" };
@@ -15,8 +16,8 @@ const BAYS: Record<string, number> = { "3x6": 2, "4x6": 3, "4x8": 2 };
  * kapısız eşiyle çizilir (pencere + kapı → pencere, kapı ve tek fermuar → düz tam duvar). Aksi halde 6 m duvarda iki kapı görünürdü.
  */
 function withoutDoor(w: Wall): Wall {
-  if (w.kind === "pencere-kapi") return { kind: "pencere", f: w.f, p: w.p };
-  if (hasDoor(w.kind) || w.kind === "tek-fermuar") return { kind: "tam", f: w.f };
+  if (w.kind === "pencere-kapi") return { kind: "pencere", f: w.f, p: w.p, y: w.y };
+  if (hasDoor(w.kind) || w.kind === "tek-fermuar") return { kind: "tam", f: w.f, y: w.y };
   return w;
 }
 
@@ -32,8 +33,8 @@ export function viewerInput(g: Gazebo) {
   const [a, b] = g.size.split("x").map(Number);
   const walls: Record<string, WallStyle> = {};
   const designs: Record<string, string> = {};
-  /** Baskılı kumaştan duvarlar 3D'de örnek baskıyla görünür */
-  const printedWalls: Record<string, boolean> = {};
+  /** Baskılı kumaştan duvarlar 3D'de örnek baskıyla, seçilen yüzde (dış, iç ya da iki yüz) görünür */
+  const printedWalls: Record<string, WallPrint> = {};
   g.sides.forEach((s, i) => {
     // Görüntüleyicide uzun kenar ara ayaklarla bölmelere ayrılır (yuva: "on" ya da "on1", "on2", "on3").
     // İki parçalı kenarda ilk bölmeye 1. duvar, sonrakilere 2. duvar. Tek parça kenarda kapı ortadaki bölmede,
@@ -54,7 +55,8 @@ export function viewerInput(g: Gazebo) {
       if (!d) continue;
       walls[slot] = d.style;
       if (d.design) designs[slot] = d.design;
-      if (w!.f === 2) printedWalls[slot] = true;
+      const y = printSide(w!);
+      if (y) printedWalls[slot] = y;
     }
   });
   const config: GazeboConfig = {

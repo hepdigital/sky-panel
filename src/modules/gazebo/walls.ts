@@ -17,8 +17,22 @@ const list = () => priceTable().WALL;
 export type WallKind = "yok" | "tam" | "yarim" | "tam-pvc" | "tam-sineklik" | "tek-fermuar" | "pencere" | "kapi" | "pencere-kapi";
 export type WindowOpts = { pvc: boolean; sineklik: boolean; perde: boolean };
 export type DoorOpts = { sineklik: boolean };
-/** f: kumaş (0 690D, 1 200D, 2 baskılı) */
-export type Wall = { kind: WallKind; f: number; p?: WindowOpts; k?: DoorOpts };
+/**
+ * Baskılı duvarın baskı yüzü: dış (varsayılan), iç ya da çift taraflı. Baskı kumaşın tek yüzüne yapılır; çift taraflıda
+ * duvar kumaşı iki kez basılıp sırt sırta dikilir (fiyatta kumaş iki kez, kapı/pencere ekleri bir kez).
+ */
+export type PrintSide = "dis" | "ic" | "cift";
+export const PRINT_SIDES: { y: PrintSide; label: string; short: string }[] = [
+  { y: "dis", label: "Dış yüz baskılı", short: "Dış yüz" },
+  { y: "ic", label: "İç yüz baskılı", short: "İç yüz" },
+  { y: "cift", label: "Çift taraflı baskı", short: "Çift taraflı" },
+];
+/** f: kumaş (0 690D, 1 200D, 2 baskılı); y: baskı yüzü (yalnız baskılıda) */
+export type Wall = { kind: WallKind; f: number; p?: WindowOpts; k?: DoorOpts; y?: PrintSide };
+/** Baskılı kumaşın sırası (lib/terminal/calc PRINTED_FAB ile aynı) */
+const PRINTED = 2;
+/** Baskılı duvarın baskı yüzü (eski kayıtlarda yoktur → dış yüz); baskısızda null */
+export const printSide = (w: Wall): PrintSide | null => (w.f === PRINTED && w.kind !== "yok" ? (w.y ?? "dis") : null);
 
 export const WALL_KINDS: { kind: WallKind; label: string; short: string }[] = [
   { kind: "yok", label: "Duvar yok", short: "Yok" },
@@ -42,11 +56,13 @@ export function normalizeWall(w: Wall): Wall {
     out.p = { pvc: p.pvc || !p.sineklik, sineklik: p.sineklik, perde: p.perde };
   }
   if (hasDoor(w.kind)) out.k = { sineklik: !!w.k?.sineklik };
+  const y = printSide(w);
+  if (y) out.y = PRINT_SIDES.some((s) => s.y === y) ? y : "dis";
   return out;
 }
 export const emptyWall = (): Wall => ({ kind: "yok", f: 0 });
 export const wallKey = (w: Wall) =>
-  `${w.kind}:${w.f}:${w.p ? `${+w.p.pvc}${+w.p.sineklik}${+w.p.perde}` : "-"}:${w.k ? +w.k.sineklik : "-"}`;
+  `${w.kind}:${w.f}:${w.p ? `${+w.p.pvc}${+w.p.sineklik}${+w.p.perde}` : "-"}:${w.k ? +w.k.sineklik : "-"}${printSide(w) ? `:${printSide(w)}` : ""}`;
 
 /* ---------------- fiyat listesindeki ürünlerle eşleşme ---------------- */
 
@@ -125,8 +141,18 @@ export function modulePrices(f: number, mode: 0 | 1) {
   return out;
 }
 
-/** Duvar fiyatı (KDV hariç); null = fiyat alınız / bu kumaşta yok */
+/**
+ * Duvar fiyatı (KDV hariç); null = fiyat alınız / bu kumaşta yok. Çift taraflı baskıda duvarın kumaşı (aynı gruptaki
+ * baskılı düz tam ya da yarım duvar) bir kez daha eklenir; kapı/pencere ekleri bir kez sayılır.
+ */
 export function wallPrice(group: string, w: Wall, mode: 0 | 1): number | null {
+  const single = singleWallPrice(group, w, mode);
+  if (single === null || printSide(w) !== "cift") return single;
+  const fabric = list()[group]?.[w.kind === "yarim" ? "duz-yarim" : "duz-tam"]?.[w.f]?.[mode];
+  return fabric == null ? null : single + fabric;
+}
+
+function singleWallPrice(group: string, w: Wall, mode: 0 | 1): number | null {
   if (w.kind === "yok") return null;
   const lp = listProduct(w);
   if (lp) {
@@ -158,14 +184,14 @@ export function wallPrice(group: string, w: Wall, mode: 0 | 1): number | null {
    çift fermuarlı kapı ve PVC + perde). Tam PVC'nin fiyatı henüz girilmediği için baskılı dışındaki kumaşlarda açıktır. */
 
 /** Bir tipin tüm seçenek bileşimleri (pencerede en az PVC ya da sineklik) */
-function variants(kind: WallKind, f: number): Wall[] {
+function variants(kind: WallKind, f: number, y?: PrintSide): Wall[] {
   const wins: WindowOpts[] = [];
   for (const pvc of [true, false]) for (const sineklik of [false, true]) for (const perde of [false, true]) if (pvc || sineklik) wins.push({ pvc, sineklik, perde });
   const doors: DoorOpts[] = [{ sineklik: false }, { sineklik: true }];
-  if (kind === "pencere") return wins.map((p) => ({ kind, f, p }));
-  if (kind === "kapi") return doors.map((k) => ({ kind, f, k }));
-  if (kind === "pencere-kapi") return wins.flatMap((p) => doors.map((k) => ({ kind, f, p, k })));
-  return [{ kind, f }];
+  if (kind === "pencere") return wins.map((p) => ({ kind, f, p, y }));
+  if (kind === "kapi") return doors.map((k) => ({ kind, f, k, y }));
+  if (kind === "pencere-kapi") return wins.flatMap((p) => doors.map((k) => ({ kind, f, p, k, y })));
+  return [{ kind, f, y }];
 }
 
 export function wallAvailable(group: string, w: Wall, mode: 0 | 1) {
@@ -181,14 +207,21 @@ export const kindAvailable = (group: string, kind: WallKind, f: number, mode: 0 
 export function closestAvailable(group: string, w: Wall, mode: 0 | 1): Wall {
   const n = normalizeWall(w);
   if (wallAvailable(group, n, mode)) return n;
-  return variants(n.kind, n.f).find((v) => wallAvailable(group, v, mode)) ?? n;
+  return variants(n.kind, n.f, n.y).find((v) => wallAvailable(group, v, mode)) ?? n;
 }
 
 /* ---------------- adlandırma ve görsel ---------------- */
 
 const join = (xs: string[]) => xs.join(", ");
-/** Duvarın adı: listedeki ürünse liste adı, değilse modüllerden ("Pencereli duvar (PVC, sineklik, perde)") */
+/** Duvarın adı; baskılıda baskı yüzüyle ("Düz Tam Duvar (çift taraflı baskı)") */
 export function wallName(w: Wall) {
+  const y = printSide(w);
+  const base = baseWallName(w);
+  return y ? `${base} (${PRINT_SIDES.find((s) => s.y === y)!.label.toLocaleLowerCase("tr")})` : base;
+}
+
+/** Listedeki ürünse liste adı, değilse modüllerden ("Pencereli duvar (PVC, sineklik, perde)") */
+function baseWallName(w: Wall) {
   const lp = listProduct(w);
   if (lp) return lp.name;
   const n = normalizeWall(w);

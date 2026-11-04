@@ -521,6 +521,12 @@ export type DecalOptions = {
   faces?: "slope" | "band" | "all";
   /** İç yüze de baskı (duvarlar): içeriden bakınca da yazı düz okunur */
   bothSides?: boolean;
+  /** Yalnız iç yüze (dış yüz katmanı üretilmez): iç yüzü baskılı duvar, ya da dış yüz baskılıda iç yüzün baskısız kaplaması */
+  backOnly?: boolean;
+  /** Desen yerine düz renk (tek taraflı baskılı duvarın baskısız yüzü) */
+  blank?: string;
+  /** Perde rulosu üretilmez (aynı duvarın ikinci katmanında rulo bir kez çizilir) */
+  noRolls?: boolean;
   /** Etiket yerine duvarın tamamı çizilir (PVC pencere, kapı vb.); altındaki düz kumaş gizlenir */
   /** Duvar yüzeyinin genişliği ve yüksekliği (m) ile çağrılır */
   paint?: (width: number, height: number) => PaintedWall;
@@ -532,7 +538,7 @@ export function buildDecals(
   mesh: Mesh,
   meshToTent: Matrix4,
   center: Vector3,
-  { scale = 0.6, vCenter = 0.5, uCenters = [0.5], faces = "all", bothSides = false, paint, theme = "ornek" }: DecalOptions,
+  { scale = 0.6, vCenter = 0.5, uCenters = [0.5], faces = "all", bothSides = false, backOnly = false, blank, noRolls = false, paint, theme = "ornek" }: DecalOptions,
 ): Mesh[] {
   const geo = mesh.geometry as BufferGeometry;
   const pos = geo.getAttribute("position");
@@ -627,7 +633,8 @@ export function buildDecals(
 
     const painted = paint?.(du, dv);
     const material = new MeshStandardMaterial({
-      map: painted ? painted.map : decalTexture(du / dv, scale, vCenter, uCenters, faces === "band", theme),
+      map: painted ? painted.map : blank ? null : decalTexture(du / dv, scale, vCenter, uCenters, faces === "band", theme),
+      ...(blank && !painted ? { color: blank } : {}),
       // Çizilmiş duvarda şeffaf PVC bölgeleri yarı saydamdır
       transparent: !!painted,
       // Tek yüzlü: arkadan görülünce ayna yazı çıkmasın (iç yüz için ayrı, çevrilmiş katman üretilir)
@@ -639,10 +646,10 @@ export function buildDecals(
     });
     const overlay = new Mesh(overlayGeo, material);
     overlay.renderOrder = 1;
-    overlays.push(overlay);
+    if (!backOnly) overlays.push(overlay);
     // Perdeler: açıklığın kumaş kapağı ve üstünde toplanan rulo (kayış + toka). Açıklık oranı değişince (animasyon)
     // kapak aşağıdan yukarı kısalır, rulo yukarı çıkarken kalınlaşır; kapalıyken kapak açıklığı tamamen örter.
-    if (painted?.rolls.length) {
+    if (painted?.rolls.length && !noRolls) {
       const toMesh = meshToTent.clone().invert();
       const along = new Quaternion().setFromUnitVectors(UP, U);
       const alongZ = new Quaternion().setFromUnitVectors(Z, U);
@@ -694,13 +701,13 @@ export function buildDecals(
     }
     // PVC bölgelerinde cam katmanı (yansıma ve parlaklık)
     const glass = painted?.glass ? glassMaterial(painted.glass) : null;
-    if (glass) {
+    if (glass && !backOnly) {
       const pane = new Mesh(overlayGeo, glass);
       pane.renderOrder = 2;
       overlays.push(pane);
     }
 
-    if (bothSides) {
+    if (bothSides || backOnly) {
       // İç yüz: üçgen yönü ters, normal içe, doku yatayda çevrili (içeriden bakınca yazı düz okunur)
       const backPositions: number[] = [];
       const backNormals: number[] = [];

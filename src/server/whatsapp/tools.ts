@@ -48,6 +48,11 @@ const NULLABLE_STR = { anyOf: [{ type: "string" }, { type: "null" }] };
 const GEVSEK = new Set(["gazebo_secenekleri", "gazebo_fiyatla", "gazebo_onay_gonder", "panel_urun_ara"]);
 const DUVAR = { type: "string", enum: DUVAR_SECENEKLERI };
 const KUMAS = { type: "string", enum: KUMAS_SECENEKLERI };
+/** Baskılı duvarların baskı yüzü (tüm baskılı duvarlar için) */
+const BASKI_YUZU = {
+  anyOf: [{ type: "string", enum: ["dis", "ic", "cift"] }, { type: "null" }],
+  description: "Baskılı duvarlarda baskı yüzü: dis (dışa bakan yüz, varsayılan), ic (içe bakan yüz), cift (iki yüz: duvar iki kez basılıp dikilir, kumaşı iki kez fiyatlanır). Baskısızda boş",
+};
 
 /** Tek gazebo tasarımı (onaya gönderilir; ödeme linki sohbete kaydedilen onaylı tasarımdan) */
 const GAZEBO_SECIM = {
@@ -61,6 +66,7 @@ const GAZEBO_SECIM = {
     arka: DUVAR,
     sol: DUVAR,
     sag: DUVAR,
+    baski_yuzu: BASKI_YUZU,
     adet: { type: "integer" },
     ekler: {
       type: "array",
@@ -68,7 +74,7 @@ const GAZEBO_SECIM = {
       items: { type: "object", properties: { kod: { type: "string" }, adet: { type: "integer" } }, required: ["kod", "adet"], additionalProperties: false },
     },
   },
-  required: ["olcu", "iskelet", "kumas", "renk", "on", "arka", "sol", "sag", "adet", "ekler"],
+  required: ["olcu", "iskelet", "kumas", "renk", "on", "arka", "sol", "sag", "baski_yuzu", "adet", "ekler"],
   additionalProperties: false,
 };
 
@@ -114,9 +120,10 @@ export function toolDefs(ayar: WaAyarlar): Anthropic.Beta.BetaTool[] {
           arka: DUVAR,
           sol: DUVAR,
           sag: DUVAR,
+          baski_yuzu: BASKI_YUZU,
           adet: { type: "integer" },
         },
-        required: ["olcu", "iskelet", "kumas", "on", "arka", "sol", "sag", "adet"],
+        required: ["olcu", "iskelet", "kumas", "on", "arka", "sol", "sag", "baski_yuzu", "adet"],
         additionalProperties: false,
       },
     },
