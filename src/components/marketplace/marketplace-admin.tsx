@@ -215,7 +215,7 @@ export function MarketplaceAdmin({ channels, items, catalog, logs, tarife }: { c
       ) : (
         <div className="mt-5 grid gap-3 md:grid-cols-2">
           {channels.map((c) =>
-            c.pazaryeri ? <ChannelCard key={c.id} c={c} items={items} onSettings={() => setAyar(c)} /> : <WooCard key={c.id} c={c} items={items} onSettings={() => setAyar(c)} />,
+            c.pazaryeri ? <ChannelCard key={c.id} c={c} items={items} onSettings={() => setAyar(c)} onOpen={setEdit} /> : <WooCard key={c.id} c={c} items={items} onSettings={() => setAyar(c)} />,
           )}
         </div>
       )}
@@ -416,13 +416,15 @@ function GroupLine({
   );
 }
 
-function ChannelCard({ c, items, onSettings }: { c: Channel; items: ItemRow[]; onSettings: () => void }) {
+function ChannelCard({ c, items, onSettings, onOpen }: { c: Channel; items: ItemRow[]; onSettings: () => void; onOpen: (i: ItemRow) => void }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const ls = items.flatMap((i) => i.listelemeler.filter((l) => l.siteId === c.id && l.aktif && i.aktif));
   const count = (d: string) => ls.filter((l) => l.durum === d).length;
   const bekleyen = count("taslak") + count("hata");
+  // Hatalı ürünler kartta sebebiyle listelenir; dokununca ürün açılır
+  const sorunlu = items.flatMap((i) => i.listelemeler.filter((l) => l.siteId === c.id && l.aktif && i.aktif && l.durum === "hata").map((l) => ({ i, hata: l.hata })));
   const run = <T,>(fn: () => Promise<({ ok: true } & T) | { ok: false; hata: string }>, ok: (r: T) => string) =>
     start(async () => {
       const r = await fn();
@@ -456,6 +458,24 @@ function ChannelCard({ c, items, onSettings }: { c: Channel; items: ItemRow[]; o
         )}
         {!ls.length && <span className="text-xs text-muted-foreground">Bu kanalda listelenen ürün yok.</span>}
       </div>
+      {sorunlu.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {sorunlu.map(({ i, hata }) => (
+            <li key={i.id}>
+              <button type="button" onClick={() => onOpen(i)} className="w-full rounded-xl bg-danger-soft px-3 py-2 text-left hover:opacity-90">
+                <span className="flex items-center justify-between gap-2 text-xs font-semibold">
+                  <span className="min-w-0 truncate">
+                    {i.ad}
+                    <span className="font-normal text-muted-foreground"> · {i.stokKodu}</span>
+                  </span>
+                  <span className="shrink-0 text-primary">Düzelt</span>
+                </span>
+                <span className="mt-0.5 block text-xs break-words text-danger">{hata || "Sebep bildirilmedi; “Durumları yenile” ile tekrar sorun."}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="mt-4 flex flex-wrap gap-2">
         <Button size="sm" disabled={pending || !bekleyen} onClick={() => run(() => pyGonder(c.id), (r) => `${r.gonderilen} ürün gönderildi${r.eksik ? `, ${r.eksik} üründe eksik var (satırında yazıyor)` : ""}. Sonuç birkaç dakika içinde gelir.`)}>
           <Send /> Bekleyenleri gönder{bekleyen ? ` (${bekleyen})` : ""}

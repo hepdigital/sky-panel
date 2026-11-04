@@ -548,12 +548,28 @@ export async function sendListings(siteId: number, kim: string, urunIds?: number
         await log(siteId, update ? "urun-guncelle" : "urun-olustur", batchId, "gonderildi", `${chunk.length} ürün: ${chunk.map((r) => r.i.stokKodu).join(", ")}`.slice(0, 1000), kim);
       } catch (e) {
         const hata = e instanceof Error ? e.message : "Gönderilemedi.";
-        await db().update(listings).set({ durum: "hata", hata }).where(inArray(listings.id, chunk.map((r) => r.l.id)));
+        // Trendyol aynı içerikli isteği kısa süre içinde ikinci kez kabul etmez: önceki reddin asıl sebebi silinmesin
+        if (/tekrarl/i.test(hata)) {
+          for (const r of chunk) {
+            const once = r.l.hata && !/tekrarl/i.test(r.l.hata) ? r.l.hata : await lastBatchError(site, r).catch(() => null);
+            await db()
+              .update(listings)
+              .set({ durum: "hata", hata: `${once ? `${once} · ` : ""}Trendyol aynı isteği kısa süre içinde tekrar kabul etmiyor: ürünü düzeltip yeniden gönderin.`.slice(0, 2000) })
+              .where(eq(listings.id, r.l.id));
+          }
+        } else await db().update(listings).set({ durum: "hata", hata }).where(inArray(listings.id, chunk.map((r) => r.l.id)));
         await log(siteId, update ? "urun-guncelle" : "urun-olustur", null, "hata", hata.slice(0, 1000), kim);
       }
     }
   }
   return { gonderilen, eksik };
+}
+
+/** Listelemenin son toplu işlemindeki ret sebebi (varsa) */
+async function lastBatchError(site: Awaited<ReturnType<typeof siteOf>>, r: Row) {
+  if (!r.l.batchId) return null;
+  const k = (await tyBatch(site, r.l.batchId)).kalemler.find((x) => x.barkod === r.i.barkod);
+  return k && !k.basarili && k.hatalar.length ? k.hatalar.join("; ") : null;
 }
 
 /** Gönderilen toplu işlemlerin sonucu ve onay bekleyen kartların durumu */
@@ -576,7 +592,16 @@ export async function checkListings(siteId: number) {
       }
     }
     const ok = res.kalemler.filter((k) => k.basarili).length;
-    await log(siteId, "urun-sonuc", batchId, ok === res.kalemler.length ? "tamam" : "hata", `${ok}/${res.kalemler.length} ürün kabul edildi.`);
+    const red = res.kalemler
+      .filter((k) => !k.basarili)
+      .map((k) => `${sent.find((x) => x.i.barkod === k.barkod)?.i.stokKodu ?? k.barkod}: ${k.hatalar.join("; ") || "sebep verilmedi"}`);
+    await log(siteId, "urun-sonuc", batchId, ok === res.kalemler.length ? "tamam" : "hata", `${ok}/${res.kalemler.length} ürün kabul edildi.${red.length ? ` Reddedilen: ${red.join(" · ")}` : ""}`.slice(0, 1000));
+  }
+  // Yalnızca "tekrarlı istek" yazan hatalar: asıl ret sebebi son toplu işlemden geri okunur
+  const dup = (await rowsOf(siteId, eq(listings.durum, "hata"))).filter((r) => r.l.hata && /tekrarl/i.test(r.l.hata) && !r.l.hata.includes(" · "));
+  for (const r of dup.slice(0, 20)) {
+    const once = await lastBatchError(site, r).catch(() => null);
+    if (once) await db().update(listings).set({ hata: `${once} · Trendyol aynı isteği kısa süre içinde tekrar kabul etmiyor: ürünü düzeltip yeniden gönderin.`.slice(0, 2000) }).where(eq(listings.id, r.l.id));
   }
   // Onay bekleyenler: her turda en çok 20 kart sorulur
   const waiting = await rowsOf(siteId, eq(listings.durum, "onay"));
