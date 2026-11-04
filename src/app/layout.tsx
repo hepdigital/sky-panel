@@ -10,8 +10,8 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: "Sky B2B",
-    template: "%s · Sky B2B",
+    default: "SKY Panel",
+    template: "%s · SKY Panel",
   },
   description: "Sky Görsel Çözümler bayi ve müşteri portalı",
 };
