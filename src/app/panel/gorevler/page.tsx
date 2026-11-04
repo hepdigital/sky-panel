@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { TaskBoard } from "@/components/tasks/task-board";
 import { isAdmin, requireMe } from "@/server/auth";
-import { assignees, listTasks, relatedLabel, type TaskFilter } from "@/server/tasks";
+import { assignees, listTasks, listTemplates, relatedLabel, type TaskFilter } from "@/server/tasks";
 
 export const metadata: Metadata = { title: "Görevler" };
 
@@ -19,7 +19,7 @@ async function Board({ searchParams }: { searchParams: SP }) {
   const tamamlananlar = one(sp.tamam) === "1";
   // Başka ekrandan "Görev oluştur" ile gelindiyse ilgili kayıt
   const rel = { musteriId: Number(one(sp.musteri)) || null, teklifId: Number(one(sp.teklif)) || null, siparisId: Number(one(sp.siparis)) || null };
-  const [tasks, people, relLabel] = await Promise.all([listTasks(me, { kapsam, kisi, tamamlananlar }), assignees(), relatedLabel(me, rel)]);
+  const [tasks, people, relLabel, templates] = await Promise.all([listTasks(me, { kapsam, kisi, tamamlananlar }), assignees(), relatedLabel(me, rel), listTemplates(me)]);
   const iso = (d: Date | null) => d?.toISOString() ?? null;
   return (
     <TaskBoard
@@ -28,6 +28,7 @@ async function Board({ searchParams }: { searchParams: SP }) {
       tasks={tasks.map((t) => ({ ...t, olusturma: iso(t.olusturma)!, tamamlanma: iso(t.tamamlanma) }))}
       people={people}
       create={one(sp.yeni) === "1" ? { ...rel, label: relLabel } : null}
+      templates={templates}
     />
   );
 }

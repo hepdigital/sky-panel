@@ -1,11 +1,12 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { appMetadata } from "@/lib/app-meta";
 import { canSell, requireMe } from "@/server/auth";
 import { newRequestCount } from "@/server/site-requests";
 import { newWaRequestCount } from "@/server/whatsapp/requests";
-import { openTaskCount } from "@/server/tasks";
+import { openTaskCount, runTaskSchedule } from "@/server/tasks";
 import { waEnabled } from "@/server/whatsapp/config";
 import { unreadChatCount } from "@/server/whatsapp/store";
 
@@ -14,6 +15,8 @@ export const metadata: Metadata = { title: { default: "SKY Panel", template: "%s
 /** Panel yalnızca giriş yapmış personele açıktır; rol ve görünürlük oturumdaki kullanıcıdan gelir */
 async function Guard({ children }: { children: React.ReactNode }) {
   const me = await requireMe();
+  // Tekrarlayan görevler ve son gün hatırlatmaları: zamanlayıcı yoksa da panel açıldıkça yürür (5 dakikada bir)
+  after(() => runTaskSchedule().catch((e) => console.error("runTaskSchedule", e)));
   return (
     <AdminShell
       me={{

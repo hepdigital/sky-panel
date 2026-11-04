@@ -375,6 +375,28 @@ export const kumasRenkleri = mysqlTable("kumas_renkleri", {
 /** Görev durumları: yapılacak → devam ediyor → (beklemede) → tamamlandı */
 export const GOREV_DURUMLARI = ["yapilacak", "devam", "bekliyor", "tamam"] as const;
 export const GOREV_ONCELIKLERI = ["dusuk", "normal", "yuksek", "acil"] as const;
+/** Birden çok kişiye atanan görev: ortak (biri bitirince biter) ya da kişi başı (herkes kendi payını bitirir) */
+export const GOREV_TAMAMLAMA = ["ortak", "kisi"] as const;
+
+/**
+ * Tekrarlayan görev tanımı: sabit günlerde (haftanın günleri ya da ayın günleri) o günün görevi üretilir.
+ * atananlar ve gunler JSON dizi: [kullanıcı id] · hafta: 1=Pzt…7=Paz · ay: 1…31
+ */
+export const gorevTekrarlari = mysqlTable("gorev_tekrarlari", {
+  id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+  baslik: varchar("baslik", { length: 200 }).notNull(),
+  aciklama: text("aciklama"),
+  oncelik: mysqlEnum("oncelik", GOREV_ONCELIKLERI).notNull().default("normal"),
+  tamamlama: mysqlEnum("tamamlama", GOREV_TAMAMLAMA).notNull().default("ortak"),
+  atananlar: varchar("atananlar", { length: 500 }).notNull().default("[]"),
+  olusturanId: int("olusturan_id", { unsigned: true }).references(() => kullanicilar.id, { onDelete: "set null" }),
+  siklik: mysqlEnum("siklik", ["hafta", "ay"]).notNull().default("hafta"),
+  gunler: varchar("gunler", { length: 120 }).notNull().default("[]"),
+  aktif: boolean("aktif").notNull().default(true),
+  /** Görevi üretilen son gün (bir gün iki kez üretilmez) */
+  sonUretim: date("son_uretim", { mode: "string" }),
+  olusturma: timestamp("olusturma").notNull().defaultNow(),
+});
 
 /**
  * Görev: herkes oluşturup bir kişiye atayabilir. Kişi kendisine atanan ve kendi oluşturduğu görevleri görür, yönetici hepsini.
@@ -386,9 +408,15 @@ export const gorevler = mysqlTable(
     id: int("id", { unsigned: true }).autoincrement().primaryKey(),
     baslik: varchar("baslik", { length: 200 }).notNull(),
     aciklama: text("aciklama"),
+    /** Eski tek atanan alanı: ilk atananla dolu tutulur; atananlar gorev_atananlar'da */
     atananId: int("atanan_id", { unsigned: true }).references(() => kullanicilar.id, { onDelete: "set null" }),
     olusturanId: int("olusturan_id", { unsigned: true }).references(() => kullanicilar.id, { onDelete: "set null" }),
     durum: mysqlEnum("durum", GOREV_DURUMLARI).notNull().default("yapilacak"),
+    tamamlama: mysqlEnum("tamamlama", GOREV_TAMAMLAMA).notNull().default("ortak"),
+    /** Tekrarlayan görevden üretildiyse tanımı (bitis = o gün) */
+    tekrarId: int("tekrar_id", { unsigned: true }).references(() => gorevTekrarlari.id, { onDelete: "set null" }),
+    /** Son gün hatırlatmasının gönderildiği an (bir kez) */
+    hatirlatma: timestamp("hatirlatma"),
     oncelik: mysqlEnum("oncelik", GOREV_ONCELIKLERI).notNull().default("normal"),
     /** Son tarih (gün) */
     bitis: date("bitis", { mode: "string" }),
@@ -399,7 +427,22 @@ export const gorevler = mysqlTable(
     olusturma: timestamp("olusturma").notNull().defaultNow(),
     guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
   },
-  (t) => [index("gorev_atanan").on(t.atananId), index("gorev_olusturan").on(t.olusturanId), index("gorev_durum").on(t.durum)],
+  (t) => [index("gorev_atanan").on(t.atananId), index("gorev_olusturan").on(t.olusturanId), index("gorev_durum").on(t.durum), uniqueIndex("gorev_tekrar_gun").on(t.tekrarId, t.bitis)],
+);
+
+/** Görevin atananları; kişi başı görevde her kişinin bitirdiği an */
+export const gorevAtananlar = mysqlTable(
+  "gorev_atananlar",
+  {
+    gorevId: int("gorev_id", { unsigned: true })
+      .notNull()
+      .references(() => gorevler.id, { onDelete: "cascade" }),
+    kullaniciId: int("kullanici_id", { unsigned: true })
+      .notNull()
+      .references(() => kullanicilar.id, { onDelete: "cascade" }),
+    tamamlanma: timestamp("tamamlanma"),
+  },
+  (t) => [primaryKey({ columns: [t.gorevId, t.kullaniciId] }), index("ga_kullanici").on(t.kullaniciId)],
 );
 
 /** Görevin akışı: yorumlar ve olaylar (durum değişti, yeniden atandı…) */
@@ -416,6 +459,26 @@ export const gorevKayitlari = mysqlTable(
     olusturma: timestamp("olusturma").notNull().defaultNow(),
   },
   (t) => [index("gorev_kayit_gorev").on(t.gorevId)],
+);
+
+/** Görev ve yorum ekleri: UPLOAD_DIR/gorev/<dosya>; yalnızca görevi görenler, oturumla indirir */
+export const gorevDosyalari = mysqlTable(
+  "gorev_dosyalari",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    gorevId: int("gorev_id", { unsigned: true })
+      .notNull()
+      .references(() => gorevler.id, { onDelete: "cascade" }),
+    /** Yorumun eki; boşsa görevin kendi eki */
+    kayitId: int("kayit_id", { unsigned: true }).references(() => gorevKayitlari.id, { onDelete: "cascade" }),
+    kullaniciId: int("kullanici_id", { unsigned: true }).references(() => kullanicilar.id, { onDelete: "set null" }),
+    ad: varchar("ad", { length: 200 }).notNull(),
+    dosya: varchar("dosya", { length: 80 }).notNull(),
+    tur: varchar("tur", { length: 100 }).notNull(),
+    boyut: int("boyut", { unsigned: true }).notNull(),
+    olusturma: timestamp("olusturma").notNull().defaultNow(),
+  },
+  (t) => [index("gd_gorev").on(t.gorevId), index("gd_kayit").on(t.kayitId)],
 );
 
 /** Satışçının satış yapabileceği markalar; kaydı olmayan kullanıcı tüm markalarla çalışır */
