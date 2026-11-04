@@ -243,7 +243,7 @@ function Topbar({ onCreate }: { onCreate?: () => void }) {
             <LogoMark className="h-6" />
           </span>
           <span className="leading-tight">
-            <span className="block text-sm font-bold">Sky Yönetim</span>
+            <span className="block text-sm font-bold">SKY Panel</span>
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <span className="size-1.5 rounded-full bg-panel-badge" /> {roles.find((r) => r.key === role)!.label}
             </span>

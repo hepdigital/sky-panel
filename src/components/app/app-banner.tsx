@@ -52,7 +52,7 @@ export function AppBanner() {
           {showInstall ? <Download className="size-5" /> : <BellRing className="size-5" />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">{showInstall ? "Sky Yönetim uygulamasını yükleyin" : "Bildirimleri açın"}</p>
+          <p className="text-sm font-semibold">{showInstall ? "SKY Panel uygulamasını yükleyin" : "Bildirimleri açın"}</p>
           <p className="text-xs text-muted-foreground">
             {showInstall
               ? "Ana ekranda simgesiyle açılır; yeni sipariş, talep ve WhatsApp mesajları bildirim olarak gelir."
@@ -136,7 +136,7 @@ export function AppSetupCard() {
             <Smartphone className="size-[22px]" />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-bold md:text-lg">Sky Yönetim’i telefonunuza kurun</h2>
+            <h2 className="text-base font-bold md:text-lg">SKY Panel’i telefonunuza kurun</h2>
             <p className="text-sm text-white/75">Mağazaya gerek yok: panel uygulama olarak ana ekrana eklenir, işler bildirim olarak gelir.</p>
           </div>
           <button type="button" onClick={dismiss} className="grid size-8 shrink-0 place-items-center rounded-full text-white/70 hover:bg-white/10" aria-label="Kapat">
@@ -193,12 +193,12 @@ export function InstallSteps({ ios }: { ios: boolean }) {
     ? [
         { icon: Share, text: "Safari'de alttaki Paylaş düğmesine dokunun (Chrome'da adres çubuğunun sağında)." },
         { icon: SquarePlus, text: "Listeyi kaydırıp “Ana Ekrana Ekle”yi seçin, sağ üstte “Ekle”ye dokunun." },
-        { icon: BellRing, text: "Ana ekrandaki Sky Yönetim simgesinden açın ve “Bildirimleri aç”a dokunun." },
+        { icon: BellRing, text: "Ana ekrandaki SKY Panel simgesinden açın ve “Bildirimleri aç”a dokunun." },
       ]
     : [
         { icon: Download, text: "Tarayıcı menüsünü (⋮) açın." },
         { icon: SquarePlus, text: "“Uygulamayı yükle” ya da “Ana ekrana ekle”yi seçin." },
-        { icon: BellRing, text: "Ana ekrandaki Sky Yönetim simgesinden açın ve “Bildirimleri aç”a dokunun." },
+        { icon: BellRing, text: "Ana ekrandaki SKY Panel simgesinden açın ve “Bildirimleri aç”a dokunun." },
       ];
   return (
     <div>
