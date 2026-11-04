@@ -35,7 +35,7 @@ const FONT = '"Arial Black", Impact, "Helvetica Neue", Arial, sans-serif';
  * Baskı deseni: "ornek" koyu zemin + kırmızı fırça darbeleri (panel), "sky" SKY Görsel Çözümler logosunun renkleri (siyah
  * zemin, lacivert/kırmızı/yeşil şeritler, beyaz kartta "LOGONUZ BURADA OLACAKTIR"); müşteri kendi tasarımını yaptıracağı
  * için desen sade tutulur. "panel": aynı mantık lacivert zeminle (köşelerde koyu lacivert blok, kırmızı ve yeşil çapraz
- * çizgiler, beyaz kart); panelin teklif ekranındaki 3D önizleme.
+ * çizgiler, beyaz kartta "TASARIMINIZ BURADA OLACAKTIR"); panelin teklif ekranındaki 3D önizleme.
  */
 export type PrintTheme = "ornek" | "sky" | "panel";
 
@@ -296,7 +296,7 @@ function panelBackground(ctx: CanvasRenderingContext2D, w: number, h: number) {
   }
 }
 
-/** Panel rozeti: beyaz kartta lacivert "LOGONUZ BURADA", altında kırmızı hapta "OLACAKTIR", kartın altında yeşil çizgi */
+/** Panel rozeti: beyaz kartta lacivert "TASARIMINIZ BURADA", altında kırmızı hapta "OLACAKTIR", kartın altında yeşil çizgi */
 function panelBadge(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
   const font = skyFont();
   const w = r * 2.1;
@@ -320,8 +320,8 @@ function panelBadge(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: nu
     if (wText > maxW) ctx.font = `700 ${(size * maxW) / wText}px ${font}`;
   };
   ctx.fillStyle = SKY_COLORS[0];
-  fit("LOGONUZ", r * 0.4, w * 0.82);
-  ctx.fillText("LOGONUZ", 0, -h * 0.27);
+  fit("TASARIMINIZ", r * 0.4, w * 0.82);
+  ctx.fillText("TASARIMINIZ", 0, -h * 0.27);
   fit("BURADA", r * 0.4, w * 0.82);
   ctx.fillText("BURADA", 0, -h * 0.02);
   fit("OLACAKTIR", r * 0.25, w * 0.62);
@@ -337,7 +337,7 @@ function panelBadge(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: nu
   ctx.restore();
 }
 
-/** Panel saçak bandı: koyu lacivert zeminde beyaz "LOGONUZ BURADA OLACAKTIR"; altta kırmızı ve yeşil ince çizgi */
+/** Panel saçak bandı: koyu lacivert zeminde beyaz "TASARIMINIZ BURADA OLACAKTIR"; altta kırmızı ve yeşil ince çizgi */
 function panelBand(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.fillStyle = PANEL_DEEP;
   ctx.fillRect(0, 0, w, h);
@@ -346,7 +346,7 @@ function panelBand(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.fillStyle = SKY_COLORS[2];
   ctx.fillRect(0, h * 0.9, w, h * 0.1);
   const font = skyFont();
-  const text = "LOGONUZ BURADA OLACAKTIR";
+  const text = "TASARIMINIZ BURADA OLACAKTIR";
   let size = h * 0.4;
   ctx.font = `700 ${size}px ${font}`;
   const width = ctx.measureText(text).width;
