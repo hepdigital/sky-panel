@@ -9,7 +9,7 @@ import { FABRICS, SIZES, SZ, cfgKey, gzRows, gzTotal, imgSrc, plan, slotPrice, s
 import { priceTable, setPriceTable, type PriceTable } from "@/lib/terminal/price-table";
 import { cn } from "@/lib/utils";
 import { viewerInput } from "@/modules/gazebo/viewer-map";
-import { WALL_KINDS, hasDoor, hasWindow, kindAvailable, kindImage, wallPrice, type Wall } from "@/modules/gazebo/walls";
+import { PRINT_SIDES, WALL_KINDS, hasDoor, hasWindow, kindAvailable, kindImage, printSide, wallPrice, type Wall } from "@/modules/gazebo/walls";
 import type { Capture } from "@/modules/gazebo3d/mastertent/viewer";
 import { ViewerBoundary } from "@/modules/gazebo3d/mastertent/viewer-boundary";
 
@@ -596,6 +596,21 @@ function WallsStep({ g, side, setSide, onWall }: { g: Gazebo; side: number; setS
         <p className="mb-2.5 text-[13px] font-semibold">
           {SIDE_NAMES[side]} duvar <span className="font-normal text-[#777]">· {pl[side].h} × {pl[side].cm} cm</span>
         </p>
+        {w.kind !== "yok" && printSide(w) && (
+          <div className="mb-3 rounded-[8px] bg-white p-2.5 ring-1 ring-[#e6e9ee]">
+            <p className="mb-1.5 text-[12px] font-semibold">Baskı yüzü</p>
+            <div className="flex flex-wrap gap-2">
+              {PRINT_SIDES.map((ps) => (
+                <Toggle key={ps.y} on={printSide(w) === ps.y} label={ps.short} onClick={() => onWall(side, { ...w, y: ps.y })} />
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-[#777]">
+              {printSide(w) === "cift"
+                ? "Duvar iki kez basılıp sırt sırta dikilir; içeriden ve dışarıdan baskı görünür."
+                : "Baskı tek yüzdedir; diğer yüz beyaz kumaştır. İki yüzde de baskı için çift taraflıyı seçin."}
+            </p>
+          </div>
+        )}
         {hasWindow(w.kind) && w.p && (
           <div className="mb-3 rounded-[8px] bg-white p-2.5 ring-1 ring-[#e6e9ee]">
             <p className="mb-1.5 text-[12px] font-semibold">Pencere</p>
@@ -621,13 +636,13 @@ function WallsStep({ g, side, setSide, onWall }: { g: Gazebo; side: number; setS
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {kindsFor(grup, f).map((k) => {
             const active = w.kind === k.kind;
-            const cand = k.kind === "yok" ? null : fitWall(grup, active ? w : { kind: k.kind, f });
+            const cand = k.kind === "yok" ? null : fitWall(grup, active ? w : { kind: k.kind, f, y: w.y });
             const img = kindImage(k.kind);
             return (
               <button
                 key={k.kind}
                 type="button"
-                onClick={() => onWall(side, active ? w : { kind: k.kind, f, ...(hasDoor(k.kind) ? { k: { sineklik: false } } : {}) })}
+                onClick={() => onWall(side, active ? w : { kind: k.kind, f, y: w.y, ...(hasDoor(k.kind) ? { k: { sineklik: false } } : {}) })}
                 className={cn("flex flex-col items-center rounded-[8px] border-2 bg-white p-2 text-center", active ? "" : "border-transparent hover:border-[#c9ced6]")}
                 style={active ? { borderColor: NAVY } : undefined}
               >

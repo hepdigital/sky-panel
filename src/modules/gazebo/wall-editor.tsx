@@ -6,6 +6,7 @@ import { Ban, ChevronDown, CopyCheck } from "lucide-react";
 import { FAB_SHORT, PRESETS, imgSrc, plan, slots, type Gazebo, type Mode, type Side } from "@/lib/terminal/calc";
 import { cn } from "@/lib/utils";
 import {
+  PRINT_SIDES,
   WALL_KINDS,
   closestAvailable,
   emptyWall,
@@ -14,6 +15,7 @@ import {
   kindAvailable,
   kindImage,
   normalizeWall,
+  printSide,
   wallAvailable,
   wallName,
   wallPrice,
@@ -75,7 +77,7 @@ export function WallEditor({
           <button
             key={pr.n}
             type="button"
-            onClick={() => onChange(pr.v.map((kind, i) => ({ walls: [normalizeWall({ kind, f: draft.sides[i]?.walls[0]?.f ?? 0 })] })))}
+            onClick={() => onChange(pr.v.map((kind, i) => ({ walls: [normalizeWall({ kind, f: draft.sides[i]?.walls[0]?.f ?? 0, y: draft.sides[i]?.walls[0]?.y })] })))}
             className="h-8 rounded-full border border-border bg-card px-3 text-xs font-semibold text-muted-foreground hover:text-foreground"
           >
             {pr.n}
@@ -172,7 +174,8 @@ function Chip({ active, onClick, children, disabled }: { active: boolean; onClic
 
 /**
  * Tek duvarın formu: tip, kumaş, pencere ve kapı ekleri. Seçili kumaşta ve duvar ölçüsünde satılmayan tip/ek/kumaş
- * seçilemez (ör. baskılı kumaşta yalnızca düz tam, yarım, çift fermuarlı kapı ve PVC + perde).
+ * seçilemez (ör. baskılı kumaşta yalnızca düz tam, yarım, çift fermuarlı kapı ve PVC + perde). Baskılıda baskı yüzü:
+ * dış, iç ya da çift taraflı (çift taraflıda kumaş iki kez fiyatlanır).
  */
 function WallForm({
   title,
@@ -245,6 +248,25 @@ function WallForm({
               ))}
             </div>
           </div>
+          {printSide(w) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span className="text-xs text-muted-foreground">Baskı yüzü</span>
+              <div className="inline-flex rounded-full bg-muted p-1">
+                {PRINT_SIDES.map((ps) => (
+                  <button
+                    key={ps.y}
+                    type="button"
+                    onClick={() => pick({ ...w, y: ps.y })}
+                    disabled={!can({ ...w, y: ps.y })}
+                    title={ps.y === "cift" ? "Duvar iki kez basılıp sırt sırta dikilir: kumaş iki kez fiyatlanır" : undefined}
+                    className={cn("h-7 rounded-full px-3 text-[11px] font-semibold disabled:opacity-35", printSide(w) === ps.y ? "bg-card shadow-card" : "text-muted-foreground")}
+                  >
+                    {ps.short}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {hasWindow(w.kind) && w.p && (
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="mr-1 text-xs text-muted-foreground">Pencere 137×137</span>

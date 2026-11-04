@@ -254,7 +254,7 @@ export const cfgKey = (g: Gazebo) =>
 /** Eski kayıtlardaki kenar ({t, f}: terminalin 12 duvar ürünü) ya da yeni kenar → yeni kenar */
 export function sideFrom(raw: unknown): Side {
   const r = raw as { t?: string | null; f?: number; split?: boolean; walls?: Wall[] } | null;
-  if (r && Array.isArray(r.walls) && r.walls.length) return { split: !!r.split, walls: r.walls.map((w) => normalizeWall({ kind: w.kind ?? "yok", f: w.f ?? 0, p: w.p, k: w.k })) };
+  if (r && Array.isArray(r.walls) && r.walls.length) return { split: !!r.split, walls: r.walls.map((w) => normalizeWall({ kind: w.kind ?? "yok", f: w.f ?? 0, p: w.p, k: w.k, y: w.y })) };
   return { walls: [wallFromLegacy(r?.t ?? null, r?.f ?? 0)] };
 }
 

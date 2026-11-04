@@ -57,7 +57,7 @@ export function cleanConfig(raw: unknown, colors: string[]): { ok: true; g: Gaze
   for (let i = 0; i < 4; i++) {
     const w0 = r.sides[i]?.walls?.[0] ?? {};
     const kind = WALL_KINDS.find((k) => k.kind === w0.kind)?.kind ?? "yok";
-    const want = normalizeWall({ kind, f, p: w0.p, k: w0.k } as Wall);
+    const want = normalizeWall({ kind, f, p: w0.p, k: w0.k, y: w0.y } as Wall);
     const got = fitWall(p[i].grup, want);
     if (wallKey(got) !== wallKey(want)) return { ok: false, hata: `${SIDE_NAMES[i]} duvar seçimi bu ölçüde satılmıyor.` };
     sides.push({ walls: [got] });
