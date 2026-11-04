@@ -1,4 +1,4 @@
-/* Sky Yönetim uygulaması: yalnızca bildirimler. Sayfalar önbelleğe alınmaz (panel her zaman canlı veriyle açılır). */
+/* SKY Panel uygulaması: yalnızca bildirimler. Sayfalar önbelleğe alınmaz (panel her zaman canlı veriyle açılır). */
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
@@ -11,7 +11,7 @@ self.addEventListener("push", (event) => {
   } catch {
     data = { body: event.data ? event.data.text() : "" };
   }
-  const title = data.title || "Sky Yönetim";
+  const title = data.title || "SKY Panel";
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || "",

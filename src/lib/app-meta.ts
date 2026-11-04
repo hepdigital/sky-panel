@@ -6,6 +6,6 @@ import type { Metadata } from "next";
  */
 export const appMetadata: Pick<Metadata, "manifest" | "appleWebApp" | "applicationName"> = {
   manifest: "/manifest.webmanifest",
-  applicationName: "Sky Yönetim",
-  appleWebApp: { capable: true, title: "Sky Yönetim", statusBarStyle: "default" },
+  applicationName: "SKY Panel",
+  appleWebApp: { capable: true, title: "SKY Panel", statusBarStyle: "default" },
 };

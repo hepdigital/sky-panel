@@ -9,7 +9,7 @@ import { openTaskCount } from "@/server/tasks";
 import { waEnabled } from "@/server/whatsapp/config";
 import { unreadChatCount } from "@/server/whatsapp/store";
 
-export const metadata: Metadata = { title: { default: "Yönetim", template: "%s · Sky Yönetim" }, ...appMetadata };
+export const metadata: Metadata = { title: { default: "SKY Panel", template: "%s · SKY Panel" }, ...appMetadata };
 
 /** Panel yalnızca giriş yapmış personele açıktır; rol ve görünürlük oturumdaki kullanıcıdan gelir */
 async function Guard({ children }: { children: React.ReactNode }) {

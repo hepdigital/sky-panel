@@ -1,7 +1,7 @@
 {
   "id": "/panel",
-  "name": "Sky Yönetim",
-  "short_name": "Sky Yönetim",
+  "name": "SKY Panel",
+  "short_name": "SKY Panel",
   "description": "Sky Görsel Çözümler yönetim paneli: teklif, sipariş, talep ve WhatsApp bildirimleri",
   "lang": "tr",
   "dir": "ltr",
