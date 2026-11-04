@@ -345,6 +345,7 @@ export function Terminal({
                 twin={twin}
                 onAdd={addDraft}
                 onCaptureReady={onCaptureReady}
+                paketler={kargo?.gazebo}
                 onCancelEdit={() => {
                   setEditing(null);
                   setDraft(newDraft(outOfStock));
