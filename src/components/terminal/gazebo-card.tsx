@@ -23,6 +23,8 @@ import {
   type Gazebo,
   type Mode,
 } from "@/lib/terminal/calc";
+import type { Paket } from "@/lib/cargo-tariff";
+import { FRAME_NAME } from "@/lib/konfigurator";
 import { cn } from "@/lib/utils";
 import { WallEditor } from "@/modules/gazebo/wall-editor";
 import { priceTable } from "@/lib/terminal/price-table";
@@ -44,9 +46,11 @@ export type GazeboCardProps = {
   onCancelEdit: () => void;
   /** 3D görüntüleyici hazır olunca iki açıdan görüntü alma fonksiyonu (teklife eklerken PDF görseli için) */
   onCaptureReady: (fn: CaptureViews | null) => void;
+  /** Parçaların koli ölçüleri: iskelet seçeneğinde profil, ağırlık ve koli ölçüsü gösterilir */
+  paketler?: Record<string, Paket>;
 };
 
-export function GazeboCard({ draft, setDraft, qty, setQty, mode, money, editing, twin, onAdd, onCancelEdit, onCaptureReady }: GazeboCardProps) {
+export function GazeboCard({ draft, setDraft, qty, setQty, mode, money, editing, twin, onAdd, onCancelEdit, onCaptureReady, paketler }: GazeboCardProps) {
   const p = plan(draft.size);
   const rows = gzRows(draft, mode);
   const total = gzTotal(draft, mode);
@@ -114,6 +118,7 @@ export function GazeboCard({ draft, setDraft, qty, setQty, mode, money, editing,
               img={imgSrc(`f:${id}`)}
               title={id}
               hint={FRAMES[id].desc}
+              info={frameInfo(id, paketler?.[`f|${id}|${draft.size}`])}
               price={priceText(val(FRAMES[id].p[draft.size], mode), money)}
             />
           ))}
@@ -263,7 +268,14 @@ function Section({ n, title, hint, children }: { n: number; title: string; hint?
   );
 }
 
-function Option({ active, onClick, img, title, hint, price }: { active: boolean; onClick: () => void; img?: string; title: string; hint: string; price: string }) {
+/** "30'luk Çelik · 14 kg · 157×22×22 cm": profil ve (girildiyse) koli ağırlığı ve ölçüsü */
+function frameInfo(id: string, p: Paket | undefined) {
+  const n = (v: number) => v.toLocaleString("tr-TR");
+  const cm = p?.en && p.boy && p.yukseklik ? `${n(p.boy)}×${n(p.en)}×${n(p.yukseklik)} cm` : null;
+  return [FRAME_NAME[id]?.replace(/ İskelet$/, ""), p?.kg ? `${n(p.kg)} kg` : null, cm].filter(Boolean).join(" · ");
+}
+
+function Option({ active, onClick, img, title, hint, info, price }: { active: boolean; onClick: () => void; img?: string; title: string; hint: string; info?: string; price: string }) {
   return (
     <button
       type="button"
@@ -279,6 +291,7 @@ function Option({ active, onClick, img, title, hint, price }: { active: boolean;
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold">{title}</span>
         <span className="block truncate text-[11px] text-muted-foreground">{hint}</span>
+        {info && <span className="block truncate text-[11px] text-muted-foreground">{info}</span>}
       </span>
       <span className="tabular shrink-0 text-xs font-bold">{price}</span>
     </button>
