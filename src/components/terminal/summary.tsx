@@ -170,16 +170,17 @@ export function Summary({ q, setQ, catalog, brand, cost, kargo, money, editingId
           </dt>
           <dd className={cn("tabular font-medium", H.genelIsk > 0 && "text-success")}>{H.genelIsk ? `${H.genelIsk > 0 ? "−" : "+"}${money(Math.abs(H.genelIsk))}` : "—"}</dd>
         </div>
-        <Row label="Ara toplam (KDV hariç)" value={money(H.net)} />
-        <Row label="KDV (%20)" value={money(H.net * 0.2)} muted />
+        {/* Ara toplam, KDV ve genel toplam KDV tercihinden bağımsızdır: money KDV dahil modda 1,2 ile çarpar, burada çift KDV olurdu */}
+        <Row label="Ara toplam (KDV hariç)" value={TL(H.net)} />
+        <Row label="KDV (%20)" value={TL(H.net * 0.2)} muted />
       </dl>
       <div className="mt-3 flex items-end justify-between border-t border-border pt-3">
         <span className="text-sm font-semibold">Genel toplam</span>
-        <span className="tabular text-2xl font-bold tracking-tight">{money(H.net * 1.2)}</span>
+        <span className="tabular text-2xl font-bold tracking-tight">{TL(H.net * 1.2)}</span>
       </div>
       <p className="mt-1 text-right text-[11px] text-muted-foreground">{modeName(q.mode)} fiyat listesi · KDV dahil</p>
 
-      {kargo && <CargoEstimate q={q} setQ={setQ} kargo={kargo} money={money} />}
+      {kargo && <CargoEstimate q={q} setQ={setQ} kargo={kargo} />}
 
       {cost && cost.maliyet !== null && (
         <div className="mt-3 rounded-xl border border-dashed border-border px-3 py-2.5 text-xs">
@@ -296,7 +297,7 @@ function DiscountButton({ value, onChange, compact }: { value?: Isk; onChange: (
  * Tahmini Yurtiçi kargo: parça ve ürün kolilerinden. "Nakliye bedeli olarak ekle" ek kalemi yazar (varsa günceller);
  * teklif fiyatına kendiliğinden eklenmez.
  */
-function CargoEstimate({ q, setQ, kargo, money }: { q: QuoteState; setQ: (q: QuoteState) => void; kargo: QuoteCargoData; money: (n: number) => string }) {
+function CargoEstimate({ q, setQ, kargo }: { q: QuoteState; setQ: (q: QuoteState) => void; kargo: QuoteCargoData }) {
   const c = quoteCargo(q, kargo);
   if (!c.parca) return null;
   const mevcut = (q.extra ?? []).find((x) => x.ad === "Nakliye bedeli");
@@ -313,7 +314,7 @@ function CargoEstimate({ q, setQ, kargo, money }: { q: QuoteState; setQ: (q: Quo
         </p>
         {c.koli > 0 && (
           <span className="text-right">
-            <b className="tabular">{money(c.haric)}</b> <span className="text-muted-foreground">+ KDV</span>
+            <b className="tabular">{TL(c.haric)}</b> <span className="text-muted-foreground">+ KDV</span>
           </span>
         )}
       </div>
