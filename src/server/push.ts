@@ -17,7 +17,7 @@ export const BILDIRIM_TURLERI = {
   talep: { ad: "Yeni talep", aciklama: "Toptan/bayilik formu, konfigüratörde yarım kalan tasarım, WhatsApp talebi", seller: true },
   whatsapp: { ad: "WhatsApp", aciklama: "Asistan sohbeti ekibe devrettiğinde ve ekipteki sohbete müşteri yazdığında", seller: true },
   kargo: { ad: "Kargo", aciklama: "Gönderi teslim edildiğinde ya da iade/ret olduğunda", seller: true },
-  gorev: { ad: "Görevler", aciklama: "Size görev atandığında ve görevinize yorum yazıldığında", seller: false },
+  gorev: { ad: "Görevler", aciklama: "Görev atandığında, yorum yazıldığında, tamamlandığında; tekrarlayan görev günü ve son gün hatırlatması", seller: false },
 } as const;
 export type BildirimTuru = keyof typeof BILDIRIM_TURLERI;
 export type Tercihler = Record<BildirimTuru, boolean>;

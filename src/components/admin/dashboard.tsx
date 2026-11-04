@@ -354,7 +354,7 @@ function MyTasks({ tasks, big }: { tasks: TaskRow[]; big?: boolean }) {
                     <p className="text-sm font-semibold leading-snug">{t.baslik}</p>
                     <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
                       {STATUS[t.durum].label}
-                      {t.olusturan && t.olusturanId !== t.atananId && <span>· {t.olusturan} atadı</span>}
+                      {t.olusturan && !t.atananlar.some((a) => a.id === t.olusturanId) && <span>· {t.olusturan} atadı</span>}
                       {due && (
                         <span className={cn("flex items-center gap-1", due.cls)}>
                           <CalendarDays className="size-3" /> {due.text}
