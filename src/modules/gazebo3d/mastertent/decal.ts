@@ -31,6 +31,18 @@ const RED = "#c8102e";
 const RED_DARK = "#7d0a1d";
 const FONT = '"Arial Black", Impact, "Helvetica Neue", Arial, sans-serif';
 
+/**
+ * Baskı deseni: "ornek" koyu zemin + kırmızı fırça darbeleri (panel), "sky" SKY Görsel Çözümler logosunun renkleri (siyah
+ * zemin, lacivert/kırmızı/yeşil şeritler, beyaz kartta "LOGONUZ BURADA OLACAKTIR"); müşteri kendi tasarımını yaptıracağı
+ * için desen sade tutulur. "panel": aynı mantık lacivert zeminle (köşelerde koyu lacivert blok, kırmızı ve yeşil çapraz
+ * çizgiler, beyaz kartta "TASARIMINIZ BURADA OLACAKTIR"); panelin teklif ekranındaki 3D önizleme.
+ */
+export type PrintTheme = "ornek" | "sky" | "panel";
+
+/** SKY logosundaki S, K, Y kutularının renkleri ve zemin */
+const SKY_COLORS = ["#002c71", "#e71515", "#008455"] as const;
+const SKY_INK = "#111111";
+
 const textureCache = new Map<string, CanvasTexture>();
 
 /**
@@ -40,6 +52,13 @@ const textureCache = new Map<string, CanvasTexture>();
 const BADGE_FONT = `italic 900 40px ${FONT}`;
 export const decalFontReady: Promise<unknown> =
   typeof document === "undefined" ? Promise.resolve() : document.fonts.load(BADGE_FONT).catch(() => undefined);
+
+/** Sky ve panel desenlerinin fontu: sayfada yüklü Poppins (site) ya da Plus Jakarta Sans (panel); next/font adı karışık
+ * olduğu için yüklü fontlardan bulunur, yoksa Arial */
+function skyFont() {
+  const family = typeof document === "undefined" ? undefined : [...document.fonts].find((f) => /poppins|jakarta/i.test(f.family))?.family;
+  return `${family ? `${family}, ` : ""}"Arial Black", Arial, sans-serif`;
+}
 
 /** Her yüzeyde aynı görünen (tekrarlanabilir) desen için tohumlu rastgele sayı */
 function seeded(seed: number) {
@@ -168,13 +187,214 @@ function sloganBand(ctx: CanvasRenderingContext2D, w: number, h: number) {
   }
 }
 
+/** Sky zemini: siyah, alt kenarda logodaki üç renkte (lacivert, kırmızı, yeşil) eşit bloklu şerit */
+function skyBackground(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  ctx.fillStyle = SKY_INK;
+  ctx.fillRect(0, 0, w, h);
+  const bar = Math.min(w, h) * 0.07;
+  SKY_COLORS.forEach((color, i) => {
+    ctx.fillStyle = color;
+    ctx.fillRect((w / 3) * i, h - bar, w / 3 + 1, bar);
+  });
+}
+
+/** Sky rozeti: beyaz kartta koyu "LOGONUZ BURADA", altında logodaki üç renkli şerit üstünde beyaz "OLACAKTIR" */
+function skyBadge(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  const font = skyFont();
+  const w = r * 2.1;
+  const h = r * 1.5;
+  const radius = r * 0.12;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.beginPath();
+  ctx.roundRect(-w / 2, -h / 2, w, h, radius);
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(-w / 2, -h / 2, w, h);
+  // Alt şerit: üç eşit renk bloğu
+  const barH = h * 0.3;
+  SKY_COLORS.forEach((color, i) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(-w / 2 + (w / 3) * i, h / 2 - barH, w / 3 + 1, barH);
+  });
+  ctx.restore();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const fit = (text: string, size: number, maxW: number) => {
+    ctx.font = `700 ${size}px ${font}`;
+    const wText = ctx.measureText(text).width;
+    if (wText > maxW) ctx.font = `700 ${(size * maxW) / wText}px ${font}`;
+  };
+  ctx.fillStyle = SKY_INK;
+  fit("LOGONUZ", r * 0.4, w * 0.82);
+  ctx.fillText("LOGONUZ", 0, -h * 0.25);
+  fit("BURADA", r * 0.4, w * 0.82);
+  ctx.fillText("BURADA", 0, h * 0.01);
+  ctx.fillStyle = "#ffffff";
+  fit("OLACAKTIR", r * 0.26, w * 0.8);
+  ctx.fillText("OLACAKTIR", 0, h / 2 - barH / 2);
+  ctx.restore();
+}
+
+/** Sky saçak bandı: siyah zeminde beyaz "LOGONUZ BURADA OLACAKTIR", altında logodaki üç renkte ince şerit */
+function skyBand(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  ctx.fillStyle = SKY_INK;
+  ctx.fillRect(0, 0, w, h);
+  const seg = h * 1.2;
+  for (let x = 0, i = 0; x < w; x += seg, i++) {
+    ctx.fillStyle = SKY_COLORS[i % 3];
+    ctx.fillRect(x, h * 0.86, seg + 1, h * 0.14);
+  }
+  const font = skyFont();
+  const text = "LOGONUZ BURADA OLACAKTIR";
+  let size = h * 0.42;
+  ctx.font = `700 ${size}px ${font}`;
+  const width = ctx.measureText(text).width;
+  if (width > w * 0.86) size *= (w * 0.86) / width;
+  ctx.font = `700 ${size}px ${font}`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(text, w / 2, h * 0.45);
+}
+
+/**
+ * Panel zemini: logodaki lacivert; alt sağ ve üst sol köşede (birbirinin simetriği) ~32° eğimli koyu lacivert köşe bloğu,
+ * kenarında ince kırmızı ve yeşil çizgi. Çizgiler köşelerde kalır, ortadaki karta değmez.
+ */
+const PANEL_DEEP = "#001a45";
+function panelBackground(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, "#0a3d8c");
+  g.addColorStop(1, SKY_COLORS[0]);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  const unit = Math.min(w, h);
+  const angle = (-32 * Math.PI) / 180;
+  const long = Math.hypot(w, h) * 2;
+  // İç kenardan köşeye doğru katmanlar: yeşil ve kırmızı ince çizgi (arada beyaz ince ayraç), sonra köşeye kadar koyu lacivert
+  const layers: [string, number][] = [
+    [SKY_COLORS[2], unit * 0.022],
+    ["#ffffff", unit * 0.01],
+    [SKY_COLORS[1], unit * 0.03],
+    ["#ffffff", unit * 0.01],
+    [PANEL_DEEP, long],
+  ];
+  // dir 1: çizgi (0,62w, alt kenar) noktasından geçer, katmanlar alt sağa; dir −1: (0,38w, üst kenar), katmanlar üst sola
+  for (const [x, y, dir] of [[w * 0.62, h, 1], [w * 0.38, 0, -1]] as const) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    let off = 0;
+    for (const [color, thick] of layers) {
+      ctx.fillStyle = color;
+      ctx.fillRect(-long / 2, dir > 0 ? off : -off - thick, long, thick);
+      off += thick;
+    }
+    ctx.restore();
+  }
+}
+
+/** Panel rozeti: beyaz kartta lacivert "TASARIMINIZ BURADA", altında kırmızı hapta "OLACAKTIR", kartın altında yeşil çizgi */
+function panelBadge(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  const font = skyFont();
+  const w = r * 2.1;
+  const h = r * 1.5;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.beginPath();
+  ctx.roundRect(-w / 2, -h / 2, w, h, r * 0.12);
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.fillStyle = SKY_COLORS[2];
+  ctx.fillRect(-w / 2, h / 2 - h * 0.06, w, h * 0.06);
+  ctx.restore();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const fit = (text: string, size: number, maxW: number) => {
+    ctx.font = `700 ${size}px ${font}`;
+    const wText = ctx.measureText(text).width;
+    if (wText > maxW) ctx.font = `700 ${(size * maxW) / wText}px ${font}`;
+  };
+  ctx.fillStyle = SKY_COLORS[0];
+  fit("TASARIMINIZ", r * 0.4, w * 0.82);
+  ctx.fillText("TASARIMINIZ", 0, -h * 0.27);
+  fit("BURADA", r * 0.4, w * 0.82);
+  ctx.fillText("BURADA", 0, -h * 0.02);
+  fit("OLACAKTIR", r * 0.25, w * 0.62);
+  const pillW = ctx.measureText("OLACAKTIR").width + r * 0.34;
+  const pillH = r * 0.38;
+  const pillY = h * 0.25;
+  ctx.fillStyle = SKY_COLORS[1];
+  ctx.beginPath();
+  ctx.roundRect(-pillW / 2, pillY - pillH / 2, pillW, pillH, pillH / 2);
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText("OLACAKTIR", 0, pillY + pillH * 0.03);
+  ctx.restore();
+}
+
+/** Panel saçak bandı: koyu lacivert zeminde beyaz "TASARIMINIZ BURADA OLACAKTIR"; altta kırmızı ve yeşil ince çizgi */
+function panelBand(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  ctx.fillStyle = PANEL_DEEP;
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = SKY_COLORS[1];
+  ctx.fillRect(0, h * 0.8, w, h * 0.08);
+  ctx.fillStyle = SKY_COLORS[2];
+  ctx.fillRect(0, h * 0.9, w, h * 0.1);
+  const font = skyFont();
+  const text = "TASARIMINIZ BURADA OLACAKTIR";
+  let size = h * 0.4;
+  ctx.font = `700 ${size}px ${font}`;
+  const width = ctx.measureText(text).width;
+  if (width > w * 0.86) size *= (w * 0.86) / width;
+  ctx.font = `700 ${size}px ${font}`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(text, w / 2, h * 0.42);
+}
+
+type Painter = (ctx: CanvasRenderingContext2D, w: number, h: number) => void;
+/** Desen başına zemin, rozet ve saçak bandı çizimi; base: baskılı duvarın perde/rulo rengi; badgeW: rozet genişliği (r cinsinden) */
+const STYLES: Record<PrintTheme, { background: Painter; badge: typeof logoBadge; band: Painter; base: string; badgeW: number }> = {
+  ornek: {
+    background: patternBackground,
+    badge: logoBadge,
+    band: (ctx, w, h) => {
+      patternBackground(ctx, w, h);
+      sloganBand(ctx, w, h);
+    },
+    base: "#1d1d1f",
+    badgeW: 2,
+  },
+  sky: { background: skyBackground, badge: skyBadge, band: skyBand, base: SKY_INK, badgeW: 2.1 },
+  panel: { background: panelBackground, badge: panelBadge, band: panelBand, base: PANEL_DEEP, badgeW: 2.1 },
+};
+
 /** Yüzeyin en/boy oranında baskı dokusu; band: saçak (slogan), değilse logo rozeti uCenters kadar tekrar */
 /** Duvar baskı dokusu (örnek baskı + ortada "LOGONUZ BURADA"): çizilmiş duvarların baskılı zemini */
-export const wallPrintTexture = (aspect: number) => decalTexture(aspect, 0.62, 0.52, [0.5], false);
+export const wallPrintTexture = (aspect: number, theme: PrintTheme = "ornek") => decalTexture(aspect, 0.62, 0.52, [0.5], false, theme);
 
-function decalTexture(aspect: number, scale: number, vCenter: number, uCenters: number[], band: boolean) {
+/**
+ * Açıklıklı (kapı, pencere) baskılı duvarın zemini: desen tuvale doğrudan çizilir, rozetler verilen yerlere (piksel;
+ * merkez ve yarıçap) konur ki açıklık kesilince yazı yarım kalmasın. Rozet genişliği: sky kartı 2,1r, örnek halka ~2r.
+ */
+export function paintPrint(ctx: CanvasRenderingContext2D, w: number, h: number, theme: PrintTheme, badges: { x: number; y: number; r: number }[]) {
+  STYLES[theme].background(ctx, w, h);
+  for (const b of badges) STYLES[theme].badge(ctx, b.x, b.y, b.r);
+}
+export const badgeWidth = (theme: PrintTheme) => STYLES[theme].badgeW;
+
+/** Baskılı duvardaki perde ve rulonun rengi: desenin zemin rengi */
+export const printBaseHex = (theme: PrintTheme = "ornek") => STYLES[theme].base;
+
+function decalTexture(aspect: number, scale: number, vCenter: number, uCenters: number[], band: boolean, theme: PrintTheme) {
   const ratio = Math.min(Math.max(aspect, 0.25), 16);
-  const key = `${ratio.toFixed(2)}|${scale}|${vCenter}|${uCenters.join(",")}|${band}`;
+  const key = `${theme}|${ratio.toFixed(2)}|${scale}|${vCenter}|${uCenters.join(",")}|${band}`;
   const cached = textureCache.get(key);
   if (cached) return cached;
 
@@ -190,16 +410,17 @@ function decalTexture(aspect: number, scale: number, vCenter: number, uCenters: 
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
 
+  const style = STYLES[theme];
   const paint = () => {
-    patternBackground(ctx, w, h);
-    if (band) {
-      sloganBand(ctx, w, h);
-    } else {
+    if (band) style.band(ctx, w, h);
+    else {
+      style.background(ctx, w, h);
       // Rozet yüzeyin kısa kenarına göre ölçeklenir; vCenter: dikey merkez (0 = alt kenar, 1 = üst kenar)
       const slotW = w / uCenters.length;
-      const r = Math.min((h * scale) / 2, slotW * 0.42);
+      // Kart (2,1r) rozetten geniştir: dar yüzeyde taşmasın
+      const r = Math.min((h * scale) / 2, (slotW * 0.84) / style.badgeW);
       const midY = h * (1 - vCenter);
-      for (const u of uCenters) logoBadge(ctx, w * u, midY, r);
+      for (const u of uCenters) style.badge(ctx, w * u, midY, r);
     }
   };
   paint();
@@ -209,8 +430,10 @@ function decalTexture(aspect: number, scale: number, vCenter: number, uCenters: 
   texture.anisotropy = 8;
   textureCache.set(key, texture);
   // Yazı fontu henüz hazır değilse yedek fontla çizilmiş olur: font yüklenince doku yeniden çizilir
-  if (!document.fonts.check(BADGE_FONT)) {
-    decalFontReady.then(() => {
+  const ornek = theme === "ornek";
+  const fontSpec = ornek ? BADGE_FONT : `700 40px ${skyFont()}`;
+  if (!document.fonts.check(fontSpec)) {
+    (ornek ? decalFontReady : document.fonts.load(fontSpec).catch(() => undefined)).then(() => {
       paint();
       texture.needsUpdate = true;
     });
@@ -301,13 +524,15 @@ export type DecalOptions = {
   /** Etiket yerine duvarın tamamı çizilir (PVC pencere, kapı vb.); altındaki düz kumaş gizlenir */
   /** Duvar yüzeyinin genişliği ve yüksekliği (m) ile çağrılır */
   paint?: (width: number, height: number) => PaintedWall;
+  /** Baskı deseni (varsayılan "ornek") */
+  theme?: PrintTheme;
 };
 
 export function buildDecals(
   mesh: Mesh,
   meshToTent: Matrix4,
   center: Vector3,
-  { scale = 0.6, vCenter = 0.5, uCenters = [0.5], faces = "all", bothSides = false, paint }: DecalOptions,
+  { scale = 0.6, vCenter = 0.5, uCenters = [0.5], faces = "all", bothSides = false, paint, theme = "ornek" }: DecalOptions,
 ): Mesh[] {
   const geo = mesh.geometry as BufferGeometry;
   const pos = geo.getAttribute("position");
@@ -402,7 +627,7 @@ export function buildDecals(
 
     const painted = paint?.(du, dv);
     const material = new MeshStandardMaterial({
-      map: painted ? painted.map : decalTexture(du / dv, scale, vCenter, uCenters, faces === "band"),
+      map: painted ? painted.map : decalTexture(du / dv, scale, vCenter, uCenters, faces === "band", theme),
       // Çizilmiş duvarda şeffaf PVC bölgeleri yarı saydamdır
       transparent: !!painted,
       // Tek yüzlü: arkadan görülünce ayna yazı çıkmasın (iç yüz için ayrı, çevrilmiş katman üretilir)

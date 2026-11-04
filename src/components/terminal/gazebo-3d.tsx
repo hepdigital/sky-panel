@@ -40,7 +40,7 @@ export function Gazebo3D({ draft, onCaptureReady }: { draft: Gazebo; onCaptureRe
             </div>
           }
         >
-          <Viewer {...input} curtainsOpen registerCapture={register} />
+          <Viewer {...input} curtainsOpen printTheme="panel" registerCapture={register} />
         </ViewerBoundary>
         <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground shadow-card">
           Sürükleyerek çevirin
