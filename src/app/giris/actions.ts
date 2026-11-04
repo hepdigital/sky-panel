@@ -5,9 +5,12 @@ import { redirect } from "next/navigation";
 import { createSession, destroySession, verifyPassword } from "@/server/auth";
 import { db, schema } from "@/server/db";
 
-export type LoginState = { hata?: string } | undefined;
+export type LoginState = { hata?: string; ok?: true } | undefined;
 
-/** Personel girişi: kullanıcı adı ya da e-posta + şifre */
+/**
+ * Personel girişi: kullanıcı adı ya da e-posta + şifre. Başarıda yönlendirmez, ok döner: form tarayıcıya şifreyi
+ * kaydetmesini önerir (Credential Management), sonra panele geçer.
+ */
 export async function girisYap(_: LoginState, form: FormData): Promise<LoginState> {
   const ad = String(form.get("kullanici") ?? "").trim().toLowerCase();
   const sifre = String(form.get("sifre") ?? "");
@@ -20,7 +23,7 @@ export async function girisYap(_: LoginState, form: FormData): Promise<LoginStat
     .limit(1);
   if (!u || !u.aktif || !(await verifyPassword(sifre, u.sifreHash))) return { hata: "Kullanıcı adı ya da şifre hatalı." };
   await createSession(u.id);
-  redirect("/panel");
+  return { ok: true };
 }
 
 export async function cikisYap() {
