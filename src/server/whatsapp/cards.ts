@@ -5,6 +5,7 @@ import { ensureTables } from "./store";
 
 // Asistanın ürün kartları (şartname §4 wa_urun_kartlari, §8). Fiyat kartta tutulmaz; urun_bilgisi aracı siteden okur.
 // Kart tek ürüne (disUrunId) ya da site kategorisine (disKategoriId: kategorideki ürünler listelenir, disUrunId öne çıkan) bağlanır.
+// Panel kategorisine bağlı kartta (panelKategoriId) ürünler ve fiyatlar panel kataloğundan gelir; her aktif panel kategorisinin kartı vardır.
 
 const { waUrunKartlari: kartlar } = schema;
 
@@ -16,8 +17,8 @@ export type Medya = { id: string; tur: "image" | "video"; yol: string; aciklama:
 export type Seviye = (typeof schema.WA_ASISTAN_SEVIYELERI)[number];
 
 export type Kart = {
-  kod: string; ad: string; siteId: number | null; disUrunId: number | null; disKategoriId: number | null; url: string | null; anahtarKelimeler: string; asistanSeviyesi: Seviye;
-  bilgi: string; sss: Sss[]; itirazlar: Itiraz[]; medya: Medya[]; yasaklar: string; aktif: boolean;
+  kod: string; ad: string; siteId: number | null; disUrunId: number | null; disKategoriId: number | null; panelKategoriId: number | null; url: string | null; anahtarKelimeler: string;
+  asistanSeviyesi: Seviye; bilgi: string; sss: Sss[]; itirazlar: Itiraz[]; medya: Medya[]; yasaklar: string; aktif: boolean;
 };
 
 const parse = <T,>(v: string | null): T[] => {
@@ -32,7 +33,7 @@ const s = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0
 
 function toKart(r: typeof kartlar.$inferSelect): Kart {
   return {
-    kod: r.kod, ad: r.ad, siteId: r.siteId, disUrunId: r.disUrunId, disKategoriId: r.disKategoriId, url: r.url, anahtarKelimeler: r.anahtarKelimeler ?? "", asistanSeviyesi: r.asistanSeviyesi,
+    kod: r.kod, ad: r.ad, siteId: r.siteId, disUrunId: r.disUrunId, disKategoriId: r.disKategoriId, panelKategoriId: r.panelKategoriId, url: r.url, anahtarKelimeler: r.anahtarKelimeler ?? "", asistanSeviyesi: r.asistanSeviyesi,
     bilgi: r.bilgi ?? "", sss: parse<Sss>(r.sss), itirazlar: parse<Itiraz>(r.itirazlar), medya: parse<Medya>(r.medya), yasaklar: r.yasaklar ?? "", aktif: r.aktif,
   };
 }
@@ -70,6 +71,41 @@ const BILGI_KARTLARI = [
   { kod: "roll-up", ad: "Roll-up banner", anahtarKelimeler: "roll up, rollup, roll-up, roll up banner, banner stand, afiş standı", yasaklar: null },
 ];
 
+const slug = (v: string) => fold(v).replace(/ /g, "-").slice(0, 60);
+
+/**
+ * Her aktif panel kategorisinin kartı olur (bilgi verip devreder). Adı kategoriyi içeren eski kart (ör. "bayrak" → Bayraklar)
+ * kategoriye bağlanır; yoksa yeni kart açılır. Kart sonra panelden düzenlenir; kaldırmak için pasifleştirilir (silinirse yeniden açılır).
+ */
+async function seedPanelCards() {
+  const k = schema.urunKategorileri;
+  const u = schema.urunler;
+  const [cats, cards, items, [site]] = await Promise.all([
+    db().select({ id: k.id, ad: k.ad }).from(k).where(eq(k.aktif, true)),
+    db().select({ kod: kartlar.kod, ad: kartlar.ad, panelKategoriId: kartlar.panelKategoriId }).from(kartlar),
+    db().select({ kategoriId: u.kategoriId, ad: u.ad }).from(u).where(eq(u.aktif, true)),
+    db().select({ id: schema.siteBaglantilari.id }).from(schema.siteBaglantilari).where(like(schema.siteBaglantilari.adres, "%skygorselmarket.com%")).limit(1),
+  ]);
+  for (const c of cats) {
+    const names = items.filter((x) => x.kategoriId === c.id).map((x) => x.ad);
+    if (!names.length || cards.some((x) => x.panelKategoriId === c.id)) continue;
+    const old = cards.find((x) => x.panelKategoriId === null && fold(c.ad).includes(x.kod.replace(/-/g, " ")));
+    if (old) {
+      await db().update(kartlar).set({ panelKategoriId: c.id }).where(eq(kartlar.kod, old.kod));
+      old.panelKategoriId = c.id;
+      continue;
+    }
+    const kod = slug(c.ad);
+    if (!kod || cards.some((x) => x.kod === kod)) continue;
+    const anahtar = [...new Set([c.ad, ...names].map((x) => x.trim().toLocaleLowerCase("tr")))].join(", ").slice(0, 2000);
+    await db()
+      .insert(kartlar)
+      .ignore()
+      .values({ kod, ad: c.ad, siteId: site?.id ?? null, panelKategoriId: c.id, anahtarKelimeler: anahtar, asistanSeviyesi: "bilgi_verir", sss: "[]", itirazlar: "[]", medya: "[]" });
+    cards.push({ kod, ad: c.ad, panelKategoriId: c.id });
+  }
+}
+
 let seeded: Promise<unknown> | null = null;
 const ensureSeed = (): Promise<unknown> =>
   (seeded ??= (async () => {
@@ -80,6 +116,7 @@ const ensureSeed = (): Promise<unknown> =>
       .insert(kartlar)
       .ignore()
       .values(BILGI_KARTLARI.map((k) => ({ ...k, asistanSeviyesi: "bilgi_verir" as const, sss: "[]", itirazlar: "[]", medya: "[]" })));
+    await seedPanelCards();
     if (r?.n) return;
     // Canlı fiyat skygorselmarket bağlantısından okunur (bağlantı yoksa kartta site boş kalır, panelden seçilir)
     const [site] = await db().select({ id: schema.siteBaglantilari.id }).from(schema.siteBaglantilari).where(like(schema.siteBaglantilari.adres, "%skygorselmarket.com%")).limit(1);
@@ -110,6 +147,12 @@ export async function listCards(): Promise<Kart[]> {
   return (await db().select().from(kartlar).orderBy(asc(kartlar.ad))).map(toKart);
 }
 
+/** Kart düzenleyicideki panel kategorisi seçimi: aktif kategoriler */
+export async function listPanelCategories() {
+  const k = schema.urunKategorileri;
+  return db().select({ id: k.id, ad: k.ad }).from(k).where(eq(k.aktif, true)).orderBy(asc(k.sira), asc(k.id));
+}
+
 export async function getCard(kod: string): Promise<Kart | null> {
   await ensureSeed();
   const [r] = await db().select().from(kartlar).where(eq(kartlar.kod, kod));
@@ -136,6 +179,7 @@ export async function saveCard(raw: Record<string, unknown>, eskiKod: string | n
   const siteId = Number(raw.siteId) || null;
   const disUrunId = Number(raw.disUrunId) || null;
   const disKategoriId = Number(raw.disKategoriId) || null;
+  const panelKategoriId = Number(raw.panelKategoriId) || null;
   const sss = (Array.isArray(raw.sss) ? raw.sss : []).map((x: Sss) => ({ soru: s(x?.soru, 500), cevap: s(x?.cevap, 2000) })).filter((x) => x.soru && x.cevap).slice(0, 50);
   const itirazlar = (Array.isArray(raw.itirazlar) ? raw.itirazlar : []).map((x: Itiraz) => ({ itiraz: s(x?.itiraz, 500), cevap: s(x?.cevap, 2000) })).filter((x) => x.itiraz && x.cevap).slice(0, 50);
   const medya: Medya[] = [];
@@ -150,7 +194,7 @@ export async function saveCard(raw: Record<string, unknown>, eskiKod: string | n
   }
   if (new Set(medya.map((m) => m.id)).size !== medya.length) return { ok: false, hata: "Medya kimlikleri tekil olmalı." };
   const values = {
-    kod, ad, siteId, disUrunId, disKategoriId, url: url || null, anahtarKelimeler: s(raw.anahtarKelimeler, 2000) || null,
+    kod, ad, siteId, disUrunId, disKategoriId, panelKategoriId, url: url || null, anahtarKelimeler: s(raw.anahtarKelimeler, 2000) || null,
     asistanSeviyesi: schema.WA_ASISTAN_SEVIYELERI.find((v) => v === raw.asistanSeviyesi) ?? "devreder",
     bilgi: s(raw.bilgi, 20000) || null, sss: JSON.stringify(sss), itirazlar: JSON.stringify(itirazlar), medya: JSON.stringify(medya), yasaklar: s(raw.yasaklar, 4000) || null,
     aktif: raw.aktif !== false,

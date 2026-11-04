@@ -21,14 +21,15 @@ const seviyeOf = (k: Seviye) => SEVIYELER.find((x) => x.key === k) ?? SEVIYELER[
 
 type Medya = { id: string; tur: "image" | "video"; yol: string; aciklama: string };
 type Kart = {
-  kod: string; ad: string; siteId: number | null; disUrunId: number | null; disKategoriId: number | null; url: string | null; anahtarKelimeler: string; asistanSeviyesi: Seviye;
+  kod: string; ad: string; siteId: number | null; disUrunId: number | null; disKategoriId: number | null; panelKategoriId: number | null; url: string | null; anahtarKelimeler: string;
+  asistanSeviyesi: Seviye;
   bilgi: string; sss: { soru: string; cevap: string }[]; itirazlar: { itiraz: string; cevap: string }[]; medya: Medya[]; yasaklar: string; aktif: boolean;
 };
 
 const inputCls = "h-10 w-full rounded-xl border border-input bg-card px-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
 const areaCls = "w-full rounded-xl border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/15";
 
-const BOS: Kart = { kod: "", ad: "", siteId: null, disUrunId: null, disKategoriId: null, url: "", anahtarKelimeler: "", asistanSeviyesi: "devreder", bilgi: "", sss: [], itirazlar: [], medya: [], yasaklar: "", aktif: true };
+const BOS: Kart = { kod: "", ad: "", siteId: null, disUrunId: null, disKategoriId: null, panelKategoriId: null, url: "", anahtarKelimeler: "", asistanSeviyesi: "devreder", bilgi: "", sss: [], itirazlar: [], medya: [], yasaklar: "", aktif: true };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -41,7 +42,9 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 }
 
 /** Asistanın ürün kartları: kapsamdaki ürünler baştan sona cevaplanır, diğerleri tanınıp ekibe devredilir */
-export function CardEditor({ cards, sites }: { cards: Kart[]; sites: { id: number; ad: string }[] }) {
+type Secenek = { id: number; ad: string };
+
+export function CardEditor({ cards, sites, kategoriler }: { cards: Kart[]; sites: Secenek[]; kategoriler: Secenek[] }) {
   const [sel, setSel] = useState<string | null>(cards[0]?.kod ?? null);
   const current = sel === "" ? BOS : (cards.find((c) => c.kod === sel) ?? null);
   return (
@@ -76,13 +79,13 @@ export function CardEditor({ cards, sites }: { cards: Kart[]; sites: { id: numbe
             </Button>
           </div>
         </Card>
-        {current ? <Editor key={sel} kart={current} yeni={sel === ""} sites={sites} onSaved={(kod) => setSel(kod)} /> : <Card className="p-10 text-center text-sm text-muted-foreground">Soldan bir kart seçin.</Card>}
+        {current ? <Editor key={sel} kart={current} yeni={sel === ""} sites={sites} kategoriler={kategoriler} onSaved={(kod) => setSel(kod)} /> : <Card className="p-10 text-center text-sm text-muted-foreground">Soldan bir kart seçin.</Card>}
       </div>
     </div>
   );
 }
 
-function Editor({ kart, yeni, sites, onSaved }: { kart: Kart; yeni: boolean; sites: { id: number; ad: string }[]; onSaved: (kod: string) => void }) {
+function Editor({ kart, yeni, sites, kategoriler, onSaved }: { kart: Kart; yeni: boolean; sites: Secenek[]; kategoriler: Secenek[]; onSaved: (kod: string) => void }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [k, setK] = useState<Kart>(kart);
@@ -133,7 +136,17 @@ function Editor({ kart, yeni, sites, onSaved }: { kart: Kart; yeni: boolean; sit
         <Field label="Sitedeki ürün numarası" hint="WooCommerce ürün kimliği (ör. 20659); kategori kartında öne çıkan ürün">
           <input type="number" value={k.disUrunId ?? ""} onChange={(e) => set("disUrunId", Number(e.target.value) || null)} className={inputCls} />
         </Field>
-        <Field label="Sitedeki kategori numarası" hint="Doluysa asistan kategorideki ürünleri, ölçüleri ve fiyatları listeler (ör. 29 bayraklar)">
+        <Field label="Panel kategorisi" hint="Seçiliyse ürünler, ölçüler, fiyatlar ve uyarılar paneldeki teklif kataloğundan gelir (sitedeki numaralar kullanılmaz)">
+          <select value={k.panelKategoriId ?? ""} onChange={(e) => set("panelKategoriId", Number(e.target.value) || null)} className={inputCls}>
+            <option value="">Yok</option>
+            {kategoriler.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.ad}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Sitedeki kategori numarası" hint="Panel kategorisi seçili değilse: asistan sitedeki kategorinin ürünlerini ve fiyatlarını listeler (ör. 29 bayraklar)">
           <input type="number" value={k.disKategoriId ?? ""} onChange={(e) => set("disKategoriId", Number(e.target.value) || null)} className={inputCls} />
         </Field>
         <div className="sm:col-span-2">

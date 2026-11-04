@@ -134,6 +134,7 @@ export const ensureTables = (): Promise<unknown> =>
     if (!has("wa_sohbetler", "odeme_taslak")) await db().execute(sql.raw("ALTER TABLE wa_sohbetler ADD COLUMN odeme_taslak text NULL AFTER odeme_linki_id"));
     if (!has("wa_sohbetler", "gazebo_tasarim")) await db().execute(sql.raw("ALTER TABLE wa_sohbetler ADD COLUMN gazebo_tasarim text NULL AFTER odeme_taslak"));
     if (!has("wa_urun_kartlari", "dis_kategori_id")) await db().execute(sql.raw("ALTER TABLE wa_urun_kartlari ADD COLUMN dis_kategori_id int unsigned NULL AFTER dis_urun_id"));
+    if (!has("wa_urun_kartlari", "panel_kategori_id")) await db().execute(sql.raw("ALTER TABLE wa_urun_kartlari ADD COLUMN panel_kategori_id int unsigned NULL AFTER dis_kategori_id"));
     if (!has("wa_urun_kartlari", "asistan_seviyesi")) {
       await db().execute(sql.raw("ALTER TABLE wa_urun_kartlari ADD COLUMN asistan_seviyesi enum('cevaplar','bilgi_verir','devreder') NOT NULL DEFAULT 'devreder' AFTER anahtar_kelimeler"));
       if (has("wa_urun_kartlari", "asistan_cevaplar")) {

@@ -5,7 +5,7 @@ import { connection } from "next/server";
 import { CardEditor } from "@/components/whatsapp/card-editor";
 import { requireAdmin } from "@/server/auth";
 import { listSites } from "@/server/sites";
-import { listCards } from "@/server/whatsapp/cards";
+import { listCards, listPanelCategories } from "@/server/whatsapp/cards";
 import { waEnabled } from "@/server/whatsapp/config";
 
 export const metadata: Metadata = { title: "Asistan ürün kartları" };
@@ -14,8 +14,14 @@ async function Cards() {
   await connection();
   if (!waEnabled()) notFound();
   await requireAdmin();
-  const [cards, sites] = await Promise.all([listCards(), listSites()]);
-  return <CardEditor cards={cards} sites={sites.filter((s) => s.tur === "woocommerce").map((s) => ({ id: s.id, ad: s.ad }))} />;
+  const [cards, sites, kategoriler] = await Promise.all([listCards(), listSites(), listPanelCategories()]);
+  return (
+    <CardEditor
+      cards={cards}
+      sites={sites.filter((s) => s.tur === "woocommerce").map((s) => ({ id: s.id, ad: s.ad }))}
+      kategoriler={kategoriler}
+    />
+  );
 }
 
 export default function CardsPage() {
