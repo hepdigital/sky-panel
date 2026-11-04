@@ -12,7 +12,10 @@ import { orderCargo } from "../orders";
 import { siteInstallments, siteTransferRate } from "../payment-links";
 import { fold, getCard, listCards, type Kart } from "./cards";
 import type { WaConfig } from "./config";
-import { DUVAR_SECENEKLERI, KUMAS_SECENEKLERI, designLink, gazeboFiyatla, gazeboOnayGorseli, gazeboSecenekleri, panelUrunAra, priceGazebo, type GazeboInput, type GazeboSecim } from "./gazebo";
+import {
+  DUVAR_SECENEKLERI, KUMAS_SECENEKLERI, designLink, gazeboFiyatla, gazeboOnayGorseli, gazeboSecenekleri, panelCategoryInfo, panelKalem, panelUrunAra, priceGazebo, type GazeboInput,
+  type GazeboSecim,
+} from "./gazebo";
 import { sendMedia, sendText } from "./graph";
 import { createChatPaymentLink, paymentMessage, type PaymentDraft } from "./payment";
 import type { WaAyarlar } from "./settings";
@@ -75,7 +78,7 @@ export function toolDefs(ayar: WaAyarlar): Anthropic.Beta.BetaTool[] {
     {
       name: "urun_bilgisi",
       description:
-        "Ürün kartının canlı bilgisi: sitedeki güncel fiyat (KDV dahil, indirimliyse liste fiyatıyla), havale/EFT indirimi ve fiyatı, ürün linki. Kategori kartında kategorideki ürünler (ürün numarası, ad, fiyat, link) ve kategori linki. Fiyat soran her müşteride bunu çağır; fiyatı ezberden söyleme.",
+        "Ürün kartının canlı bilgisi: güncel fiyat (KDV dahil, indirimliyse liste fiyatıyla), havale/EFT indirimi ve fiyatı, ürün linki. Kategori kartında kategorideki ürünler (ad, ölçü, fiyat, seçenek dahil fiyat, uyarı, ürün numarası, link) ve kategori linki. Fiyat soran her müşteride bunu çağır; fiyatı ezberden söyleme.",
       input_schema: { type: "object", properties: { kod: { type: "string", description: "Ürün kartı kodu, ör. kis-bahcesi-3x3" } }, required: ["kod"], additionalProperties: false },
     },
     {
@@ -162,6 +165,12 @@ export function toolDefs(ayar: WaAyarlar): Anthropic.Beta.BetaTool[] {
       input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
     },
     {
+      name: "siparis_sorgula",
+      description:
+        "Sipariş numarasıyla (sitedeki ya da paneldeki) siparişin durumunu, tarihini, ürünlerini ve kargo takibini getirir. Bilgi yalnızca siparişteki telefon bu sohbetin numarasıyla eşleşirse döner (başkasının siparişi paylaşılmaz).",
+      input_schema: { type: "object", properties: { siparis_no: { type: "string" } }, required: ["siparis_no"], additionalProperties: false },
+    },
+    {
       name: "medya_gonder",
       description: "Ürün kartındaki izinli bir görseli ya da videoyu (ör. kurulum videosu) müşteriye gönderir. Yalnızca kartın medya listesindeki kimlikler.",
       input_schema: { type: "object", properties: { kod: { type: "string", description: "Ürün kartı kodu" }, id: { type: "string", description: "Medya kimliği" } }, required: ["kod", "id"], additionalProperties: false },
@@ -217,19 +226,22 @@ export function toolDefs(ayar: WaAyarlar): Anthropic.Beta.BetaTool[] {
     defs.push({
       name: "odeme_linki_olustur",
       description:
-        "Kartla ödeme için sitede sipariş ve ödeme linki hazırlar. Tutarı sunucu hesaplar (sitedeki fiyat × adet). YALNIZCA müşteri sipariş özetini (ad soyad, adres, ürün, renk, adet, tutar) tek mesajda gördükten sonra açıkça onayladıysa çağır. Yalnız senin baştan sona sattığın ürünler için.",
+        "Kartla ödeme için sitede sipariş ve ödeme linki hazırlar. Tutarı sunucu hesaplar (fiyat × adet; panel kategorisi kartında panel fiyatı). YALNIZCA müşteri sipariş özetini (ad soyad, adres, ürün, renk, adet, tutar, fatura) tek mesajda gördükten sonra açıkça onayladıysa çağır. Yalnız senin baştan sona sattığın ürünler için.",
       input_schema: {
         type: "object",
         properties: {
           urun_kodu: { type: "string" },
-          renk: { type: "string" },
+          renk: { type: "string", description: "Renk; renk seçilmeyen üründe boş metin" },
+          kalem_kodu: { ...NULLABLE_STR, description: "Panel kategorisi kartında urun_bilgisi'ndeki kalem_kodu; diğer kartlarda boş" },
+          secenek_dahil: { type: "boolean", description: "Panel ürününün ek seçeneği (ör. kumaş baskı) dahil mi; seçeneksizde false" },
           adet: { type: "integer" },
           ad_soyad: { type: "string" },
           adres: { type: "string", description: "Açık adres: mahalle, sokak, no, ilçe" },
           il: { type: "string" },
           eposta: NULLABLE_STR,
+          fatura: { ...NULLABLE_STR, description: "Kurumsal faturada unvan, vergi dairesi ve vergi no (adres farklıysa fatura adresi); bireysel faturada boş" },
         },
-        required: ["urun_kodu", "renk", "adet", "ad_soyad", "adres", "il", "eposta"],
+        required: ["urun_kodu", "renk", "kalem_kodu", "secenek_dahil", "adet", "ad_soyad", "adres", "il", "eposta", "fatura"],
         additionalProperties: false,
       },
     });
@@ -377,6 +389,14 @@ async function urunBilgisi(kod: string) {
   if (!card || !card.aktif) return { hata: `"${kod}" kodlu ürün kartı yok. urun_bul ile doğru kodu bul.` };
   const base = { kod: card.kod, ad: card.ad, seviye: card.asistanSeviyesi, link: card.url };
   if (card.asistanSeviyesi === "devreder") return { ...base, fiyat: null, not: "Bu ürünün fiyatını ekip verir: ölçü, adet, il ve ad bilgisini topla, kaydet ve ekibe devret." };
+  if (card.panelKategoriId) {
+    const site = await siteOf(card.siteId);
+    if (!site) return { ...base, fiyat: null, not: "Kartın sitesi seçili değil; fiyat söyleme, ekibe devret." };
+    const info = await panelCategoryInfo(card, site);
+    if (card.asistanSeviyesi !== "cevaplar") return info;
+    const oran = await siteTransferRate(site);
+    return { ...info, havale_eft_indirim_orani: oran, kargo: "Ücretsiz" };
+  }
   if (card.disKategoriId) return categoryInfo(card);
   let live: Awaited<ReturnType<typeof liveProduct>>;
   try {
@@ -427,7 +447,11 @@ async function urunBul(sorgu: string) {
     .slice(0, 5);
   const row = (c: Kart) => ({ kod: c.kod, ad: c.ad, seviye: c.asistanSeviyesi });
   if (scored.length) return { sonuclar: scored.map((x) => row(x.c)) };
-  return { sonuclar: [], not: "Eşleşen kart yok. site_urun_ara ile sitede ara; fiyat, özellik ve link verip bilgileri topla, kaydet ve ekibe devret.", tum_kartlar: cards.map(row) };
+  return {
+    sonuclar: [],
+    not: "Eşleşen kart yok. Aşağıdaki kartlardan biri müşterinin ürünüyse (farklı adla soruyor olabilir) onun koduyla urun_bilgisi çağır; değilse site_urun_ara ile sitede ara. Bulamazsan uydurma: bilgileri topla, kaydet ve ekibe devret.",
+    tum_kartlar: cards.map(row),
+  };
 }
 
 async function activeColors() {
@@ -490,6 +514,43 @@ async function musteriDurumu(telefon: string | null) {
   return { kayitli: true, ad: c.yetkili || c.firma, siparisler };
 }
 
+/** Sipariş numarasıyla durum: siparişteki (müşteri kaydı, fatura ya da teslimat) telefon sohbetin numarasıyla eşleşmeli */
+async function siparisSorgula(telefon: string | null, no: string) {
+  const q = no.replace(/^#/, "").trim().slice(0, 40);
+  if (!q) return { hata: "Sipariş numarası gerekli." };
+  const sp = schema.siparisler;
+  const [o] = await db()
+    .select({ id: sp.id, no: sp.no, disNo: sp.disNo, durum: sp.durum, tarih: sql<Date>`COALESCE(${sp.disTarih}, ${sp.olusturma})`, siteVeri: sp.siteVeri, telefon: schema.musteriler.telefon })
+    .from(sp)
+    .leftJoin(schema.musteriler, eq(schema.musteriler.id, sp.musteriId))
+    .where(sql`${sp.disNo} = ${q} OR ${sp.no} = ${q}`)
+    .orderBy(desc(sp.id))
+    .limit(1);
+  const yok = { bulundu: false, not: "Bu numarayla, bu WhatsApp numarasına ait sipariş bulunamadı. Numarayı kontrol etmesini iste; yine olmazsa sipariş numarası ve adıyla ekibe devret. Başka bilgi verme." };
+  if (!o) return yok;
+  const sv = (() => {
+    try {
+      return o.siteVeri ? (JSON.parse(o.siteVeri) as { musteri?: { telefon?: string }; teslimat?: { telefon?: string } | null; kargo?: { firma: string | null; takipNo: string | null; link?: string | null }; kalemler?: { ad: string; adet: number }[] }) : null;
+    } catch {
+      return null;
+    }
+  })();
+  const key = phoneKey(telefon);
+  const own = !!key && [o.telefon, sv?.musteri?.telefon, sv?.teslimat?.telefon].some((t) => phoneKey(t ?? null) === key);
+  if (!own) return yok;
+  const k = sv?.kargo?.takipNo ? sv.kargo : await orderCargo(o.id).catch(() => null);
+  return {
+    bulundu: true,
+    siparis_no: o.disNo ?? o.no,
+    durum: SIPARIS_AD[o.durum] ?? o.durum,
+    tarih: new Date(o.tarih).toISOString().slice(0, 10),
+    urunler: (sv?.kalemler ?? []).slice(0, 10).map((x) => `${x.ad} × ${x.adet}`),
+    kargo_firmasi: k?.firma ? kargoAd(k.firma) : null,
+    takip_linki: takipLinki(k?.firma, k?.takipNo),
+    not: "Durumu kısaca bildir. Kargodaysa takip linkini ver. Gecikme, hasar ya da iade varsa ekibe devret.",
+  };
+}
+
 async function medyaGonder(ctx: Ctx, telefon: string, kod: string, id: string) {
   const card = await getCard(kod);
   const m = card?.aktif ? card.medya.find((x) => x.id === id) : null;
@@ -534,7 +595,7 @@ async function siteUrunAra(ctx: Ctx, sorgu: string) {
   if (!rows.length) return { sonuclar: [], not: "Sitede eşleşen ürün yok. Farklı bir ifadeyle bir kez daha ara; yoksa bilgileri topla ve ekibe devret." };
   return {
     sonuclar: rows.map((r) => ({ urun_id: r.id, ad: r.ad, [r.varyantli ? "baslangic_fiyati_kdv_dahil" : "fiyat_kdv_dahil"]: r.fiyat, link: r.link })),
-    not: "Fiyatlar KDV dahil, sitedeki güncel fiyat. Ayrıntı için site_urun_detay. Kartı olmayan üründe fiyat, özellik ve link verirsin; satışı kapatmazsın, bilgileri toplayıp ekibe devredersin.",
+    not: "Fiyatlar KDV dahil, sitedeki güncel fiyat. Ayrıntı için site_urun_detay. Kartı olmayan üründe fiyat, özellik ve link verirsin; satışı kapatmazsın, bilgileri toplayıp ekibe devredersin. Sonuç gazebo çadırsa sitedeki hazır gazebo modellerinin fiyatını verme: gazebo_secenekleri / gazebo_fiyatla kullan.",
   };
 }
 
@@ -680,7 +741,9 @@ async function odemeBilgisi(ctx: Ctx, telefon: string) {
   return r.ok ? { gonderildi: true } : { hata: r.hata };
 }
 
-type LinkInput = { urun_kodu: string; renk: string; adet: number; ad_soyad: string; adres: string; il: string; eposta: string | null };
+type LinkInput = {
+  urun_kodu: string; renk: string; kalem_kodu: string | null; secenek_dahil: boolean; adet: number; ad_soyad: string; adres: string; il: string; eposta: string | null; fatura: string | null;
+};
 
 /** Gazebo onayı: tasarım görseli ve özeti müşteriye gider (tutar ve görsel ödeme linkiyle aynı hesaptan) */
 async function gazeboOnay(ctx: Ctx, telefon: string, i: GazeboSecim) {
@@ -701,7 +764,7 @@ async function gazeboOnay(ctx: Ctx, telefon: string, i: GazeboSecim) {
   const r = await deliver(ctx, telefon, { tur: "image", link: publicUrl(jpg), yol: jpg, metin });
   if (r.ok) await db().update(sohbetler).set({ gazeboTasarim: JSON.stringify(i) }).where(eq(sohbetler.id, ctx.sohbetId));
   return r.ok
-    ? { gonderildi: true, toplam_kdv_dahil: p.toplam, not: "Görsel ve özet gönderildi; tekrar yazma. Müşteriden tasarımı onaylamasını iste. Onaylarsa kartla ödeme için ad soyad, açık adres ve il topla; sonra odeme_linki_olustur'u urun_kodu \"gazebo\" ile çağır (link bu onaylı tasarımdan oluşur). Tasarım değişirse önce yeniden gazebo_onay_gonder." }
+    ? { gonderildi: true, toplam_kdv_dahil: p.toplam, not: "Görsel, özet, toplam ve 3D linki görselin açıklamasında müşteriye gitti. Bunları tekrar yazma: yalnızca tek kısa cümleyle onay iste (ör. \"Tasarımı bu şekilde onaylıyor musunuz? Değiştirmek istediğiniz bir yer varsa söyleyin.\"). Onaylarsa kartla ödeme için ad soyad, açık adres ve il topla; sonra odeme_linki_olustur'u urun_kodu \"gazebo\" ile çağır (link bu onaylı tasarımdan oluşur). Tasarım değişirse önce yeniden gazebo_onay_gonder." }
     : { hata: r.hata };
 }
 
@@ -713,8 +776,13 @@ async function odemeLinki(ctx: Ctx, telefon: string, i: LinkInput) {
   if (!card?.aktif || card.asistanSeviyesi !== "cevaplar") return { hata: "Bu ürün için ödeme linkini ekip hazırlar; bilgileri kaydet ve ekibe devret." };
   const adet = Math.floor(Number(i.adet));
   if (!(adet >= 1 && adet <= 100)) return { hata: "Adet 1 ile 100 arasında olmalı; 100'den fazlası için ekibe devret." };
-  const kisi = { adSoyad: String(i.ad_soyad ?? "").trim().slice(0, 160), adres: String(i.adres ?? "").trim().slice(0, 400), il: String(i.il ?? "").trim().slice(0, 60), eposta: (i.eposta ?? "").trim().slice(0, 191) };
+  const fatura = (i.fatura ?? "").trim().slice(0, 500);
+  const kisi = {
+    adSoyad: String(i.ad_soyad ?? "").trim().slice(0, 160), adres: String(i.adres ?? "").trim().slice(0, 400), il: String(i.il ?? "").trim().slice(0, 60), eposta: (i.eposta ?? "").trim().slice(0, 191),
+    ...(fatura ? { fatura } : {}),
+  };
   let taslak: PaymentDraft;
+  let renkGerekli = true;
   if (card.kod === "gazebo") {
     // Gazebo: tutar konfigüratörün tablosundan; link oluşturulurken yeniden hesaplanır
     const g = await gazeboCtx(ctx);
@@ -724,20 +792,28 @@ async function odemeLinki(ctx: Ctx, telefon: string, i: LinkInput) {
     if (!p.ok) return { hata: p.hata };
     if (p.f === 2) return { hata: "Baskılı gazebonun ödeme linkini ekip hazırlar (baskı tasarımı ekiple); bilgileri kaydet ve ekibe devret." };
     taslak = { urunKodu: card.kod, urun: p.ozet[0], renk: p.renk ?? "", adet: p.adet, ...kisi, tutar: p.toplam, gazebo: secim! };
+  } else if (card.panelKategoriId) {
+    // Panel kategorisi: tutar panel fiyatından (sitedeki fiyat farkı ya da hatası müşteriye yansımaz)
+    const site = await siteOf(card.siteId);
+    const k = site && i.kalem_kodu ? await panelKalem(site.markaId, card.panelKategoriId, i.kalem_kodu, !!i.secenek_dahil) : { ok: false as const, hata: "kalem_kodu gerekli (urun_bilgisi'ndeki ürün)." };
+    if (!k.ok) return { hata: k.hata };
+    renkGerekli = k.renk;
+    taslak = { urunKodu: card.kod, urun: k.ad, renk: String(i.renk ?? "").trim().slice(0, 60), adet, ...kisi, tutar: tl(k.birim * adet), panel: { kalem: i.kalem_kodu!, secenek: !!i.secenek_dahil } };
   } else {
     const live = await liveProduct(card).catch(() => null);
     if (!live?.v.yayinda || live.v.fiyat === null) return { hata: "Fiyat okunamadı; ekibe devret." };
     taslak = { urunKodu: card.kod, urun: card.ad, renk: String(i.renk ?? "").trim().slice(0, 60), adet, ...kisi, tutar: tl(live.v.fiyat * adet) };
   }
-  if (!taslak.adSoyad.includes(" ") || taslak.adres.length < 10 || taslak.il.length < 2 || !taslak.renk) return { hata: "Ad soyad, açık adres, il ve renk eksik; müşteriden iste." };
+  if (!taslak.adSoyad.includes(" ") || taslak.adres.length < 10 || taslak.il.length < 2 || (renkGerekli && !taslak.renk))
+    return { hata: `Ad soyad, açık adres, il${renkGerekli ? " ve renk" : ""} eksik; müşteriden iste.` };
   // Deneme alanı: sipariş ve link oluşturulmaz, ama asistan gerçek sohbetteki sonucu görür (yoksa hata sanıp ekibe devrediyor)
   if (!ctx.cfg) {
     if (mod === "ekip_onayli") return { hazirlaniyor: true, tutar_kdv_dahil: taslak.tutar, not: "Müşteriye şunu söyle: \"Ödeme linkiniz hazırlanıyor, ekibimiz birazdan iletecek.\"" };
-    const d = await deliver(ctx, telefon, { tur: "text", metin: `[Deneme] Burada ödeme linki gönderilirdi: ${taslak.urun} × ${adet} · ${taslak.renk} · ${taslak.tutar} TL` });
+    const d = await deliver(ctx, telefon, { tur: "text", metin: `[Deneme] Burada ödeme linki gönderilirdi: ${taslak.urun} × ${adet}${taslak.renk ? ` · ${taslak.renk}` : ""} · ${taslak.tutar} TL${taslak.fatura ? ` · Fatura: ${taslak.fatura}` : ""}` });
     if (!d.ok) return { hata: d.hata };
     return { gonderildi: true, toplam_kdv_dahil: taslak.tutar, not: "Link ayrı mesajla gönderildi; linki tekrar yazma." };
   }
-  const ozet = `${taslak.adSoyad} · ${taslak.urun} × ${adet} · ${taslak.renk} · ${taslak.tutar} TL\n${taslak.adres}, ${taslak.il}`;
+  const ozet = `${taslak.adSoyad} · ${taslak.urun} × ${adet}${taslak.renk ? ` · ${taslak.renk}` : ""} · ${taslak.tutar} TL\n${taslak.adres}, ${taslak.il}${taslak.fatura ? `\nFatura: ${taslak.fatura}` : ""}`;
   if (mod === "ekip_onayli") {
     await db().update(sohbetler).set({ odemeTaslak: JSON.stringify(taslak) }).where(eq(sohbetler.id, ctx.sohbetId));
     await handOff(ctx, "Ödeme linki ekip onayı bekliyor", ozet, "yuksek");
@@ -774,6 +850,9 @@ export async function runTool(ctx: Ctx, telefon: string, name: string, input: Re
     case "musteri_durumu":
       sonuc = await musteriDurumu(ctx.telefon);
       break;
+    case "siparis_sorgula":
+      sonuc = await siparisSorgula(ctx.telefon, str("siparis_no"));
+      break;
     case "medya_gonder":
       sonuc = await medyaGonder(ctx, telefon, str("kod"), str("id"));
       break;
@@ -807,7 +886,7 @@ export async function runTool(ctx: Ctx, telefon: string, name: string, input: Re
       break;
     case "ekibe_devret":
       await handOff(ctx, str("sebep"), str("ozet"), input.oncelik === "yuksek" ? "yuksek" : "normal");
-      sonuc = { devredildi: true, not: "Müşteriye ekibimizin en kısa sürede döneceğini kısaca söyle; yeni soru sorma." };
+      sonuc = { devredildi: true, not: "Müşteriye ekibimizin mesai saatleri içinde (hafta içi 08:00-18:00) kendisine ulaşacağını kısaca söyle; yeni soru sorma." };
       break;
     case "odeme_linki_olustur":
       sonuc = await odemeLinki(ctx, telefon, input as LinkInput);

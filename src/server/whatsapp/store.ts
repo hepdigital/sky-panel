@@ -134,6 +134,7 @@ export const ensureTables = (): Promise<unknown> =>
     if (!has("wa_sohbetler", "odeme_taslak")) await db().execute(sql.raw("ALTER TABLE wa_sohbetler ADD COLUMN odeme_taslak text NULL AFTER odeme_linki_id"));
     if (!has("wa_sohbetler", "gazebo_tasarim")) await db().execute(sql.raw("ALTER TABLE wa_sohbetler ADD COLUMN gazebo_tasarim text NULL AFTER odeme_taslak"));
     if (!has("wa_urun_kartlari", "dis_kategori_id")) await db().execute(sql.raw("ALTER TABLE wa_urun_kartlari ADD COLUMN dis_kategori_id int unsigned NULL AFTER dis_urun_id"));
+    if (!has("wa_urun_kartlari", "panel_kategori_id")) await db().execute(sql.raw("ALTER TABLE wa_urun_kartlari ADD COLUMN panel_kategori_id int unsigned NULL AFTER dis_kategori_id"));
     if (!has("wa_urun_kartlari", "asistan_seviyesi")) {
       await db().execute(sql.raw("ALTER TABLE wa_urun_kartlari ADD COLUMN asistan_seviyesi enum('cevaplar','bilgi_verir','devreder') NOT NULL DEFAULT 'devreder' AFTER anahtar_kelimeler"));
       if (has("wa_urun_kartlari", "asistan_cevaplar")) {
@@ -350,7 +351,13 @@ export async function fetchMedia(cfg: WaConfig, list: PendingMedia[]) {
 
 /** Asistanın müşteriden topladığı ve müşterinin onayladığı sipariş özeti (ödeme linki; whatsapp/payment.ts) */
 /** gazebo: konfigüratör tasarımı (gazebo.ts GazeboSecim); ödeme linki tutarı onu yeniden fiyatlar */
-export type PaymentDraft = { urunKodu: string; urun: string; renk: string; adet: number; adSoyad: string; adres: string; il: string; eposta: string; tutar: number; gazebo?: Record<string, unknown> };
+export type PaymentDraft = {
+  urunKodu: string; urun: string; renk: string; adet: number; adSoyad: string; adres: string; il: string; eposta: string; tutar: number; gazebo?: Record<string, unknown>;
+  /** Panel kategorisi kartında seçilen katalog ürünü (tutar link açılırken panel fiyatından yeniden hesaplanır) */
+  panel?: { kalem: string; secenek: boolean };
+  /** Fatura bilgisi (kurumsal: unvan, vergi dairesi, vergi no); sipariş notuna yazılır */
+  fatura?: string;
+};
 
 export function parseDraft(raw: string | null): PaymentDraft | null {
   try {

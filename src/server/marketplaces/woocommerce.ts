@@ -121,6 +121,17 @@ export async function wcCategoryProducts(site: Site, categoryId: number) {
   return list.map((p) => ({ id: p.id, ad: decode(p.name), fiyat: gross(tax, p.price, p), varyantli: p.type === "variable", link: p.permalink, gorsel: p.images[0]?.src ?? null }));
 }
 
+/** Yayındaki ürünlerin linkleri (yayında olmayan ürün haritada yok) */
+export async function wcProductLinks(site: Site, ids: number[]) {
+  const out = new Map<number, string>();
+  const uniq = [...new Set(ids)];
+  for (let i = 0; i < uniq.length; i += 100) {
+    const list = (await wcRequest(site, `/products?per_page=100&status=publish&include=${uniq.slice(i, i + 100).join(",")}`)) as WcProduct[];
+    for (const p of list) out.set(p.id, p.permalink);
+  }
+  return out;
+}
+
 export async function wcVariations(site: Site, productId: number) {
   const tax = await siteTax(site);
   const list = (await wcRequest(site, `/products/${productId}/variations?per_page=100`)) as WcVariation[];

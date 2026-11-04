@@ -5,8 +5,11 @@ import { FABRICS, SIZES, SZ, gzRows, gzTotal, plan, val, type Gazebo } from "@/l
 import { FRAME_MAT, FRAME_NAME, KONF_KDV, KONF_MODE, SIDE_NAMES, cleanConfig, cleanExtras, framesOf } from "@/lib/konfigurator";
 import { priceTable, withPriceTable } from "@/lib/terminal/price-table";
 import { wallImage, wallName, wallPrice, type Wall } from "@/modules/gazebo/walls";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { fold, type Kart } from "./cards";
 import { getCatalog } from "../catalog";
+import { db, schema } from "../db";
+import { wcProductLinks } from "../marketplaces/woocommerce";
 import { listColors } from "../colors";
 import { saveWebp } from "../files";
 import { gazeboTables } from "../gazebo-prices";
@@ -303,5 +306,86 @@ export async function panelUrunAra(markaId: number, sorgu: string) {
       };
     }),
     not: "Panel teklif listesi (perakende, KDV dahil). Ürün sitede de satılıyorsa sitedeki fiyatı (site_urun_ara) esas al; sitede olup olmadığından emin değilsen \"sitede yok\" deme. fiyat_kdv_dahil boşsa fiyatı ekip verir. Uyarıyı müşteriye uygun dille ilet.",
+  };
+}
+
+/** Panel kataloğu ürün kodu → sitedeki ürün numarası ve linki (yayındaki listelemeler; 5 dakika önbellek) */
+const linkCache = new Map<number, { t: number; v: Map<string, { id: number; link: string }> }>();
+async function siteLinks(site: { id: number } & Parameters<typeof wcProductLinks>[0]) {
+  const c = linkCache.get(site.id);
+  if (c && Date.now() - c.t < 5 * 60_000) return c.v;
+  const pu = schema.pazaryeriUrunleri;
+  const pl = schema.pazaryeriListelemeleri;
+  const rows = await db()
+    .select({ kod: schema.urunler.kod, disUrunId: pl.disUrunId })
+    .from(pl)
+    .innerJoin(pu, eq(pu.id, pl.urunId))
+    .innerJoin(schema.urunler, eq(schema.urunler.id, pu.urunId))
+    .where(and(eq(pl.siteId, site.id), eq(pl.aktif, true), eq(pu.aktif, true), eq(pl.durum, "yayinda"), isNotNull(pl.disUrunId)));
+  const links = await wcProductLinks(site, rows.map((r) => r.disUrunId!)).catch(() => new Map<number, string>());
+  const v = new Map<string, { id: number; link: string }>();
+  for (const r of rows) {
+    const link = links.get(r.disUrunId!);
+    if (link && !v.has(r.kod)) v.set(r.kod, { id: r.disUrunId!, link });
+  }
+  linkCache.set(site.id, { t: Date.now(), v });
+  return v;
+}
+
+/** Panel kategorisindeki tek ürünün KDV dahil birim fiyatı (ödeme linki; seçenek dahil istenirse ürün + seçenek) */
+export async function panelKalem(markaId: number, kategoriId: number, kod: string, secenek: boolean) {
+  const g = (await getCatalog(markaId)).find((x) => x.id === `k${kategoriId}`);
+  const it = g?.items.find((x) => !x.hidden && x.id === kod);
+  if (!it) return { ok: false as const, hata: "Bu ürün kartın kategorisinde yok; urun_bilgisi'ndeki kalem_kodu'nu kullan." };
+  const p = val(it.p, KONF_MODE);
+  if (p === null) return { ok: false as const, hata: "Bu ürünün fiyatını ekip verir; bilgileri kaydet ve ekibe devret." };
+  if (secenek && !it.opt) return { ok: false as const, hata: "Bu ürünün ek seçeneği yok; secenek_dahil false olmalı." };
+  const op = secenek && it.opt ? val(it.opt.p, KONF_MODE) : 0;
+  if (op === null) return { ok: false as const, hata: "Seçeneğin fiyatını ekip verir; bilgileri kaydet ve ekibe devret." };
+  return {
+    ok: true as const,
+    ad: `${it.n}${it.s ? ` ${it.s}` : ""}${secenek && it.opt ? ` · ${it.opt.n}` : ""}`.slice(0, 150),
+    birim: kdv(p + op),
+    renk: !!it.renk,
+  };
+}
+
+/**
+ * Panel kategorisi kartının ürünleri: ad, ölçü, KDV dahil perakende fiyat (sitedeki fiyat da panelden gider), ek seçenek ve
+ * seçenek dahil tam fiyat, satış uyarısı; ürün sitede yayındaysa ürün numarası ve linki.
+ */
+export async function panelCategoryInfo(card: Kart, site: { id: number; markaId: number } & Parameters<typeof wcProductLinks>[0]) {
+  const base = { kod: card.kod, ad: card.ad, seviye: card.asistanSeviyesi, kategori_linki: card.url };
+  const g = (await getCatalog(site.markaId)).find((x) => x.id === `k${card.panelKategoriId}`);
+  if (!g) return { ...base, urunler: [], not: "Bu kategori panelde şu an yok; fiyat söyleme, bilgileri topla ve ekibe devret." };
+  const links = await siteLinks(site).catch(() => new Map<string, { id: number; link: string }>());
+  const urunler = g.items
+    .filter((it) => !it.hidden)
+    .map((it) => {
+      const p = val(it.p, KONF_MODE);
+      const op = it.opt ? val(it.opt.p, KONF_MODE) : null;
+      const s = links.get(it.id);
+      return {
+        kalem_kodu: it.id,
+        ad: it.n,
+        aciklama: it.s || null,
+        fiyat_kdv_dahil: p === null ? null : kdv(p),
+        ...(it.opt ? { secenek: it.opt.n, secenek_dahil_fiyat_kdv_dahil: p === null || op === null ? null : kdv(p + op) } : {}),
+        uyari: it.warn ?? null,
+        renk_secilebilir: !!it.renk,
+        ...(s ? { urun_id: s.id, link: s.link } : {}),
+      };
+    });
+  return {
+    ...base,
+    kategori_uyarisi: g.warn ?? null,
+    urunler,
+    not: `Fiyatlar panel kataloğundan (perakende, KDV dahil); sitedeki fiyatla aynıdır. Seçenekli üründe (ör. "kumaş baskı dahil") müşterinin istediği komple ürünün fiyatını söyle (secenek_dahil_fiyat), seçeneksiz fiyatı ayrıca belirt. Uyarıları müşteriye uygun dille ilet. fiyat_kdv_dahil boşsa fiyatı ekip verir. Genel soruda seçenekleri kısaca özetle; link olarak kategori_linki varsa onu, yoksa ürünün linkini ver. Görmek isterse urun_gorseli_gonder (urun_id).${
+      card.asistanSeviyesi === "bilgi_verir" ? " Sonra ölçü, adet, baskı, il ve ad bilgisini topla, bilgi_kaydet ve ekibe_devret. Satışı kapatma: sipariş, ödeme linki, IBAN ya da teslim süresi sözü verme." : ""
+    }${
+      card.asistanSeviyesi === "cevaplar"
+        ? " Satışı sen kapatırsın: ürün, ölçü, adet (renk_secilebilir ise renk) ve baskılı üründe logo/tasarım bilgisini netleştir; kartla ödemede odeme_linki_olustur'a kalem_kodu ve secenek_dahil ver. Baskı tasarımı ödemeden sonra ekibimizle netleşir (ücretsiz); logoyu bu sohbete gönderebilirler."
+        : ""
+    }`,
   };
 }
