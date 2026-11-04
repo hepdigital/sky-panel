@@ -1,14 +1,41 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { girisYap } from "./actions";
+import { girisYap, type LoginState } from "./actions";
+
+type PasswordCredentialCtor = new (d: { id: string; password: string; name?: string }) => Credential;
+
+/**
+ * Giriş başarılıysa tarayıcıya şifreyi kaydetmesini önerir (Chrome/Android/Edge: Credential Management; Safari ve
+ * Firefox form gönderiminden kendisi anlar), sonra panele geçer: form sayfadan kalkınca tarayıcı girişin tamamlandığını anlar.
+ */
+async function storeCredential(form: FormData) {
+  const PC = (window as unknown as { PasswordCredential?: PasswordCredentialCtor }).PasswordCredential;
+  try {
+    // Tarayıcı öneriyi gösterince döner; takılırsa giriş bekletilmez
+    if (PC && navigator.credentials)
+      await Promise.race([
+        navigator.credentials.store(new PC({ id: String(form.get("kullanici") ?? ""), password: String(form.get("sifre") ?? "") })),
+        new Promise((r) => setTimeout(r, 1500)),
+      ]);
+  } catch {}
+}
 
 /** Personel girişi (bayi/müşteri portalı açılınca buraya ikinci giriş türü eklenecek) */
 export function LoginForm() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const [state, action, pending] = useActionState(girisYap, undefined);
+  const [state, action, pending] = useActionState(async (prev: LoginState, form: FormData) => {
+    const r = await girisYap(prev, form);
+    if (r?.ok) {
+      await storeCredential(form);
+      router.replace("/panel");
+    }
+    return r;
+  }, undefined);
 
   return (
     <form action={action} className="space-y-5">
@@ -51,8 +78,8 @@ export function LoginForm() {
 
           {state?.hata && <p className="rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger">{state.hata}</p>}
 
-          <Button type="submit" size="lg" className="w-full" disabled={pending}>
-            {pending ? "Giriş yapılıyor…" : "Giriş yap"} <ArrowRight />
+          <Button type="submit" size="lg" className="w-full" disabled={pending || !!state?.ok}>
+            {pending || state?.ok ? "Giriş yapılıyor…" : "Giriş yap"} <ArrowRight />
           </Button>
           <p className="text-center text-xs text-muted-foreground">Şifrenizi unuttuysanız yöneticinize başvurun.</p>
         </>
