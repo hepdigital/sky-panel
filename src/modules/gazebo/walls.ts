@@ -3,7 +3,8 @@
 // Duvar = tip + kumaş + açıklık ekleri. Gerçek ürün kuralları:
 // - Pencere 137×137 cm: şeffaf PVC ve/veya sineklik; perde (kumaş kapak, yukarı toplanır) isteğe bağlı.
 // - Kapı 90 cm genişlik, duvar boyunca: perde her zaman var, yalnızca sineklik eklenebilir (PVC olmaz).
-// - Tam PVC duvarda kenarlarda ~12 cm kumaş pay kalır; tam sineklikli duvarda pay yoktur.
+// - Tam PVC duvarda yanlarda ve üstte ~12 cm kumaş pay, altta yerden ~60 cm kumaş kalır; tam sineklikli duvarda pay yoktur.
+// - Kapılı tam PVC: ortada 90 cm, yere kadar çift fermuarlı kapı; iki yanı tam PVC duvar gibi.
 //
 // Fiyat duvar ölçüsüne (grubuna) göredir, gazebo ölçüsüne göre değil: 2x3, 3x3 ve 3x4.5'in 3 m'lik duvarları aynı
 // "200x300" grubundan fiyatlanır. Seçim fiyat listesindeki bir ürüne birebir denk gelirse liste fiyatı kullanılır;
@@ -14,7 +15,7 @@ import { priceTable } from "@/lib/terminal/price-table";
 /** Etkin fiyat tablosunun duvar listesi (markaya göre değişebilir) */
 const list = () => priceTable().WALL;
 
-export type WallKind = "yok" | "tam" | "yarim" | "tam-pvc" | "tam-sineklik" | "tek-fermuar" | "pencere" | "kapi" | "pencere-kapi";
+export type WallKind = "yok" | "tam" | "yarim" | "tam-pvc" | "tam-pvc-kapi" | "tam-sineklik" | "tek-fermuar" | "pencere" | "kapi" | "pencere-kapi";
 export type WindowOpts = { pvc: boolean; sineklik: boolean; perde: boolean };
 export type DoorOpts = { sineklik: boolean };
 /**
@@ -42,6 +43,7 @@ export const WALL_KINDS: { kind: WallKind; label: string; short: string }[] = [
   { kind: "kapi", label: "Kapılı duvar", short: "Kapılı" },
   { kind: "pencere-kapi", label: "Pencere + kapı", short: "Pencere + kapı" },
   { kind: "tam-pvc", label: "Tam PVC duvar", short: "Tam PVC" },
+  { kind: "tam-pvc-kapi", label: "Kapılı tam PVC duvar", short: "Tam PVC + kapı" },
   { kind: "tam-sineklik", label: "Tam sineklikli duvar", short: "Tam sineklik" },
   { kind: "tek-fermuar", label: "Tek fermuarlı kapı", short: "Tek fermuar" },
 ];
@@ -160,6 +162,10 @@ function singleWallPrice(group: string, w: Wall, mode: 0 | 1): number | null {
     if (v != null) return v;
   }
   if (w.kind === "tam-pvc") return fullPvcPrice(group, w.f, mode);
+  if (w.kind === "tam-pvc-kapi") {
+    const pvc = fullPvcPrice(group, w.f, mode);
+    return pvc == null ? null : pvc + PVC_DOOR;
+  }
   if (!hasWindow(w.kind) && !hasDoor(w.kind)) return null;
   const base = list()[group]?.["duz-tam"]?.[w.f]?.[mode];
   if (base == null) return null;
@@ -179,6 +185,8 @@ function singleWallPrice(group: string, w: Wall, mode: 0 | 1): number | null {
   return parts.some((v) => v == null) ? null : base + parts.reduce<number>((a, v) => a + (v ?? 0), 0);
 }
 
+/** Kapılı tam PVC: tam PVC + sabit kapı farkı (KDV hariç, her ölçü, kumaş ve fiyat tipinde; kullanıcı kararı 2026-11-05) */
+const PVC_DOOR = 500;
 /** Tam PVC duvar: aynı ölçüdeki düz tam duvarın %15 fazlası, 50 TL'ye yukarı yuvarlı (baskılıda yok: PVC'ye baskı yapılmaz) */
 function fullPvcPrice(group: string, f: number, mode: 0 | 1) {
   const base = f === 2 ? null : list()[group]?.["duz-tam"]?.[f]?.[mode];
@@ -244,8 +252,10 @@ function baseWallName(w: Wall) {
   }
 }
 
+/** Görseli yenilenen tipler yeni dosya adıyla (tarayıcı önbelleğindeki eskisi gösterilmesin) */
+const KIND_IMAGE: Partial<Record<WallKind, string>> = { "tam-pvc": "tam-pvc-2", "tam-pvc-kapi": "tam-pvc-kapi-2" };
 /** Duvar tipinin 3D'den üretilmiş görseli (tek renk; public/terminal/img/wk-*.webp); "yok" için yok */
-export const kindImage = (kind: WallKind) => (kind === "yok" ? null : `wk:${kind}`);
+export const kindImage = (kind: WallKind) => (kind === "yok" ? null : `wk:${KIND_IMAGE[kind] ?? kind}`);
 
 /** Fiyat listesi görseli: ürünün kendisi ya da en yakın tip */
 export function wallImage(w: Wall) {
@@ -256,6 +266,7 @@ export function wallImage(w: Wall) {
     tam: "w:duz-tam",
     yarim: "w:duz-yarim",
     "tam-pvc": "w:pvc",
+    "tam-pvc-kapi": "w:pvc-kapi",
     "tam-sineklik": "w:duz-sineklikli",
     "tek-fermuar": "w:tek-fermuar",
     pencere: "w:pvc-perde",
@@ -275,6 +286,7 @@ export function wallDesign(w: Wall): { style: "kapali" | "yarim"; design?: strin
     case "yarim":
       return { style: "yarim" };
     case "tam-pvc":
+    case "tam-pvc-kapi":
     case "tam-sineklik":
     case "tek-fermuar":
       return { style: "kapali", design: n.kind };

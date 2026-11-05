@@ -26,6 +26,7 @@ const DUVARLAR: Record<string, Omit<Wall, "f">> = {
   yarim: { kind: "yarim" },
   tam_sineklik: { kind: "tam-sineklik" },
   tam_pvc: { kind: "tam-pvc" },
+  tam_pvc_kapili: { kind: "tam-pvc-kapi" },
   tek_fermuarli_kapi: { kind: "tek-fermuar" },
   pvc_pencere: { kind: "pencere", p: { pvc: true, sineklik: false, perde: false } },
   pvc_perde_pencere: { kind: "pencere", p: { pvc: true, sineklik: false, perde: true } },
