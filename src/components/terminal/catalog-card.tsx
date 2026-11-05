@@ -8,7 +8,23 @@ import { Card } from "@/components/ui/card";
 import { QtyStepper } from "@/components/ui/qty-stepper";
 import { recolor, recolored } from "@/lib/terminal/recolor";
 import { useOutOfStock } from "./color-stock";
-import { COLORS, OPT_SUFFIX, colorName, imgSrc, prodKey, splitKey, val, type CatalogGroup, type CatalogItem, type Mode } from "@/lib/terminal/calc";
+import {
+  COLORS,
+  OPT_SUFFIX,
+  areaKey,
+  colorName,
+  imgSrc,
+  linePrice,
+  olcuHata,
+  olcuText,
+  prodKey,
+  splitKey,
+  val,
+  type CatalogGroup,
+  type CatalogItem,
+  type Mode,
+  type Olcu,
+} from "@/lib/terminal/calc";
 import { cn } from "@/lib/utils";
 
 /** Bir ürün grubunun ürünleri: kart, fiyat ve adet */
@@ -38,6 +54,7 @@ export function CatalogCard({
       <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {group.items.map((it) => {
           if (it.hidden) return null;
+          if (it.m2) return <AreaItem key={it.id} it={it} max={it.m2} prod={prod} setProd={setProd} mode={mode} money={money} />;
           if (it.renk || it.opt) return <VariantItem key={it.id} it={it} prod={prod} setProd={setProd} mode={mode} money={money} />;
           const pr = val(it.p, mode);
           const qty = prod[it.id] || 0;
@@ -162,6 +179,82 @@ function VariantItem({ it, prod, setProd, mode, money }: { it: CatalogItem; prod
             </Button>
           ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * m² ile fiyatlanan ürün (ör. baskılı halı): en × boy (cm) yazılır, fiyat alan × m² fiyatıdır (en az 1 m²).
+ * Her ölçü teklifte ayrı satırdır; aynı ölçü yeniden eklenirse adedi artar.
+ */
+function AreaItem({ it, max, prod, setProd, mode, money }: { it: CatalogItem; max: Olcu; prod: Record<string, number>; setProd: (id: string, n: number) => void; mode: Mode; money: (n: number) => string }) {
+  const [en, setEn] = useState("");
+  const [boy, setBoy] = useState("");
+  const pr = val(it.p, mode);
+  const o = { en: Number(en), boy: Number(boy) };
+  const filled = en.trim() !== "" && boy.trim() !== "";
+  const err = filled ? olcuHata(o, max) : null;
+  const ready = filled && !err && pr !== null;
+  const lines = Object.keys(prod).filter((k) => (prod[k] || 0) > 0 && splitKey(k).id === it.id).sort();
+  const field = "tabular h-9 w-full rounded-lg border border-input bg-card px-2.5 text-right text-sm font-semibold outline-none focus:border-primary";
+  const add = () => {
+    if (!ready) return;
+    const key = areaKey(it.id, o);
+    setProd(key, (prod[key] || 0) + 1);
+    setEn("");
+    setBoy("");
+  };
+  return (
+    // Ölçü alanları sığsın diye kart iki sütun genişliğindedir
+    <div className={cn("flex flex-col gap-2.5 rounded-xl border p-3 sm:col-span-2", lines.length ? "border-primary bg-primary-soft/40" : "border-border")}>
+      <div className="flex gap-3">
+        <span className="relative aspect-[4/3] w-28 shrink-0 overflow-hidden rounded-lg bg-white ring-1 ring-border sm:w-36">
+          {it.img && <Image src={imgSrc(it.img)} alt="" fill sizes="144px" className="object-contain p-2" unoptimized={it.img.startsWith("/dosya/")} />}
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold leading-tight">{it.n}</p>
+          <p className="text-[11px] text-muted-foreground">{it.s}</p>
+          {it.warn && <p className="text-[11px] font-medium text-warning">{it.warn}</p>}
+          <p className="mt-1 tabular text-sm font-bold">{pr === null ? "Fiyat sorunuz" : `${money(pr)} / m²`}</p>
+          <p className="text-[11px] text-muted-foreground">
+            En fazla {max.en} × {max.boy} cm · 1 m²&apos;den küçük parça 1 m² fiyatlanır
+          </p>
+        </div>
+      </div>
+      {pr !== null && (
+        <>
+          <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+            <label>
+              <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">En (cm)</span>
+              <input value={en} onChange={(e) => setEn(e.target.value.replace(/\D/g, "").slice(0, 5))} onKeyDown={(e) => e.key === "Enter" && add()} inputMode="numeric" placeholder={String(max.en)} className={field} />
+            </label>
+            <label>
+              <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Boy (cm)</span>
+              <input value={boy} onChange={(e) => setBoy(e.target.value.replace(/\D/g, "").slice(0, 5))} onKeyDown={(e) => e.key === "Enter" && add()} inputMode="numeric" placeholder="500" className={field} />
+            </label>
+            <Button size="sm" variant="soft" className="h-9" disabled={!ready} onClick={add}>
+              <Plus /> Ekle
+            </Button>
+          </div>
+          {filled && <p className={cn("text-[11px] font-medium", err ? "text-danger" : "text-muted-foreground")}>{err ?? `${olcuText(o)} · ${money(linePrice(pr, o))}`}</p>}
+        </>
+      )}
+      {lines.length > 0 && (
+        <ul className="mt-auto grid gap-x-4 gap-y-1.5 border-t border-border pt-2 md:grid-cols-2">
+          {lines.map((k) => {
+            const lo = splitKey(k).olcu!;
+            return (
+              <li key={k} className="flex items-center justify-between gap-2">
+                <span className="min-w-0 text-[11px]">
+                  <span className="font-semibold">{olcuText(lo)}</span>
+                  {pr !== null && <span className="tabular block text-muted-foreground">{money(linePrice(pr, lo))} / adet</span>}
+                </span>
+                <QtyStepper size="sm" className="w-24 shrink-0" value={prod[k]} onChange={(n) => setProd(k, n)} />
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

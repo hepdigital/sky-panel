@@ -26,7 +26,7 @@ async function Products() {
       urunler={urunler.map((u) => ({
         id: u.id, kod: u.kod, kategoriId: u.kategoriId, ad: u.ad, aciklama: u.aciklama, gorsel: u.gorsel,
         toptan: u.toptan, perakende: u.perakende, uyari: u.uyari, aktif: u.aktif, renkSecimi: u.renkSecimi, secenekAd: u.secenekAd, secenekToptan: u.secenekToptan, secenekPerakende: u.secenekPerakende, ekleyen: u.ekleyen,
-        duzenlenebilir: canEditProduct(me, u.olusturanId), paket: paketler[u.id] ?? null,
+        duzenlenebilir: canEditProduct(me, u.olusturanId), paket: paketler[u.id] ?? null, m2: u.m2,
         // Maliyet ve markaya özel değerler yalnızca yöneticiye gönderilir
         maliyet: admin ? u.maliyet : null, secenekMaliyet: admin ? u.secenekMaliyet : null, markalar: admin ? u.markalar : [],
       }))}

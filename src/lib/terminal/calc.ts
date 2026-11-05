@@ -23,22 +23,46 @@ export type Pair = [number, number] | null;
  * renk: renk seçilebilir ürün; sepette her renk ayrı satırdır (anahtar "kod~#hex").
  * opt: ek seçenek (ör. "Kumaş baskı dahil"); katalogda ürünün görünmeyen eşi (hidden, kod+s, fiyat = ürün + seçenek) bulunur,
  * kartta anahtar açılınca adet o eşe yazılır. Fiyat terminalindeki yapıyla aynıdır.
+ * m2: m² ile fiyatlanan ürün (ör. baskılı halı); p m² fiyatıdır, m2 basılabilen en büyük ölçü (cm). Her ölçü sepette ayrı satırdır
+ * (anahtar "kod@200x500"), parça fiyatı alan × m² fiyatıdır.
  */
-export type CatalogItem = { id: string; n: string; s: string; img: string | null; p: Pair; warn?: string; renk?: boolean; opt?: { n: string; p: Pair }; hidden?: boolean };
+export type CatalogItem = { id: string; n: string; s: string; img: string | null; p: Pair; warn?: string; renk?: boolean; opt?: { n: string; p: Pair }; hidden?: boolean; m2?: Olcu };
 export const OPT_SUFFIX = "+s";
 
-/** Sepet anahtarı: renksiz ürün "kod", renkli ürün "kod~#ffd400" */
+/** m² ürününün ölçüsü (cm) */
+export type Olcu = { en: number; boy: number };
+/** Bundan küçük parça da bu kadar m² fiyatlanır */
+export const M2_MIN = 1;
+/** Fiyatlanan alan: m² (iki ondalık), en az M2_MIN */
+export const areaOf = (o: Olcu) => Math.max(M2_MIN, Math.round((o.en * o.boy) / 100) / 100);
+/** Parça fiyatı: m² ürününde alan × m² fiyatı (tam TL), diğerlerinde birim fiyat */
+export const linePrice = (pr: number, o: Olcu | null) => (o ? Math.round(pr * areaOf(o)) : pr);
+const m2Text = (n: number) => n.toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+/** "200 × 500 cm · 10 m²" (en az 1 m²'nin altındaysa belirtilir) */
+export const olcuText = (o: Olcu) =>
+  `${o.en} × ${o.boy} cm · ${m2Text(areaOf(o))} m²${(o.en * o.boy) / 10_000 < M2_MIN ? ` (en az ${M2_MIN} m² fiyatlanır)` : ""}`;
+/** Ölçü sınırı: kısa kenar en büyük eni, uzun kenar en büyük boyu geçemez (halı çevrilerek basılır) */
+export function olcuHata(o: Olcu, max: Olcu) {
+  if (!Number.isInteger(o.en) || !Number.isInteger(o.boy) || o.en < 1 || o.boy < 1) return "En ve boyu cm olarak yazın.";
+  if (Math.min(o.en, o.boy) > max.en || Math.max(o.en, o.boy) > max.boy) return `En fazla ${max.en} × ${max.boy} cm basılabilir.`;
+  return null;
+}
+
+/** Sepet anahtarı: renksiz ürün "kod", renkli ürün "kod~#ffd400", m² ürünü "kod@200x500" */
 export const prodKey = (id: string, hex?: string | null) => (hex ? `${id}~${hex}` : id);
+export const areaKey = (id: string, o: Olcu) => `${id}@${o.en}x${o.boy}`;
 export const splitKey = (key: string) => {
   const i = key.indexOf("~");
-  return i < 0 ? { id: key, hex: null } : { id: key.slice(0, i), hex: key.slice(i + 1) };
+  const head = i < 0 ? key : key.slice(0, i);
+  const m = /^(.+)@(\d+)x(\d+)$/.exec(head);
+  return { id: m ? m[1] : head, hex: i < 0 ? null : key.slice(i + 1), olcu: m ? { en: Number(m[2]), boy: Number(m[3]) } : null };
 };
-/** Bir ürünün sepetteki satırları (renkliyse renk başına), ürün sırasıyla */
+/** Bir ürünün sepetteki satırları (renkliyse renk, m² ürünüyse ölçü başına), ürün sırasıyla */
 export function itemLines(q: QuoteState, it: CatalogItem) {
   return Object.keys(q.prod)
     .filter((k) => (q.prod[k] || 0) > 0 && splitKey(k).id === it.id)
     .sort()
-    .map((key) => ({ key, hex: splitKey(key).hex, qty: q.prod[key] }));
+    .map((key) => ({ key, ...splitKey(key), qty: q.prod[key] }));
 }
 export type CatalogGroup = { id: string; nav: string; title: string; lead: string; warn?: string; items: CatalogItem[] };
 export type Catalog = CatalogGroup[];
@@ -296,11 +320,13 @@ export function allRows(q: QuoteState, catalog: Catalog): Row[] {
     for (const it of g.items) {
       const pr = val(it.p, q.mode);
       if (pr === null) continue;
-      for (const { key, hex, qty } of itemLines(q, it)) {
+      for (const { key, hex, olcu, qty } of itemLines(q, it)) {
         const i = q.prodIsk[key];
-        const net = netBirim(pr, i);
+        const birim = linePrice(pr, olcu);
+        const net = netBirim(birim, i);
         const ad = hex ? `${it.n} · ${colorName(hex)}` : it.n;
-        rows.push({ key, t: ad + (qty > 1 ? ` × ${qty}` : ""), s: it.s, birim: pr, net, adet: qty, isk: i, liste: pr * qty, v: net * qty });
+        const s = olcu ? [olcuText(olcu), it.s].filter(Boolean).join(" · ") : it.s;
+        rows.push({ key, t: ad + (qty > 1 ? ` × ${qty}` : ""), s, birim, net, adet: qty, isk: i, liste: birim * qty, v: net * qty });
       }
     }
   for (const x of q.extra ?? []) {
@@ -359,12 +385,17 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: Br
       g.items.flatMap((it) => {
         const pr = val(it.p, q.mode);
         if (pr === null) return [];
-        return itemLines(q, it).map(({ key, hex, qty }) => {
+        return itemLines(q, it).map(({ key, hex, olcu, qty }) => {
           const i = q.prodIsk[key];
+          const birim = linePrice(pr, olcu);
           return {
             ad: it.n,
-            alt: hex ? [it.s, `Renk: ${colorName(hex)}`].filter(Boolean).join(" · ") : it.s,
-            adet: qty, birim: adj(pr), isk: iskEtiket(i), tutar: adj(netBirim(pr, i) * qty),
+            alt: hex
+              ? [it.s, `Renk: ${colorName(hex)}`].filter(Boolean).join(" · ")
+              : olcu
+                ? [olcuText(olcu), `m² ${TL(adj(pr))}`, it.s].filter(Boolean).join(" · ")
+                : it.s,
+            adet: qty, birim: adj(birim), isk: iskEtiket(i), tutar: adj(netBirim(birim, i) * qty),
             // Renkli ürün: PDF'te o rengin boyanmış görseli (hazırsa)
             img: hex && it.img ? (recolored(imgSrc(it.img), hex) ?? it.img) : it.img,
             parcalar: [],

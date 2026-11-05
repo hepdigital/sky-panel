@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, ne } from "drizzle-orm";
+import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { OPT_SUFFIX, type Catalog, type Pair } from "@/lib/terminal/calc";
 import type { Paket } from "@/lib/cargo-tariff";
 import type { Costs } from "@/lib/terminal/cost";
@@ -7,7 +7,31 @@ import { isAdmin, type Me } from "./auth";
 import { db, schema } from "./db";
 import { savePackages } from "./shipping";
 
-const { urunler, urunKategorileri, kullanicilar, urunMarkalari } = schema;
+const { urunler, urunKategorileri, kullanicilar, urunMarkalari, urunOlculeri } = schema;
+
+// m² ile fiyatlanan ürünlerin ölçü sınırları ayrı tabloda; ilk kullanımda kurulur (canlıda drizzle push kullanılmaz)
+let areaReady: Promise<unknown> | null = null;
+const ensureAreaSchema = () =>
+  (areaReady ??= db()
+    .execute(
+      sql.raw(`CREATE TABLE IF NOT EXISTS urun_olculeri (
+        urun_id int unsigned NOT NULL PRIMARY KEY,
+        en_max int unsigned NOT NULL,
+        boy_max int unsigned NOT NULL,
+        CONSTRAINT urun_olculeri_urun_id_urunler_id_fk FOREIGN KEY (urun_id) REFERENCES urunler (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`),
+    )
+    .catch((e) => {
+      areaReady = null;
+      throw e;
+    }));
+
+/** m² ürünlerinin ölçü sınırları: ürün kimliği → { en, boy } (cm) */
+async function areaLimits() {
+  await ensureAreaSchema();
+  const rows = await db().select().from(urunOlculeri);
+  return new Map(rows.map((r) => [r.urunId, { en: r.enMax, boy: r.boyMax }]));
+}
 
 /** [toptan, perakende]; biri boşsa diğeri kullanılır, ikisi de boşsa "fiyat sorunuz" (null) */
 function pair(toptan: number | null, perakende: number | null): Pair {
@@ -20,6 +44,7 @@ function pair(toptan: number | null, perakende: number | null): Pair {
  * (urun_markalari) uygulanır, o markada gizli ürünler çıkarılır; boş alan ürünün ortak değerini kullanır.
  */
 export async function getCatalog(markaId: number | null = null): Promise<Catalog> {
+  const area = await areaLimits();
   const rows = await db()
     .select({ k: urunKategorileri, u: urunler, o: urunMarkalari })
     .from(urunKategorileri)
@@ -33,9 +58,11 @@ export async function getCatalog(markaId: number | null = null): Promise<Catalog
     let g = groups.get(k.id);
     if (!g) groups.set(k.id, (g = { id: `k${k.id}`, nav: k.ad, title: k.aciklama || k.ad, lead: "", warn: k.uyari ?? undefined, items: [] }));
     const p = pair(o?.toptan ?? u.toptan, o?.perakende ?? u.perakende);
-    const op = u.secenekAd ? pair(u.secenekToptan, u.secenekPerakende) : null;
+    const m2 = area.get(u.id);
+    // m² ürününde renk ve ek seçenek yoktur: her satır bir ölçüdür
+    const op = u.secenekAd && !m2 ? pair(u.secenekToptan, u.secenekPerakende) : null;
     const opt = u.secenekAd && op ? { n: u.secenekAd, p: op } : undefined;
-    const item = { id: u.kod, n: u.ad, s: u.aciklama ?? "", img: o?.gorsel ?? u.gorsel, p, warn: u.uyari ?? undefined, renk: u.renkSecimi || undefined };
+    const item = { id: u.kod, n: u.ad, s: u.aciklama ?? "", img: o?.gorsel ?? u.gorsel, p, warn: u.uyari ?? undefined, renk: (u.renkSecimi && !m2) || undefined, m2 };
     g.items.push({ ...item, opt });
     // Seçenekli ürünün görünmeyen eşi: fiyatı ürün + seçenek; sepette ayrı satır, kartta anahtarla seçilir
     if (opt && p) g.items.push({ ...item, id: u.kod + OPT_SUFFIX, n: `${u.ad} · ${opt.n}`, p: [p[0] + op![0], p[1] + op![1]], hidden: true });
@@ -78,10 +105,10 @@ export async function listProducts() {
       .leftJoin(kullanicilar, eq(kullanicilar.id, urunler.olusturanId))
       .orderBy(asc(urunler.sira), asc(urunler.id)),
   ]);
-  const ozel = await db().select().from(urunMarkalari);
+  const [ozel, area] = await Promise.all([db().select().from(urunMarkalari), areaLimits()]);
   const byProduct = new Map<number, BrandOverride[]>();
   for (const o of ozel) byProduct.set(o.urunId, [...(byProduct.get(o.urunId) ?? []), { markaId: o.markaId, toptan: o.toptan, perakende: o.perakende, gorsel: o.gorsel, gizli: o.gizli }]);
-  return { kategoriler, urunler: liste.map((r) => ({ ...r.u, ekleyen: r.ekleyen, markalar: byProduct.get(r.u.id) ?? [] })) };
+  return { kategoriler, urunler: liste.map((r) => ({ ...r.u, ekleyen: r.ekleyen, markalar: byProduct.get(r.u.id) ?? [], m2: area.get(r.u.id) ?? null })) };
 }
 
 /** Yönetici her ürünü, satışçı yalnızca kendi eklediği ürünü düzenler */
@@ -109,6 +136,8 @@ export type ProductInput = {
   markalar?: BrandOverride[];
   /** Koli ölçüleri (kargo hesabı); verilmezse değişmez, null silinir */
   paket?: Paket | null;
+  /** m² ile fiyatlanır: basılabilen en büyük en × boy (cm); null = adetle fiyatlanır, verilmezse değişmez */
+  m2?: { en: number; boy: number } | null;
 };
 
 const clip = (v: string | null | undefined, max: number) => (v?.trim() ? v.trim().slice(0, max) : null);
@@ -129,6 +158,16 @@ function slug(s: string) {
 }
 
 const validImage = (g: string | null | undefined) => (g && (/^p:[a-z0-9-]+$/.test(g) || /^\/dosya\/urun\/[a-z0-9]+\.webp$/.test(g)) ? g : null);
+
+/** m² ayarı: geçerli ölçüyse yazılır (kısa kenar en), değilse silinir */
+async function saveArea(urunId: number, m2: ProductInput["m2"]) {
+  await ensureAreaSchema();
+  const ok = (n: number) => Number.isInteger(n) && n >= 10 && n <= 10_000;
+  if (m2 && ok(m2.en) && ok(m2.boy)) {
+    const v = { enMax: Math.min(m2.en, m2.boy), boyMax: Math.max(m2.en, m2.boy) };
+    await db().insert(urunOlculeri).values({ urunId, ...v }).onDuplicateKeyUpdate({ set: v });
+  } else await db().delete(urunOlculeri).where(eq(urunOlculeri.urunId, urunId));
+}
 
 /** Markaya özel değerler: tamamen boş (fiyat, görsel yok, gizli değil) satır silinir */
 async function saveOverrides(urunId: number, list: BrandOverride[]) {
@@ -162,6 +201,7 @@ export async function saveProduct(me: Me, p: ProductInput): Promise<{ ok: true; 
     await db().update(urunler).set(values).where(eq(urunler.id, p.id));
     if (isAdmin(me) && p.markalar) await saveOverrides(p.id, p.markalar);
     if (p.paket !== undefined) await savePackages({ [`u|${p.id}`]: p.paket });
+    if (p.m2 !== undefined) await saveArea(p.id, p.m2);
     return { ok: true, id: p.id };
   }
   // Kod benzersiz ve kalıcıdır (teklif sepetindeki anahtar)
@@ -171,6 +211,7 @@ export async function saveProduct(me: Me, p: ProductInput): Promise<{ ok: true; 
   const [r] = await db().insert(urunler).values({ ...values, kod, sira: 1000, olusturanId: me.id }).$returningId();
   if (isAdmin(me) && p.markalar) await saveOverrides(r.id, p.markalar);
   if (p.paket) await savePackages({ [`u|${r.id}`]: p.paket });
+  if (p.m2) await saveArea(r.id, p.m2);
   return { ok: true, id: r.id };
 }
 

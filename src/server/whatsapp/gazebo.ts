@@ -1,7 +1,7 @@
 import "server-only";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { FABRICS, SIZES, SZ, gzRows, gzTotal, plan, val, type Gazebo } from "@/lib/terminal/calc";
+import { FABRICS, M2_MIN, SIZES, SZ, gzRows, gzTotal, plan, val, type Gazebo, type Olcu } from "@/lib/terminal/calc";
 import { FRAME_MAT, FRAME_NAME, KONF_KDV, KONF_MODE, SIDE_NAMES, cleanConfig, cleanExtras, framesOf } from "@/lib/konfigurator";
 import { priceTable, withPriceTable } from "@/lib/terminal/price-table";
 import { wallImage, wallName, wallPrice, type PrintSide, type Wall } from "@/modules/gazebo/walls";
@@ -309,6 +309,7 @@ export async function panelUrunAra(markaId: number, sorgu: string) {
         aciklama: it.s || null,
         fiyat_kdv_dahil: p === null ? null : kdv(p),
         ...(it.opt ? { secenek: { ad: it.opt.n, ek_fiyat_kdv_dahil: op === null ? null : kdv(op) } } : {}),
+        ...(it.m2 ? m2Info(it.m2) : {}),
         renk_secilebilir: !!it.renk,
         uyari: [g.warn, it.warn].filter(Boolean).join(" ") || null,
       };
@@ -316,6 +317,13 @@ export async function panelUrunAra(markaId: number, sorgu: string) {
     not: "Panel teklif listesi (perakende, KDV dahil). Ürün sitede de satılıyorsa sitedeki fiyatı (site_urun_ara) esas al; sitede olup olmadığından emin değilsen \"sitede yok\" deme. fiyat_kdv_dahil boşsa fiyatı ekip verir. Uyarıyı müşteriye uygun dille ilet.",
   };
 }
+
+/** m² ile fiyatlanan ürünün asistana açıklaması: fiyat m² fiyatıdır, parça fiyatı alan × m² fiyatı (en az 1 m²) */
+const m2Info = (max: Olcu) => ({
+  m2_ile_fiyatlanir: true,
+  en_buyuk_olcu_cm: `${max.en} × ${max.boy}`,
+  m2_notu: `fiyat_kdv_dahil m² fiyatıdır. Parça fiyatı = en × boy (m²) × m² fiyatı; ${M2_MIN} m²'den küçük parça ${M2_MIN} m² fiyatlanır. En fazla ${max.en} × ${max.boy} cm basılır.`,
+});
 
 /** Panel kataloğu ürün kodu → sitedeki ürün numarası ve linki (yayındaki listelemeler; 5 dakika önbellek) */
 const linkCache = new Map<number, { t: number; v: Map<string, { id: number; link: string }> }>();
@@ -347,6 +355,7 @@ export async function panelKalem(markaId: number, kategoriId: number, kod: strin
   if (!it) return { ok: false as const, hata: "Bu ürün kartın kategorisinde yok; urun_bilgisi'ndeki kalem_kodu'nu kullan." };
   const p = val(it.p, KONF_MODE);
   if (p === null) return { ok: false as const, hata: "Bu ürünün fiyatını ekip verir; bilgileri kaydet ve ekibe devret." };
+  if (it.m2) return { ok: false as const, hata: "Bu ürün m² ile fiyatlanır, ödeme linki ekip tarafından hazırlanır; ölçüyü (en × boy cm) kaydet ve ekibe devret." };
   if (secenek && !it.opt) return { ok: false as const, hata: "Bu ürünün ek seçeneği yok; secenek_dahil false olmalı." };
   const op = secenek && it.opt ? val(it.opt.p, KONF_MODE) : 0;
   if (op === null) return { ok: false as const, hata: "Seçeneğin fiyatını ekip verir; bilgileri kaydet ve ekibe devret." };
@@ -379,6 +388,7 @@ export async function panelCategoryInfo(card: Kart, site: { id: number; markaId:
         aciklama: it.s || null,
         fiyat_kdv_dahil: p === null ? null : kdv(p),
         ...(it.opt ? { secenek: it.opt.n, secenek_dahil_fiyat_kdv_dahil: p === null || op === null ? null : kdv(p + op) } : {}),
+        ...(it.m2 ? m2Info(it.m2) : {}),
         uyari: it.warn ?? null,
         renk_secilebilir: !!it.renk,
         ...(s ? { urun_id: s.id, link: s.link } : {}),

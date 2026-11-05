@@ -40,6 +40,8 @@ type Product = {
   markalar: Override[];
   /** Koli ölçüleri (kargo hesabı) */
   paket: Paket | null;
+  /** m² ile fiyatlanır: en büyük en × boy (cm) */
+  m2: { en: number; boy: number } | null;
 };
 type Override = { markaId: number; toptan: number | null; perakende: number | null; gorsel: string | null; gizli: boolean };
 type Brand = { id: number; ad: string; renk: string };
@@ -283,6 +285,7 @@ function ProductRow({ u, onEdit, move }: { u: Product; onEdit: () => void; move:
         <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold leading-tight">
           {u.ad}
           {!u.aktif && <Badge tone="neutral">Pasif</Badge>}
+          {u.m2 && <Badge tone="info">m² · en fazla {u.m2.en} × {u.m2.boy} cm</Badge>}
           {u.renkSecimi && <Badge tone="info">Renkli</Badge>}
           {u.secenekAd && <Badge tone="info">+ {u.secenekAd}</Badge>}
           {u.markalar.some((o) => o.gizli) && <Badge tone="neutral">Bazı markalarda gizli</Badge>}
@@ -365,6 +368,8 @@ function ProductSheet({
     secenekToptan: showPrice(p?.secenekToptan ?? null),
     secenekPerakende: showPrice(p?.secenekPerakende ?? null),
   });
+  const [m2, setM2] = useState({ on: !!p?.m2, en: String(p?.m2?.en ?? 200), boy: String(p?.m2?.boy ?? 1000) });
+  const unit = m2.on ? " / m²" : "";
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -391,10 +396,12 @@ function ProductSheet({
     const sMal = parsePrice(maliyet.s);
     const markalar = ov.map((o) => ({ markaId: o.markaId, toptan: parsePrice(o.toptan), perakende: parsePrice(o.perakende), gorsel: o.gorsel, gizli: o.gizli }));
     if ([toptan, perakende, sToptan, sPerakende, mal, sMal, ...markalar.flatMap((o) => [o.toptan, o.perakende])].some((n) => Number.isNaN(n))) return setErr("Fiyatları rakamla yazın (ör. 1.250).");
+    const area = { en: Number(m2.en), boy: Number(m2.boy) };
+    if (m2.on && ![area.en, area.boy].every((n) => Number.isInteger(n) && n >= 10 && n <= 10_000)) return setErr("En büyük en ve boyu cm olarak yazın (ör. 200 ve 1000).");
     setBusy(true);
     const r = await urunKaydet({
       id: p?.id ?? null, kategoriId: f.kategoriId, ad: f.ad, aciklama: f.aciklama, gorsel: f.gorsel, toptan, perakende, uyari: f.uyari, aktif: f.aktif, renkSecimi: f.renkSecimi,
-      secenekAd: f.secenekAd, secenekToptan: sToptan, secenekPerakende: sPerakende, paket: paketOf(paket),
+      secenekAd: f.secenekAd, secenekToptan: sToptan, secenekPerakende: sPerakende, paket: paketOf(paket), m2: m2.on ? area : null,
       ...(admin ? { maliyet: mal, secenekMaliyet: sMal, markalar } : {}),
     });
     setBusy(false);
@@ -457,19 +464,42 @@ function ProductSheet({
           <span className={label}>Açıklama / ölçü (teklifte ürün adının altında yazar)</span>
           <input value={f.aciklama} onChange={(e) => setF({ ...f, aciklama: e.target.value })} maxLength={255} className={input} placeholder="ör. 100 × 150 cm · çift taraflı baskı" />
         </label>
+        <div className="rounded-xl bg-muted/50 p-3">
+          <label className="flex items-center gap-2.5 text-sm font-medium">
+            <input type="checkbox" checked={m2.on} onChange={(e) => setM2({ ...m2, on: e.target.checked })} className="size-4 accent-[var(--primary)]" />
+            m² ile fiyatlanır (ör. baskılı halı)
+          </label>
+          {m2.on && (
+            <>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Fiyatlar m² fiyatıdır. Teklifte en × boy (cm) girilir, fiyat alan × m² fiyatıyla hesaplanır; 1 m²&apos;den küçük parça 1 m² fiyatlanır. Renk ve ek seçenek kullanılmaz.
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-3">
+                <label>
+                  <span className={label}>En fazla en (cm)</span>
+                  <input value={m2.en} onChange={(e) => setM2({ ...m2, en: e.target.value.replace(/\D/g, "") })} inputMode="numeric" className={`${input} tabular text-right`} />
+                </label>
+                <label>
+                  <span className={label}>En fazla boy (cm)</span>
+                  <input value={m2.boy} onChange={(e) => setM2({ ...m2, boy: e.target.value.replace(/\D/g, "") })} inputMode="numeric" className={`${input} tabular text-right`} />
+                </label>
+              </div>
+            </>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <label>
-            <span className={label}>Toptan fiyat (KDV hariç)</span>
+            <span className={label}>Toptan fiyat{unit} (KDV hariç)</span>
             <input value={f.toptan} onChange={(e) => setF({ ...f, toptan: e.target.value })} inputMode="decimal" className={`${input} tabular text-right`} placeholder="boş = sorunuz" />
           </label>
           <label>
-            <span className={label}>Perakende fiyat (KDV hariç)</span>
+            <span className={label}>Perakende fiyat{unit} (KDV hariç)</span>
             <input value={f.perakende} onChange={(e) => setF({ ...f, perakende: e.target.value })} inputMode="decimal" className={`${input} tabular text-right`} placeholder="boş = sorunuz" />
           </label>
         </div>
         {admin && (
           <div className="rounded-xl border border-dashed border-border p-3">
-            <span className={label}>Maliyet (KDV hariç) · yalnızca yönetici görür; boş bırakılabilir</span>
+            <span className={label}>Maliyet{unit} (KDV hariç) · yalnızca yönetici görür; boş bırakılabilir</span>
             <div className="grid grid-cols-2 gap-3">
               <input value={maliyet.m} onChange={(e) => setMaliyet({ ...maliyet, m: e.target.value })} inputMode="decimal" className={`${input} tabular text-right`} placeholder="boş = girilmedi" aria-label="Birim maliyet" />
               {f.secenekAd.trim() ? (
