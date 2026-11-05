@@ -42,8 +42,8 @@ export const WALL_KINDS: { kind: WallKind; label: string; short: string }[] = [
   { kind: "pencere", label: "Pencereli duvar", short: "Pencereli" },
   { kind: "kapi", label: "Kapılı duvar", short: "Kapılı" },
   { kind: "pencere-kapi", label: "Pencere + kapı", short: "Pencere + kapı" },
-  { kind: "tam-pvc", label: "Tam PVC duvar", short: "Tam PVC" },
-  { kind: "tam-pvc-kapi", label: "Kapılı tam PVC duvar", short: "Tam PVC + kapı" },
+  { kind: "tam-pvc", label: "Tam şeffaf duvar", short: "Tam şeffaf" },
+  { kind: "tam-pvc-kapi", label: "Kapılı tam şeffaf duvar", short: "Tam şeffaf + kapı" },
   { kind: "tam-sineklik", label: "Tam sineklikli duvar", short: "Tam sineklik" },
   { kind: "tek-fermuar", label: "Tek fermuarlı kapı", short: "Tek fermuar" },
 ];
