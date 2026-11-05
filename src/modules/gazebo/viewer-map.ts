@@ -13,10 +13,11 @@ const BAYS: Record<string, number> = { "3x6": 2, "4x6": 3, "4x8": 2 };
 
 /**
  * Tek parça (bölünmemiş) uzun kenarda duvar tek üründür: kapı/fermuar yalnızca ortadaki bölmede olur, diğer bölmeler
- * kapısız eşiyle çizilir (pencere + kapı → pencere, kapı ve tek fermuar → düz tam duvar). Aksi halde 6 m duvarda iki kapı görünürdü.
+ * kapısız eşiyle çizilir (pencere + kapı → pencere, kapılı tam PVC → tam PVC, kapı ve tek fermuar → düz tam duvar). Aksi halde 6 m duvarda iki kapı görünürdü.
  */
 function withoutDoor(w: Wall): Wall {
   if (w.kind === "pencere-kapi") return { kind: "pencere", f: w.f, p: w.p, y: w.y };
+  if (w.kind === "tam-pvc-kapi") return { kind: "tam-pvc", f: w.f };
   if (hasDoor(w.kind) || w.kind === "tek-fermuar") return { kind: "tam", f: w.f, y: w.y };
   return w;
 }

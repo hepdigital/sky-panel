@@ -13,7 +13,7 @@ export type Opening = { pvc: boolean; sineklik: boolean; perde?: boolean };
 /** Perdenin açık/kapalı durumu dokuya girmez: kapak ayrı 3D yüzeydir ve animasyonla açılıp kapanır (bkz. decal.ts) */
 export type WallSpec = { pencere?: Opening; kapi?: Opening };
 /** Açıklığı olmayan özel duvarlar: tamamı sineklik olan duvar ve ortadan tek fermuarlı duvar */
-export const SPECIAL_WALLS = ["tam-sineklik", "tek-fermuar", "tam-pvc"] as const;
+export const SPECIAL_WALLS = ["tam-sineklik", "tek-fermuar", "tam-pvc", "tam-pvc-kapi"] as const;
 
 /**
  * Duvar tanımının kısa anahtarı (önbellek ve parça anahtarı için; "|" içermez).
@@ -116,6 +116,16 @@ export function wallPaint(design: WallDesign, fabricHex: string, printed = false
     if (design === "tam-sineklik") flyScreen(ctx, px({ x: 0, y: 0, w: 1, h: 1 }), true);
     // Tam PVC: yanlarda ve üstte ~12 cm kumaş pay, altta yerden ~60 cm kumaş; arası şeffaf PVC
     if (design === "tam-pvc") pvc(ctx, m({ x: 0.12, y: 0.12, w: wm - 0.24, h: hm - 0.72 }));
+    // Kapılı tam PVC: ortada yere kadar 90 cm çift fermuarlı kapı (kapağı rulo), iki yanda kapıya ~8 cm pay bırakan PVC
+    if (design === "tam-pvc-kapi") {
+      const door = layout(wm, hm, false, true).door!;
+      const side = door.x - 0.12 - 0.08;
+      if (side > 0.1) {
+        pvc(ctx, m({ x: 0.12, y: 0.12, w: side, h: hm - 0.72 }));
+        pvc(ctx, m({ x: door.x + door.w + 0.08, y: 0.12, w: side, h: hm - 0.72 }));
+      }
+      opening(ctx, m(door), { pvc: false, sineklik: false, perde: true }, true, tape);
+    }
     if (design === "tek-fermuar") {
       zipLine(ctx, W * 0.5, 0, H, tape);
       ctx.fillStyle = ZIP;
