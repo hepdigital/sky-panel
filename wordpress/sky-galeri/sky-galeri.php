@@ -2,20 +2,20 @@
 /**
  * Plugin Name: SKY Galeri
  * Description: SKY panelinde ekibin oluşturduğu albümleri sitede /galeri/ altında gösterir: iç içe albümler, filigranlı fotoğraflar, büyük görünüm, WhatsApp ve fiyat talebi. Sayfalar sunucuda üretilir (arama motorlarına açık); "yalnızca linkle" albümler listelenmez ve noindex'tir.
- * Version: 1.0.0
+ * Version: 1.0.2
  * Author: SKY Görsel Çözümler
  * Text Domain: sky-galeri
  *
  * Veri panelden okunur (GET /api/galeri?yol=…), 5 dakika önbellekte tutulur; panel ulaşılamazsa son başarılı yanıt gösterilir.
  * Talep formu ve sayaçlar tarayıcıdan panele gönderilir (/api/galeri/talep, /api/galeri/olay); talepler panelde Talepler'e düşer.
- * Site haritası: /galeri-sitemap.xml (robots.txt'ye ve Rank Math site haritası dizinine eklenir).
+ * Site haritası: /galeri-harita.xml (robots.txt'ye ve Rank Math site haritası dizinine eklenir; "-sitemap.xml" ile biten adresleri Rank Math kendine ayırır).
  * Başka adres için wp-config.php: define( 'SKY_GALERI_PANEL', 'https://panel.ornek.com' );
  */
 
 defined( 'ABSPATH' ) || exit;
 
 final class Sky_Galeri {
-	const VERSION = '1.0.0';
+	const VERSION = '1.0.2';
 	const BASE    = 'galeri';
 	const TTL     = 300;
 	/** Gazebo albümlerinde ikinci yönlendirme: konfigüratör */
@@ -39,7 +39,7 @@ final class Sky_Galeri {
 
 	public static function rewrite() {
 		add_rewrite_rule( '^' . self::BASE . '(?:/(.*?))?/?$', 'index.php?sky_galeri=1&sky_galeri_yol=$matches[1]', 'top' );
-		add_rewrite_rule( '^galeri-sitemap\.xml$', 'index.php?sky_galeri_harita=1', 'top' );
+		add_rewrite_rule( '^galeri-harita\.xml$', 'index.php?sky_galeri_harita=1', 'top' );
 	}
 
 	public static function query_vars( $vars ) {
@@ -117,6 +117,10 @@ final class Sky_Galeri {
 		$wp_query->is_404  = false;
 		$wp_query->is_home = false;
 		$wp_query->is_page = true;
+		// Ana sorgunun (blog) yazıları sayfaya sızmasın
+		$wp_query->posts      = array();
+		$wp_query->post_count = 0;
+		$wp_query->post       = null;
 		status_header( 200 );
 		// Sayfa önbelleği kısa: yeni yüklenen fotoğraflar birkaç dakikada görünsün
 		do_action( 'litespeed_control_set_ttl', 600 );
@@ -130,6 +134,8 @@ final class Sky_Galeri {
 		add_action( 'rank_math/head', array( __CLASS__, 'drop_rank_math' ), 0 );
 		add_filter( 'wpseo_frontend_presenters', '__return_empty_array', 999 );
 		remove_action( 'wp_head', 'rel_canonical' );
+		// WoodMart başlık bandı (sayfa başlığı ve yol) galeride kendi başlığımız var
+		remove_action( 'woodmart_after_header', 'woodmart_page_title', 20 );
 
 		get_header();
 		echo self::render(); // phpcs:ignore WordPress.Security.EscapeOutput -- render() kendi kaçışını yapar
@@ -205,6 +211,10 @@ final class Sky_Galeri {
 		$title = self::title();
 		$desc  = self::description();
 		$img   = $d['gorseller'][0]['b'] ?? ( $d['alt'][0]['kapak']['k'] ?? '' );
+		// Rank Math başlığı kendi çıktısında basar (çekirdeğin başlık etiketini kaldırır); onun çıktısı bu sayfada kapalı
+		if ( ! has_action( 'wp_head', '_wp_render_title_tag' ) ) {
+			echo '<title>' . esc_html( $title ) . '</title>' . "\n";
+		}
 		echo '<meta name="description" content="' . esc_attr( $desc ) . '">' . "\n";
 		if ( ! self::hidden() ) {
 			echo '<link rel="canonical" href="' . esc_url( $url ) . '">' . "\n";
@@ -511,11 +521,11 @@ fetch(P+"/api/galeri/talep",{method:"POST",headers:{"Content-Type":"text/plain"}
 	}
 
 	public static function robots( $out, $public ) {
-		return $public ? rtrim( $out ) . "\nSitemap: " . home_url( '/galeri-sitemap.xml' ) . "\n" : $out;
+		return $public ? rtrim( $out ) . "\nSitemap: " . home_url( '/galeri-harita.xml' ) . "\n" : $out;
 	}
 
 	public static function rank_math_index( $xml ) {
-		return $xml . '<sitemap><loc>' . esc_url( home_url( '/galeri-sitemap.xml' ) ) . '</loc><lastmod>' . esc_html( gmdate( 'c' ) ) . '</lastmod></sitemap>';
+		return $xml . '<sitemap><loc>' . esc_url( home_url( '/galeri-harita.xml' ) ) . '</loc><lastmod>' . esc_html( gmdate( 'c' ) ) . '</lastmod></sitemap>';
 	}
 }
 
