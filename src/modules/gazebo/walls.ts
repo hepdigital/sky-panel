@@ -164,8 +164,7 @@ function singleWallPrice(group: string, w: Wall, mode: 0 | 1): number | null {
   if (w.kind === "tam-pvc") return fullPvcPrice(group, w.f, mode);
   if (w.kind === "tam-pvc-kapi") {
     const pvc = fullPvcPrice(group, w.f, mode);
-    const door = modulePrices(w.f, mode).kapi;
-    return pvc == null || door == null ? null : pvc + door;
+    return pvc == null ? null : pvc + PVC_DOOR;
   }
   if (!hasWindow(w.kind) && !hasDoor(w.kind)) return null;
   const base = list()[group]?.["duz-tam"]?.[w.f]?.[mode];
@@ -186,7 +185,9 @@ function singleWallPrice(group: string, w: Wall, mode: 0 | 1): number | null {
   return parts.some((v) => v == null) ? null : base + parts.reduce<number>((a, v) => a + (v ?? 0), 0);
 }
 
-/** Tam PVC duvar (kapılısında üstüne kapı modülü): aynı ölçüdeki düz tam duvarın %15 fazlası, 50 TL'ye yukarı yuvarlı (baskılıda yok: PVC'ye baskı yapılmaz) */
+/** Kapılı tam PVC: tam PVC + sabit kapı farkı (KDV hariç, her ölçü, kumaş ve fiyat tipinde; kullanıcı kararı 2026-11-05) */
+const PVC_DOOR = 500;
+/** Tam PVC duvar: aynı ölçüdeki düz tam duvarın %15 fazlası, 50 TL'ye yukarı yuvarlı (baskılıda yok: PVC'ye baskı yapılmaz) */
 function fullPvcPrice(group: string, f: number, mode: 0 | 1) {
   const base = f === 2 ? null : list()[group]?.["duz-tam"]?.[f]?.[mode];
   return base == null ? null : Math.ceil((base * 1.15) / 50) * 50;
