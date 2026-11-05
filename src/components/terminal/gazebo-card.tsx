@@ -185,7 +185,7 @@ export function GazeboCard({ draft, setDraft, qty, setQty, mode, money, editing,
           <input type="checkbox" checked={!!draft.zemin} onChange={(e) => set({ zemin: e.target.checked || undefined })} className="size-4 accent-[var(--primary)]" />
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold">Pilsa zemin ekle</span>
-            <span className="block text-xs text-muted-foreground">{floorSize(draft.size)} · siyah parlak</span>
+            <span className="block text-xs text-muted-foreground">{floorSize(draft.size)}</span>
           </span>
           <span className="tabular shrink-0 text-sm font-semibold">{priceText(floorPriceOf(draft.size, mode), money)}</span>
         </label>
