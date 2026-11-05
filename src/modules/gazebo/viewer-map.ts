@@ -30,7 +30,10 @@ const FRAME_COLOR: Record<string, string> = { SQ3: "#e6e8ea", SH4: "#2a2c2f", SQ
 
 export const DEFAULT_COLOR = "#ffffff";
 
-export function viewerInput(g: Gazebo) {
+/**
+ * omitMissing: teklifte olmayan tavan ve iskelet 3D'de ayrı ayrı gösterilmez (panel teklif ekranı; ör. yalnız duvar teklifi).
+ */
+export function viewerInput(g: Gazebo, omitMissing = false) {
   const [a, b] = g.size.split("x").map(Number);
   const walls: Record<string, WallStyle> = {};
   const designs: Record<string, string> = {};
@@ -84,5 +87,6 @@ export function viewerInput(g: Gazebo) {
     wallHex: g.wallColor ?? g.color ?? DEFAULT_COLOR,
     // Pilsa zemin: çadırın altında siyah parlak plaka
     floor: !!g.zemin,
+    hide: omitMissing ? { roof: g.roofFab === null, frame: g.frame === null } : undefined,
   };
 }

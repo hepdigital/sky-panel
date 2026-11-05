@@ -27,7 +27,7 @@ export function Gazebo3D({ draft, onCaptureReady }: { draft: Gazebo; onCaptureRe
   // Girdiler kurulum değişmedikçe aynı nesne kalır: model ve duvarlar gereksiz yere yeniden kurulmaz
   const key = cfgKey(draft);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const input = useMemo(() => viewerInput(draft), [key]);
+  const input = useMemo(() => viewerInput(draft, true), [key]);
   const register = useMemo(
     () => (capture: Capture | null) => onCaptureReady(capture ? () => [capture().url, capture(REAR).url] : null),
     [onCaptureReady],

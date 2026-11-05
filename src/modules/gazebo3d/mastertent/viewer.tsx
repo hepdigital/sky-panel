@@ -195,9 +195,15 @@ type TentProps = {
   /** Duvar kumaşının rengi; verilmezse tavanla aynı (fabricHex) */
   wallHex?: string;
   printTheme?: PrintTheme;
+  hide?: HiddenParts;
 };
 
-function Tent({ sizeKey, width, depth, config, fabricHex, wallHex, frameColor, registerArSource, wallDesigns, printedWalls, printedRoof, printTheme: theme = "ornek" }: TentProps) {
+/** Gösterilmeyen ana parçalar (ör. yalnız duvar teklifinde tavan ve iskelet); duvarlar her zaman görünür */
+export type HiddenParts = { roof?: boolean; frame?: boolean };
+/** Tavanla birlikte giden parçalar: tavan kumaşı, köşe dikişleri ve gergi kayışları; geri kalan ana parçalar iskelettir */
+const roofMaterials = new Set([...fabricMaterials, "mastertent.basics.seam_corner_blau", "mastertent.basics.spanngurt"]);
+
+function Tent({ sizeKey, width, depth, config, fabricHex, wallHex, frameColor, registerArSource, wallDesigns, printedWalls, printedRoof, printTheme: theme = "ornek", hide }: TentProps) {
   // AR için ekrandaki çadır modeline erişim
   const groupRef = useRef<Group>(null);
   useEffect(() => {
@@ -325,9 +331,11 @@ function Tent({ sizeKey, width, depth, config, fabricHex, wallHex, frameColor, r
 
   return (
     <group ref={groupRef} position={[-(fp.minX + fp.spanX / 2), 0, -(fp.minZ + fp.spanZ / 2)]}>
-      {baseParts.map((part, i) => (
-        <PartMesh key={i} part={part} material={materials[part.material]} decals={decalsFor(part, false)} center={center} />
-      ))}
+      {baseParts.map((part, i) =>
+        (roofMaterials.has(part.material) ? hide?.roof : hide?.frame) ? null : (
+          <PartMesh key={i} part={part} material={materials[part.material]} decals={decalsFor(part, false)} center={center} />
+        ),
+      )}
       {wallParts.map((part, i) => (
         <PartMesh key={`${part.key}-${i}`} part={part} material={wallMaterials[part.material]} decals={decalsFor(part, true)} center={center} />
       ))}
@@ -472,6 +480,8 @@ export type ViewerProps = {
   printTheme?: PrintTheme;
   /** Çadırın tabanında siyah parlak pilsa zemin */
   floor?: boolean;
+  /** Gösterilmeyen ana parçalar (tavan, iskelet) */
+  hide?: HiddenParts;
   /** Zemin işaretleri: kenar adları (ÖN, ARKA, SOL, SAĞ) ve ortada logo; etkin kenarın adı vurgu renginde */
   groundMarks?: GroundMarks;
   /** Verilen kenar seçilince kamera o kenarı gösteren çapraz açıya döner */
