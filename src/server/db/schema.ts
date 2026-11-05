@@ -363,6 +363,16 @@ export const urunMarkalari = mysqlTable(
   (t) => [primaryKey({ columns: [t.urunId, t.markaId] }), index("urun_markalari_marka").on(t.markaId)],
 );
 
+/**
+ * m² ile fiyatlanan ürün (ör. baskılı halı): satır varsa ürünün fiyatları m² fiyatıdır; teklifte en × boy (cm) girilir.
+ * enMax / boyMax: basılabilen en büyük ölçü (cm). Tablo ilk kullanımda kurulur (catalog.ts ensureAreaSchema).
+ */
+export const urunOlculeri = mysqlTable("urun_olculeri", {
+  urunId: int("urun_id", { unsigned: true }).primaryKey().references(() => urunler.id, { onDelete: "cascade" }),
+  enMax: int("en_max", { unsigned: true }).notNull(),
+  boyMax: int("boy_max", { unsigned: true }).notNull(),
+});
+
 /** Kumaş renkleri: aktif = stokta. Stokta olmayan renk teklif ekranında seçilemez, GazeboTente sitesinde gösterilmez */
 export const kumasRenkleri = mysqlTable("kumas_renkleri", {
   hex: varchar("hex", { length: 7 }).primaryKey(),

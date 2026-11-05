@@ -1,7 +1,7 @@
 // Teklif dökümü düz metin olarak (WhatsApp/e-posta için kopyala): SKY fiyat terminalindeki "Dökümü kopyala" ile aynı biçim.
 // Tutarlar ekrandaki KDV tercihine göre yazılır; hesap tek yerden (hesap / gzRows).
 
-import { SZ, TL, cartUnpriced, colorName, colorText, gzRows, gzTotal, hesap, iskEtiket, iskYok, itemLines, modeName, netBirim, val, type BrandCard, type Catalog, type QuoteState } from "./calc";
+import { SZ, TL, cartUnpriced, colorName, colorText, gzRows, gzTotal, hesap, iskEtiket, iskYok, itemLines, linePrice, modeName, netBirim, olcuText, val, type BrandCard, type Catalog, type QuoteState } from "./calc";
 
 export function quoteText(q: QuoteState, catalog: Catalog, brand: Pick<BrandCard, "ad">) {
   const show = (n: number) => TL(q.vat ? n * 1.2 : n);
@@ -30,12 +30,14 @@ export function quoteText(q: QuoteState, catalog: Catalog, brand: Pick<BrandCard
     for (const it of g.items) {
       const pr = val(it.p, q.mode);
       if (pr === null) continue;
-      for (const { key, hex, qty } of itemLines(q, it)) {
+      for (const { key, hex, olcu, qty } of itemLines(q, it)) {
         no++;
         const i = q.prodIsk[key];
-        const net = netBirim(pr, i);
+        const birim = linePrice(pr, olcu);
+        const net = netBirim(birim, i);
+        const s = olcu ? [olcuText(olcu), `m² ${show(pr)}`, it.s].filter(Boolean).join(" · ") : it.s;
         L.push(`${no}) ${hex ? `${it.n} · ${colorName(hex)}` : it.n}${qty > 1 ? ` × ${qty} adet` : ""} — ${show(net * qty)}`);
-        L.push(`   ${it.s}${qty > 1 ? ` · birim ${show(net)}` : ""}${iskYok(i) ? "" : ` · liste ${show(pr)} · ${iskEtiket(i)}`}`);
+        L.push(`   ${s}${qty > 1 ? ` · birim ${show(net)}` : ""}${iskYok(i) ? "" : ` · liste ${show(birim)} · ${iskEtiket(i)}`}`);
         L.push("");
       }
     }

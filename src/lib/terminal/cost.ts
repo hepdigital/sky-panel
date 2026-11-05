@@ -1,4 +1,4 @@
-import { floorPriceOf, framePrice, gzTotal, hesap, roofPrice, splitKey, unpricedWalls, type Catalog, type Gazebo, type QuoteState } from "./calc";
+import { areaOf, floorPriceOf, framePrice, gzTotal, hesap, roofPrice, splitKey, unpricedWalls, type Catalog, type Gazebo, type QuoteState } from "./calc";
 import { withPriceTable, type PriceTable } from "./price-table";
 
 /** Ürün kodu → birim maliyet (KDV hariç). Seçenekli eşin ("kod+s") maliyeti ürün + seçenek maliyetidir. Yalnızca yöneticiye gönderilir. */
@@ -30,7 +30,9 @@ export function costOf(q: QuoteState, catalog: Catalog, costs: Costs, gazebo: Pr
   const alti: string[] = [];
   for (const r of H.rows) {
     const gz = q.cart.find((c) => c.id === r.key);
-    const c = gz ? (gazebo ? gazeboCost(gz, gazebo) : undefined) : costs[splitKey(r.key).id];
+    const k = splitKey(r.key);
+    // m² ürününün maliyeti m² başınadır: parça maliyeti alan × m² maliyeti
+    const c = gz ? (gazebo ? gazeboCost(gz, gazebo) : undefined) : costs[k.id] === undefined ? undefined : costs[k.id] * (k.olcu ? areaOf(k.olcu) : 1);
     if (c === undefined) {
       eksik = true;
       continue;
