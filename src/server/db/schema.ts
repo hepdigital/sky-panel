@@ -14,6 +14,8 @@ export const kullanicilar = mysqlTable("kullanicilar", {
   /** yonetici: her şey · satis: kendi teklif/sipariş/müşterileri · personel: yalnızca görevler */
   rol: mysqlEnum("rol", ["yonetici", "satis", "personel"]).notNull().default("satis"),
   aktif: boolean("aktif").notNull().default(true),
+  /** Geçici şifreyle (yönetici üretti) giriş yapıldı: panele geçmeden yeni şifre belirlenir. Kolon ilk kullanımda eklenir (auth.ts). */
+  sifreDegismeli: boolean("sifre_degismeli").notNull().default(false),
   sonGiris: timestamp("son_giris"),
   olusturma: timestamp("olusturma").notNull().defaultNow(),
 });

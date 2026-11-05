@@ -12,13 +12,13 @@ type PasswordCredentialCtor = new (d: { id: string; password: string; name?: str
  * Giriş başarılıysa tarayıcıya şifreyi kaydetmesini önerir (Chrome/Android/Edge: Credential Management; Safari ve
  * Firefox form gönderiminden kendisi anlar), sonra panele geçer: form sayfadan kalkınca tarayıcı girişin tamamlandığını anlar.
  */
-async function storeCredential(form: FormData) {
+export async function storeCredential(id: string, password: string) {
   const PC = (window as unknown as { PasswordCredential?: PasswordCredentialCtor }).PasswordCredential;
   try {
     // Tarayıcı öneriyi gösterince döner; takılırsa giriş bekletilmez
     if (PC && navigator.credentials)
       await Promise.race([
-        navigator.credentials.store(new PC({ id: String(form.get("kullanici") ?? ""), password: String(form.get("sifre") ?? "") })),
+        navigator.credentials.store(new PC({ id, password })),
         new Promise((r) => setTimeout(r, 1500)),
       ]);
   } catch {}
@@ -31,7 +31,7 @@ export function LoginForm() {
   const [state, action, pending] = useActionState(async (prev: LoginState, form: FormData) => {
     const r = await girisYap(prev, form);
     if (r?.ok) {
-      await storeCredential(form);
+      await storeCredential(String(form.get("kullanici") ?? ""), String(form.get("sifre") ?? ""));
       router.replace("/panel");
     }
     return r;

@@ -2,7 +2,7 @@
 
 import { eq, or } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { createSession, destroySession, verifyPassword } from "@/server/auth";
+import { createSession, destroySession, ensureAuthSchema, verifyPassword } from "@/server/auth";
 import { db, schema } from "@/server/db";
 
 export type LoginState = { hata?: string; ok?: true } | undefined;
@@ -15,6 +15,8 @@ export async function girisYap(_: LoginState, form: FormData): Promise<LoginStat
   const ad = String(form.get("kullanici") ?? "").trim().toLowerCase();
   const sifre = String(form.get("sifre") ?? "");
   if (!ad || !sifre) return { hata: "Kullanıcı adı ve şifre gerekli." };
+  // Şifre değişim kolonu, ilk giriş zamanı yazılmadan eklenmeli (hiç girmemiş hesaplar işaretlenir)
+  await ensureAuthSchema();
   const k = schema.kullanicilar;
   const [u] = await db()
     .select({ id: k.id, sifreHash: k.sifreHash, aktif: k.aktif })

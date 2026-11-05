@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { appMetadata } from "@/lib/app-meta";
@@ -15,6 +16,8 @@ export const metadata: Metadata = { title: { default: "SKY Panel", template: "%s
 /** Panel yalnızca giriş yapmış personele açıktır; rol ve görünürlük oturumdaki kullanıcıdan gelir */
 async function Guard({ children }: { children: React.ReactNode }) {
   const me = await requireMe();
+  // Geçici şifreyle girildi: panele geçmeden kendi şifresini belirler
+  if (me.sifreDegismeli) redirect("/sifre-belirle");
   // Tekrarlayan görevler ve son gün hatırlatmaları: zamanlayıcı yoksa da panel açıldıkça yürür (5 dakikada bir)
   after(() => runTaskSchedule().catch((e) => console.error("runTaskSchedule", e)));
   return (

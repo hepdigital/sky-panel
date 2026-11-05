@@ -3,7 +3,7 @@
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { hashPassword, requireAdmin } from "@/server/auth";
+import { ensureAuthSchema, hashPassword, requireAdmin } from "@/server/auth";
 import { db, schema } from "@/server/db";
 
 export type UserFormState = { hata?: string; sifre?: string; mesaj?: string } | undefined;
@@ -15,7 +15,7 @@ const newPassword = () => randomBytes(9).toString("base64url");
 const rolOf = (v: FormDataEntryValue | null) => (v === "yonetici" || v === "personel" ? v : "satis");
 const text = (form: FormData, key: string, max: number) => String(form.get(key) ?? "").trim().slice(0, max);
 
-/** Yeni personel hesabı; şifre otomatik üretilir */
+/** Yeni personel hesabı; şifre otomatik üretilir ve geçicidir (ilk girişte kullanıcı kendi şifresini belirler) */
 export async function kullaniciEkle(_: UserFormState, form: FormData): Promise<UserFormState> {
   await requireAdmin();
   const kullaniciAdi = text(form, "kullaniciAdi", 60).toLowerCase();
@@ -28,7 +28,8 @@ export async function kullaniciEkle(_: UserFormState, form: FormData): Promise<U
   const [var_] = await db().select({ id: k.id }).from(k).where(eq(k.kullaniciAdi, kullaniciAdi));
   if (var_) return { hata: "Bu kullanıcı adı zaten var." };
   const sifre = newPassword();
-  await db().insert(k).values({ kullaniciAdi, adSoyad, eposta, telefon, rol, sifreHash: await hashPassword(sifre) });
+  await ensureAuthSchema();
+  await db().insert(k).values({ kullaniciAdi, adSoyad, eposta, telefon, rol, sifreHash: await hashPassword(sifre), sifreDegismeli: true });
   revalidatePath("/panel/kullanicilar");
   return { mesaj: `${adSoyad} eklendi. Kullanıcı adı: ${kullaniciAdi}`, sifre };
 }
@@ -52,12 +53,13 @@ export async function kullaniciGuncelle(_: UserFormState, form: FormData): Promi
   return { mesaj: "Kaydedildi." };
 }
 
-/** Yeni geçici şifre üretir; kullanıcının açık oturumları kapanır */
+/** Yeni geçici şifre üretir (ilk girişte değiştirilir); kullanıcının açık oturumları kapanır */
 export async function sifreSifirla(_: UserFormState, form: FormData): Promise<UserFormState> {
   const me = await requireAdmin();
   const id = Number(form.get("id"));
   const sifre = newPassword();
-  await db().update(k).set({ sifreHash: await hashPassword(sifre) }).where(eq(k.id, id));
+  await ensureAuthSchema();
+  await db().update(k).set({ sifreHash: await hashPassword(sifre), sifreDegismeli: true }).where(eq(k.id, id));
   // Başka kullanıcının şifresi sıfırlanınca açık oturumları kapanır (yöneticinin kendi oturumu açık kalır)
   if (id !== me.id) await db().delete(schema.oturumlar).where(eq(schema.oturumlar.kullaniciId, id));
   return { mesaj: "Yeni şifre üretildi.", sifre };

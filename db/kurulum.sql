@@ -109,6 +109,7 @@ CREATE TABLE `kullanicilar` (
   `sifre_hash` varchar(255) NOT NULL,
   `rol` enum('yonetici','satis','personel') NOT NULL DEFAULT 'satis',
   `aktif` tinyint(1) NOT NULL DEFAULT 1,
+  `sifre_degismeli` tinyint(1) NOT NULL DEFAULT 0,
   `son_giris` timestamp NULL DEFAULT NULL,
   `olusturma` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),

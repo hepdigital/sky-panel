@@ -67,7 +67,7 @@ function Result({ state }: { state: UserFormState }) {
       {state.sifre && (
         <p className="mt-1 text-foreground">
           Geçici şifre: <code className="rounded bg-card px-1.5 py-0.5 text-sm font-bold">{state.sifre}</code>
-          <span className="ml-1 text-muted-foreground">— yalnızca şimdi görünür, kullanıcıya iletin.</span>
+          <span className="ml-1 text-muted-foreground">— yalnızca şimdi görünür, kullanıcıya iletin. İlk girişte kendi şifresini belirler.</span>
         </p>
       )}
     </div>
