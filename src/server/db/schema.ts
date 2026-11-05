@@ -955,3 +955,64 @@ export const bildirimTercihleri = mysqlTable("bildirim_tercihleri", {
     .references(() => kullanicilar.id, { onDelete: "cascade" }),
   veri: text("veri").notNull(),
 });
+
+/**
+ * Görsel galerisi (skygorselmarket.com/galeri): iç içe albümler, ekipten herkes albüm açar ve fotoğraf yükler.
+ * gizli: albüm üst albümde listelenmez ve arama motorlarına kapalıdır, yalnızca linkle açılır. Tablolar ilk kullanımda
+ * kurulur (server/gallery.ts). slug kardeş albümler arasında eşsizdir; site adresi slug'ların yoludur.
+ */
+export const galeriAlbumleri = mysqlTable(
+  "galeri_albumleri",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    ustId: int("ust_id", { unsigned: true }).references((): AnyMySqlColumn => galeriAlbumleri.id),
+    ad: varchar("ad", { length: 120 }).notNull(),
+    slug: varchar("slug", { length: 80 }).notNull(),
+    aciklama: text("aciklama"),
+    gizli: boolean("gizli").notNull().default(false),
+    kapakId: int("kapak_id", { unsigned: true }),
+    /** Albüme özel yönlendirme (ürün sayfası, konfigüratör…) */
+    ctaUrl: varchar("cta_url", { length: 255 }),
+    ctaAd: varchar("cta_ad", { length: 60 }),
+    sira: int("sira").notNull().default(0),
+    goruntulenme: int("goruntulenme", { unsigned: true }).notNull().default(0),
+    waTik: int("wa_tik", { unsigned: true }).notNull().default(0),
+    olusturanId: int("olusturan_id", { unsigned: true }).references(() => kullanicilar.id, { onDelete: "set null" }),
+    olusturma: timestamp("olusturma").notNull().defaultNow(),
+    guncelleme: timestamp("guncelleme").notNull().defaultNow().onUpdateNow(),
+  },
+  (t) => [index("ga_ust").on(t.ustId)],
+);
+
+/** Albümdeki fotoğraf: orijinali UPLOAD_DIR/galeri/o/<dosya>.webp, filigranlı boyutları istendikçe üretilir */
+export const galeriGorselleri = mysqlTable(
+  "galeri_gorselleri",
+  {
+    id: int("id", { unsigned: true }).autoincrement().primaryKey(),
+    albumId: int("album_id", { unsigned: true })
+      .notNull()
+      .references(() => galeriAlbumleri.id, { onDelete: "cascade" }),
+    dosya: varchar("dosya", { length: 40 }).notNull(),
+    en: smallint("en", { unsigned: true }).notNull(),
+    boy: smallint("boy", { unsigned: true }).notNull(),
+    baslik: varchar("baslik", { length: 160 }),
+    sira: int("sira").notNull().default(0),
+    yukleyenId: int("yukleyen_id", { unsigned: true }).references(() => kullanicilar.id, { onDelete: "set null" }),
+    olusturma: timestamp("olusturma").notNull().defaultNow(),
+  },
+  (t) => [index("gg_album").on(t.albumId, t.sira)],
+);
+
+/**
+ * Galeri ayarları (tek satır, id 1). filigran: UPLOAD_DIR/galeri/filigran/<ad>.png; opaklık ve boyut (fotoğraf eninin
+ * yüzdesi) yüzde olarak. surum her değişiklikte artar: filigranlı görsellerin adresi değişir, eskiler yeniden üretilir.
+ * siteUrl: müşteriye gönderilen linkin başı (ör. https://skygorselmarket.com/galeri).
+ */
+export const galeriAyarlari = mysqlTable("galeri_ayarlari", {
+  id: int("id", { unsigned: true }).primaryKey(),
+  filigran: varchar("filigran", { length: 40 }),
+  opaklik: smallint("opaklik", { unsigned: true }).notNull().default(35),
+  boyut: smallint("boyut", { unsigned: true }).notNull().default(35),
+  surum: int("surum", { unsigned: true }).notNull().default(1),
+  siteUrl: varchar("site_url", { length: 160 }).notNull().default("https://skygorselmarket.com/galeri"),
+});

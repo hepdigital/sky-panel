@@ -6,6 +6,7 @@ import {
   Factory,
   FileText,
   Globe,
+  Images,
   Inbox,
   Link2,
   History,
@@ -34,6 +35,7 @@ export const adminNav: AdminNavGroup[] = [
     items: [
       { href: "/panel", label: "Dashboard", icon: LayoutDashboard, roles: "all" },
       { href: "/panel/gorevler", label: "Görevler", icon: CheckSquare, roles: "all" },
+      { href: "/panel/galeri", label: "Galeri", icon: Images, roles: "all" },
     ],
   },
   {
@@ -83,7 +85,7 @@ export const adminNav: AdminNavGroup[] = [
 ];
 
 /** 1. aşamada açık ekranlar: teklif, sipariş, cari, ürün ve kullanıcı yönetimi (diğerleri sonraki aşamalarda açılacak) */
-const PHASE1 = new Set(["/panel", "/panel/gorevler", "/panel/talepler", "/panel/whatsapp", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/odeme-linkleri", "/panel/urunler", "/panel/satis-urunleri", "/panel/sevkiyat", "/panel/markalar", "/panel/siteler", "/panel/kullanicilar"]);
+const PHASE1 = new Set(["/panel", "/panel/gorevler", "/panel/galeri", "/panel/talepler", "/panel/whatsapp", "/panel/musteriler", "/panel/teklifler", "/panel/siparisler", "/panel/odeme-linkleri", "/panel/urunler", "/panel/satis-urunleri", "/panel/sevkiyat", "/panel/markalar", "/panel/siteler", "/panel/kullanicilar"]);
 
 /**
  * openTasks: Görevler'in yanında bana atanan açık görev sayısı · newRequests: Talepler'in yanında yeni talep sayısı ·
