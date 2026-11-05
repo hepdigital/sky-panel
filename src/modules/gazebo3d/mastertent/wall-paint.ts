@@ -116,13 +116,13 @@ export function wallPaint(design: WallDesign, fabricHex: string, printed = false
     if (design === "tam-sineklik") flyScreen(ctx, px({ x: 0, y: 0, w: 1, h: 1 }), true);
     // Tam PVC: yanlarda ve üstte ~12 cm kumaş pay, altta yerden ~60 cm kumaş; arası şeffaf PVC
     if (design === "tam-pvc") pvc(ctx, m({ x: 0.12, y: 0.12, w: wm - 0.24, h: hm - 0.72 }));
-    // Kapılı tam PVC: ortada yere kadar 90 cm çift fermuarlı kapı (kapağı rulo), iki yanda kapıya ~8 cm pay bırakan PVC
+    // Kapılı tam PVC: ortada yere kadar 90 cm çift fermuarlı kapı (kapağı rulo), iki yanda kapının fermuarına kadar PVC (arada kumaş pervaz yok)
     if (design === "tam-pvc-kapi") {
       const door = layout(wm, hm, false, true).door!;
-      const side = door.x - 0.12 - 0.08;
+      const side = door.x - 0.12;
       if (side > 0.1) {
         pvc(ctx, m({ x: 0.12, y: 0.12, w: side, h: hm - 0.72 }));
-        pvc(ctx, m({ x: door.x + door.w + 0.08, y: 0.12, w: side, h: hm - 0.72 }));
+        pvc(ctx, m({ x: door.x + door.w, y: 0.12, w: side, h: hm - 0.72 }));
       }
       opening(ctx, m(door), { pvc: false, sineklik: false, perde: true }, true, tape);
     }
@@ -142,8 +142,9 @@ export function wallPaint(design: WallDesign, fabricHex: string, printed = false
       glass: glassRects.length ? glassMask(W, H, glassRects) : undefined,
       rolls: rolls.map((r) => ({ x: r.x / W, w: r.w / W, y: r.y / H, h: r.h / H, fw: r.fw / W })),
       // Baskılı duvarda perde ve rulosu baskının koyu zemin renginde
-      rollMaterial: rollMaterial(printed ? printBaseHex(theme) : fabricHex),
-      flapMaterial: flapMaterial(printed ? printBaseHex(theme) : fabricHex),
+      // Kapılı tam PVC'de kapak da PVC (üstte ve altta kumaş): rulo ve kapak şeffaf
+      rollMaterial: design === "tam-pvc-kapi" ? pvcRollMaterial(fabricHex) : rollMaterial(printed ? printBaseHex(theme) : fabricHex),
+      flapMaterial: design === "tam-pvc-kapi" ? pvcFlapMaterial(fabricHex, 0.12 / hm, 0.6 / hm) : flapMaterial(printed ? printBaseHex(theme) : fabricHex),
     };
     textures.set(key, painted);
     return painted;
@@ -286,6 +287,46 @@ function flapMaterial(fabricHex: string) {
     map.colorSpace = SRGBColorSpace;
     m = new MeshStandardMaterial({ map, roughness: 0.8, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
     flapMaterials.set(fabricHex, m);
+  }
+  return m;
+}
+
+/** PVC kapak: üstte ve altta kumaş şerit (top, bottom: kapak boyuna oran), arası şeffaf; iki yanında fermuar dişi */
+function pvcFlapMaterial(fabricHex: string, top: number, bottom: number) {
+  const key = `pvc|${fabricHex}|${top.toFixed(3)}|${bottom.toFixed(3)}`;
+  let m = flapMaterials.get(key);
+  if (!m) {
+    const c = document.createElement("canvas");
+    c.width = 256;
+    c.height = 512;
+    const ctx = c.getContext("2d")!;
+    ctx.fillStyle = fabricHex;
+    ctx.fillRect(0, 0, 256, 512);
+    const y0 = Math.round(512 * top);
+    const y1 = Math.round(512 * (1 - bottom));
+    ctx.clearRect(8, y0, 240, y1 - y0);
+    ctx.fillStyle = "rgba(214, 230, 238, 0.28)";
+    ctx.fillRect(8, y0, 240, y1 - y0);
+    ctx.fillStyle = ZIP;
+    for (let y = 0; y < 512; y += 8) {
+      ctx.fillRect(2, y, 5, 4);
+      ctx.fillRect(249, y, 5, 4);
+    }
+    const map = new CanvasTexture(c);
+    map.colorSpace = SRGBColorSpace;
+    m = new MeshStandardMaterial({ map, transparent: true, roughness: 0.3, side: DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
+    flapMaterials.set(key, m);
+  }
+  return m;
+}
+
+/** Sarılmış PVC rulo: dışta yarı saydam parlak PVC katları, içinden kumaş rengi hafifçe görünür */
+function pvcRollMaterial(fabricHex: string) {
+  const key = `pvc|${fabricHex}`;
+  let m = rollMaterials.get(key);
+  if (!m) {
+    m = new MeshPhysicalMaterial({ color: "#e4eef3", roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.08, envMap: glassEnv(), envMapIntensity: 1.1, transparent: true, opacity: 0.6, depthWrite: false });
+    rollMaterials.set(key, m);
   }
   return m;
 }
