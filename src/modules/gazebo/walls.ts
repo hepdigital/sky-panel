@@ -244,8 +244,10 @@ function baseWallName(w: Wall) {
   }
 }
 
+/** Görseli yenilenen tipler yeni dosya adıyla (tarayıcı önbelleğindeki eskisi gösterilmesin) */
+const KIND_IMAGE: Partial<Record<WallKind, string>> = { "tam-pvc": "tam-pvc-2" };
 /** Duvar tipinin 3D'den üretilmiş görseli (tek renk; public/terminal/img/wk-*.webp); "yok" için yok */
-export const kindImage = (kind: WallKind) => (kind === "yok" ? null : `wk:${kind}`);
+export const kindImage = (kind: WallKind) => (kind === "yok" ? null : `wk:${KIND_IMAGE[kind] ?? kind}`);
 
 /** Fiyat listesi görseli: ürünün kendisi ya da en yakın tip */
 export function wallImage(w: Wall) {
