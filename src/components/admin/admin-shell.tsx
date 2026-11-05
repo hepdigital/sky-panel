@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppBanner } from "@/components/app/app-banner";
-import { Bell, CheckSquare, ChevronDown, FilePlus2, FileText, LayoutDashboard, ListPlus, LogOut, Menu, Plus, UserPlus } from "lucide-react";
+import { Bell, CheckSquare, ChevronDown, FilePlus2, FileText, KeyRound, LayoutDashboard, ListPlus, LogOut, Menu, Plus, UserPlus } from "lucide-react";
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";
@@ -146,6 +146,9 @@ function Layout({ children }: { children: React.ReactNode }) {
             </div>
           ))}
           <div className="border-t border-border pt-2">
+            <Link href="/panel/profil" onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm hover:bg-muted/60">
+              <KeyRound className="size-4" /> Profilim ve şifre
+            </Link>
             <Link href="/panel/bildirimler" onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm hover:bg-muted/60">
               <Bell className="size-4" /> Bildirimler ve uygulama
             </Link>
@@ -298,9 +301,16 @@ function UserMenu() {
           <p className="px-1 text-sm font-semibold">{user.user}</p>
           <p className="px-1 text-xs text-muted-foreground">{user.label}</p>
           <Link
-            href="/panel/bildirimler"
+            href="/panel/profil"
             onClick={() => setOpen(false)}
             className="mt-3 flex w-full items-center gap-2 rounded-xl border-t border-border px-2.5 pt-3 pb-2 text-left text-sm hover:bg-muted/60"
+          >
+            <KeyRound className="size-4" /> Profilim ve şifre
+          </Link>
+          <Link
+            href="/panel/bildirimler"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm hover:bg-muted/60"
           >
             <Bell className="size-4" /> Bildirimler ve uygulama
           </Link>

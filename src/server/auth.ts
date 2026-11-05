@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { and, eq, gt, lt } from "drizzle-orm";
+import { and, eq, gt, lt, ne, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -29,6 +29,25 @@ export async function verifyPassword(password: string, stored: string) {
   return timingSafeEqual(key, expected);
 }
 
+let authReady: Promise<unknown> | null = null;
+
+/**
+ * kullanicilar.sifre_degismeli kolonu ilk kullanımda eklenir (canlıda drizzle push kullanılmaz). Eklenirken henüz hiç
+ * giriş yapmamış hesaplar geçici şifrelidir: ilk girişte yeni şifre isterler.
+ */
+export const ensureAuthSchema = () =>
+  (authReady ??= (async () => {
+    const [rows] = (await db().execute(
+      sql`SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'kullanicilar' AND COLUMN_NAME = 'sifre_degismeli'`,
+    )) as unknown as [{ n: number | string }[]];
+    if (Number(rows[0]?.n)) return;
+    await db().execute(sql`ALTER TABLE kullanicilar ADD COLUMN sifre_degismeli tinyint(1) NOT NULL DEFAULT 0 AFTER aktif`);
+    await db().execute(sql`UPDATE kullanicilar SET sifre_degismeli = 1 WHERE son_giris IS NULL`);
+  })().catch((e) => {
+    authReady = null;
+    throw e;
+  }));
+
 export const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 export const randomToken = (bytes = 32) => randomBytes(bytes).toString("base64url");
 
@@ -53,7 +72,8 @@ export async function destroySession() {
   store.delete(COOKIE);
 }
 
-export type Me = { id: number; kullaniciAdi: string; adSoyad: string; eposta: string | null; telefon: string | null; rol: "yonetici" | "satis" | "personel" };
+/** sifreDegismeli: geçici şifreyle girildi, panel yerine şifre belirleme sayfası açılır */
+export type Me = { id: number; kullaniciAdi: string; adSoyad: string; eposta: string | null; telefon: string | null; rol: "yonetici" | "satis" | "personel"; sifreDegismeli?: boolean };
 
 /** Oturumdaki kullanıcı (yoksa null). Aynı istekte bir kez okunur. */
 export const getMe = cache(async (): Promise<Me | null> => {
@@ -61,9 +81,10 @@ export const getMe = cache(async (): Promise<Me | null> => {
   if (!token) return null;
   // Oturum her gerçek istekte doğrulanır (süre kontrolü ön-render sırasında yapılamaz)
   await connection();
+  await ensureAuthSchema();
   const k = schema.kullanicilar;
   const [row] = await db()
-    .select({ id: k.id, kullaniciAdi: k.kullaniciAdi, adSoyad: k.adSoyad, eposta: k.eposta, telefon: k.telefon, rol: k.rol, bitis: schema.oturumlar.bitis })
+    .select({ id: k.id, kullaniciAdi: k.kullaniciAdi, adSoyad: k.adSoyad, eposta: k.eposta, telefon: k.telefon, rol: k.rol, sifreDegismeli: k.sifreDegismeli, bitis: schema.oturumlar.bitis })
     .from(schema.oturumlar)
     .innerJoin(k, eq(k.id, schema.oturumlar.kullaniciId))
     .where(and(eq(schema.oturumlar.tokenHash, sha256(token)), gt(schema.oturumlar.bitis, new Date()), eq(k.aktif, true)));
@@ -79,6 +100,26 @@ export async function requireMe() {
   const me = await getMe();
   if (!me) redirect("/giris");
   return me;
+}
+
+/**
+ * Kullanıcının kendi şifresini değiştirir: zorunlu değişim işareti kalkar, bu oturum dışındaki açık oturumları
+ * (başka cihazlar, eski şifreyle açılanlar) kapanır.
+ */
+export async function setOwnPassword(userId: number, password: string) {
+  await ensureAuthSchema();
+  await db().update(schema.kullanicilar).set({ sifreHash: await hashPassword(password), sifreDegismeli: false }).where(eq(schema.kullanicilar.id, userId));
+  const token = (await cookies()).get(COOKIE)?.value;
+  const o = schema.oturumlar;
+  await db().delete(o).where(token ? and(eq(o.kullaniciId, userId), ne(o.tokenHash, sha256(token))) : eq(o.kullaniciId, userId));
+}
+
+/** Yeni şifre kuralı: 8–128 karakter, en az bir harf ve bir rakam */
+export function passwordProblem(password: string) {
+  if (password.length < 8) return "Şifre en az 8 karakter olmalı.";
+  if (password.length > 128) return "Şifre en çok 128 karakter olabilir.";
+  if (!/\p{L}/u.test(password) || !/\d/.test(password)) return "Şifrede en az bir harf ve bir rakam olmalı.";
+  return null;
 }
 
 export async function requireAdmin() {
