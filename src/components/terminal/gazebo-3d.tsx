@@ -17,6 +17,9 @@ const Viewer = dynamic(() => import("@/modules/gazebo3d/mastertent/viewer"), {
 /** Sağ-arka çapraz açı (sol-ön varsayılan açıyla birlikte dört kenarın hepsi görünür) */
 const REAR = [4.4, 1.7, -5.6].map((v, _, a) => v / Math.hypot(...a));
 
+/** Zeminde kenar adları (ÖN, ARKA, SOL, SAĞ); duvar seçimleri bu adlarla yapılır */
+const GROUND_MARKS = {};
+
 /** İki çapraz açıdan görüntü alan fonksiyon: [sol-ön, sağ-arka] */
 export type CaptureViews = () => string[];
 
@@ -40,7 +43,7 @@ export function Gazebo3D({ draft, onCaptureReady }: { draft: Gazebo; onCaptureRe
             </div>
           }
         >
-          <Viewer {...input} curtainsOpen printTheme="panel" registerCapture={register} />
+          <Viewer {...input} curtainsOpen printTheme="panel" registerCapture={register} groundMarks={GROUND_MARKS} />
         </ViewerBoundary>
         <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground shadow-card">
           Sürükleyerek çevirin

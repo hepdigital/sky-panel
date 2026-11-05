@@ -114,8 +114,8 @@ export function wallPaint(design: WallDesign, fabricHex: string, printed = false
 
     // Tamamı sineklik: kenarda kumaş pay yok
     if (design === "tam-sineklik") flyScreen(ctx, px({ x: 0, y: 0, w: 1, h: 1 }), true);
-    // Tam PVC: kenarlarda ~12 cm kumaş pay, geri kalanı şeffaf PVC
-    if (design === "tam-pvc") pvc(ctx, m({ x: 0.12, y: 0.12, w: wm - 0.24, h: hm - 0.24 }));
+    // Tam PVC: yanlarda ve üstte ~12 cm kumaş pay, altta yerden ~60 cm kumaş; arası şeffaf PVC
+    if (design === "tam-pvc") pvc(ctx, m({ x: 0.12, y: 0.12, w: wm - 0.24, h: hm - 0.72 }));
     if (design === "tek-fermuar") {
       zipLine(ctx, W * 0.5, 0, H, tape);
       ctx.fillStyle = ZIP;
