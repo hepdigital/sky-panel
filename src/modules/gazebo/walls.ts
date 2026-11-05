@@ -159,7 +159,7 @@ function singleWallPrice(group: string, w: Wall, mode: 0 | 1): number | null {
     const v = list()[group]?.[lp.id]?.[w.f]?.[mode];
     if (v != null) return v;
   }
-  if (w.kind === "tam-pvc") return null; // fiyatı henüz girilmedi
+  if (w.kind === "tam-pvc") return fullPvcPrice(group, w.f, mode);
   if (!hasWindow(w.kind) && !hasDoor(w.kind)) return null;
   const base = list()[group]?.["duz-tam"]?.[w.f]?.[mode];
   if (base == null) return null;
@@ -179,9 +179,15 @@ function singleWallPrice(group: string, w: Wall, mode: 0 | 1): number | null {
   return parts.some((v) => v == null) ? null : base + parts.reduce<number>((a, v) => a + (v ?? 0), 0);
 }
 
+/** Tam PVC duvar: aynı ölçüdeki düz tam duvarın %15 fazlası, 50 TL'ye yukarı yuvarlı (baskılıda yok: PVC'ye baskı yapılmaz) */
+function fullPvcPrice(group: string, f: number, mode: 0 | 1) {
+  const base = f === 2 ? null : list()[group]?.["duz-tam"]?.[f]?.[mode];
+  return base == null ? null : Math.ceil((base * 1.15) / 50) * 50;
+}
+
 /* ---------------- uygunluk ----------------
    Bir duvar, o ölçü grubunda ve kumaşta fiyatı varsa satılabilir (ör. baskılı kumaşta yalnızca düz tam, yarım,
-   çift fermuarlı kapı ve PVC + perde). Tam PVC'nin fiyatı henüz girilmediği için baskılı dışındaki kumaşlarda açıktır. */
+   çift fermuarlı kapı ve PVC + perde). Tam PVC düz tam duvardan türetilir (baskılıda yok). */
 
 /** Bir tipin tüm seçenek bileşimleri (pencerede en az PVC ya da sineklik) */
 function variants(kind: WallKind, f: number, y?: PrintSide): Wall[] {
@@ -196,7 +202,6 @@ function variants(kind: WallKind, f: number, y?: PrintSide): Wall[] {
 
 export function wallAvailable(group: string, w: Wall, mode: 0 | 1) {
   if (w.kind === "yok") return true;
-  if (w.kind === "tam-pvc") return w.f !== 2; // PVC yüzeye baskı yapılmaz
   return wallPrice(group, w, mode) !== null;
 }
 

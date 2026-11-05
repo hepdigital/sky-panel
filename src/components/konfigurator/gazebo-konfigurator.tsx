@@ -15,7 +15,7 @@ import { ViewerBoundary } from "@/modules/gazebo3d/mastertent/viewer-boundary";
 
 // Sitelere gömülen gazebo konfigüratörü: panelin modüler gazebo motoru (calc.ts, walls.ts) ve markanın fiyat tablosu,
 // sitenin görünümüyle. Teklif ekranından sadeleştirilmiş: tavan ve duvarlar aynı kumaştan ve aynı renkte, kenarlar bölünmez,
-// fiyat perakende ve KDV dahil gösterilir; fiyatı olmayan seçenek (ör. fiyatı girilmemiş tam PVC) hiç gösterilmez.
+// fiyat perakende ve KDV dahil gösterilir; fiyatı olmayan seçenek hiç gösterilmez.
 
 const Viewer = dynamic(() => import("@/modules/gazebo3d/mastertent/viewer"), {
   ssr: false,
