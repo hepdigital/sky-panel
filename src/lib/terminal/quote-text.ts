@@ -1,7 +1,7 @@
 // Teklif dökümü düz metin olarak (WhatsApp/e-posta için kopyala): SKY fiyat terminalindeki "Dökümü kopyala" ile aynı biçim.
 // Tutarlar ekrandaki KDV tercihine göre yazılır; hesap tek yerden (hesap / gzRows).
 
-import { SZ, TL, cartUnpriced, colorName, colorText, gzRows, gzTotal, hesap, iskEtiket, iskYok, itemLines, linePrice, modeName, netBirim, olcuText, val, type BrandCard, type Catalog, type QuoteState } from "./calc";
+import { SZ, TL, belgeEtiket, cartUnpriced, colorName, colorText, gzRows, gzTotal, hesap, iskYok, itemLines, linePrice, modeName, olcuText, satirNet, val, type BrandCard, type Catalog, type QuoteState } from "./calc";
 
 export function quoteText(q: QuoteState, catalog: Catalog, brand: Pick<BrandCard, "ad">) {
   const show = (n: number) => TL(q.vat ? n * 1.2 : n);
@@ -16,9 +16,9 @@ export function quoteText(q: QuoteState, catalog: Catalog, brand: Pick<BrandCard
   for (const c of q.cart) {
     no++;
     const liste = gzTotal(c, q.mode);
-    const unit = netBirim(liste, c.isk);
-    L.push(`${no}) Gazebo ${SZ[c.size]} m${c.qty > 1 ? ` × ${c.qty} adet` : ""} — ${show(unit * c.qty)}`);
-    if (!iskYok(c.isk)) L.push(`   Liste: ${show(liste * c.qty)} · ${iskEtiket(c.isk)}`);
+    const { net: unit, v } = satirNet(liste, c.qty, c.isk);
+    L.push(`${no}) Gazebo ${SZ[c.size]} m${c.qty > 1 ? ` × ${c.qty} adet` : ""} — ${show(v)}`);
+    if (!iskYok(c.isk)) L.push(`   Liste: ${show(liste * c.qty)} · ${belgeEtiket(c.isk, q.vat, liste, unit)}`);
     if (c.qty > 1) L.push(`   Birim fiyat: ${show(unit)}`);
     for (const r of gzRows(c, q.mode)) L.push(`   • ${r.c || r.t} — ${r.bad ? "fiyat alınız" : show(r.v)}`);
     L.push(`   • ${colorText(c)}`);
@@ -34,10 +34,10 @@ export function quoteText(q: QuoteState, catalog: Catalog, brand: Pick<BrandCard
         no++;
         const i = q.prodIsk[key];
         const birim = linePrice(pr, olcu);
-        const net = netBirim(birim, i);
+        const { net, v } = satirNet(birim, qty, i);
         const s = olcu ? [olcuText(olcu), `m² ${show(pr)}`, it.s].filter(Boolean).join(" · ") : it.s;
-        L.push(`${no}) ${hex ? `${it.n} · ${colorName(hex)}` : it.n}${qty > 1 ? ` × ${qty} adet` : ""} — ${show(net * qty)}`);
-        L.push(`   ${s}${qty > 1 ? ` · birim ${show(net)}` : ""}${iskYok(i) ? "" : ` · liste ${show(birim)} · ${iskEtiket(i)}`}`);
+        L.push(`${no}) ${hex ? `${it.n} · ${colorName(hex)}` : it.n}${qty > 1 ? ` × ${qty} adet` : ""} — ${show(v)}`);
+        L.push(`   ${s}${qty > 1 ? ` · birim ${show(net)}` : ""}${iskYok(i) ? "" : ` · liste ${show(birim)} · ${belgeEtiket(i, q.vat, birim, net)}`}`);
         L.push("");
       }
     }
@@ -45,9 +45,9 @@ export function quoteText(q: QuoteState, catalog: Catalog, brand: Pick<BrandCard
   // 3) Ek kalemler (nakliye, montaj…)
   for (const x of q.extra ?? []) {
     no++;
-    const net = netBirim(x.birim, x.isk);
-    L.push(`${no}) ${x.ad}${x.adet > 1 ? ` × ${x.adet} adet` : ""} — ${show(net * x.adet)}`);
-    const detail = [x.aciklama, x.adet > 1 ? `birim ${show(net)}` : "", iskYok(x.isk) ? "" : `liste ${show(x.birim)} · ${iskEtiket(x.isk)}`].filter(Boolean);
+    const { net, v } = satirNet(x.birim, x.adet, x.isk);
+    L.push(`${no}) ${x.ad}${x.adet > 1 ? ` × ${x.adet} adet` : ""} — ${show(v)}`);
+    const detail = [x.aciklama, x.adet > 1 ? `birim ${show(net)}` : "", iskYok(x.isk) ? "" : `liste ${show(x.birim)} · ${belgeEtiket(x.isk, q.vat, x.birim, net)}`].filter(Boolean);
     if (detail.length) L.push(`   ${detail.join(" · ")}`);
     L.push("");
   }
@@ -59,7 +59,7 @@ export function quoteText(q: QuoteState, catalog: Catalog, brand: Pick<BrandCard
   if (H.satirIsk || H.genelIsk) {
     L.push(`Ara toplam (liste): ${show(H.araListe)}`);
     if (H.satirIsk) L.push(`${H.satirIsk > 0 ? "Satır indirimleri: −" : "Satır ilaveleri: +"}${show(Math.abs(H.satirIsk))}`);
-    if (H.genelIsk) L.push(`Genel ${H.genelIsk > 0 ? "indirim" : "ilave"} (${iskEtiket(q.isk)}): ${H.genelIsk > 0 ? "−" : "+"}${show(Math.abs(H.genelIsk))}`);
+    if (H.genelIsk) L.push(`Genel ${H.genelIsk > 0 ? "indirim" : "ilave"} (${belgeEtiket(q.isk, q.vat, H.araNet, H.net, true)}): ${H.genelIsk > 0 ? "−" : "+"}${show(Math.abs(H.genelIsk))}`);
   }
   if (q.vat) {
     L.push(`TOPLAM (KDV dahil): ${TL(H.net * 1.2)}`);
