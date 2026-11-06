@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -134,7 +135,8 @@ export function Sheet({
   }, [open]);
 
   if (!open) return null;
-  return (
+  // Sayfanın en üstüne basılır: sticky/transform'lu bir sütunun (ör. teklif özeti) içinde açılsa da 3D görünümün altında kalmasın
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center" onClick={onClose}>
       <div ref={backdrop} className={cn("absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-200", shown ? "opacity-100" : "opacity-0")} />
       <div
@@ -162,6 +164,7 @@ export function Sheet({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
