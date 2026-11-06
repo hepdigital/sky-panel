@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { AlertTriangle, Copy, FileDown, Pencil, Percent, Plus, ReceiptText, Trash2, Truck } from "lucide-react";
+import { AlertTriangle, Copy, FileDown, Pencil, Percent, Plus, ReceiptText, Tag, Trash2, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QtyStepper } from "@/components/ui/qty-stepper";
@@ -13,6 +13,7 @@ import { recolored } from "@/lib/terminal/recolor";
 import { newId } from "@/lib/terminal/state";
 import { cn } from "@/lib/utils";
 import { CopyQuoteButton } from "./copy-quote";
+import { DiscountSheet } from "./discount-sheet";
 import { ExtraSheet } from "./extra-sheet";
 
 type Props = {
@@ -116,6 +117,10 @@ export function Summary({ q, setQ, catalog, brand, cost, kargo, money, editingId
                     }
                   />
                   <DiscountButton
+                    title={gz ? `Gazebo ${SZ[gz.size]} m` : r.t.replace(/ × \d+$/, "")}
+                    vat={q.vat}
+                    liste={r.birim}
+                    adet={r.adet}
                     value={r.isk}
                     onChange={(isk) => (gz ? setCart(gz.id, { isk }) : ex ? setExtra(ex.id, { isk }) : setQ({ ...q, prodIsk: { ...q.prodIsk, [r.key]: isk } }))}
                   />
@@ -164,11 +169,12 @@ export function Summary({ q, setQ, catalog, brand, cost, kargo, money, editingId
         <Row label="Liste toplamı" value={money(H.araListe)} muted />
         {H.satirIsk !== 0 && <Row label={H.satirIsk > 0 ? "Satır iskontoları" : "Satır ilaveleri"} value={`${H.satirIsk > 0 ? "−" : "+"}${money(Math.abs(H.satirIsk))}`} success={H.satirIsk > 0} />}
         <div className="flex items-center justify-between gap-3">
-          <dt className="flex items-center gap-2">
-            Genel iskonto <DiscountButton value={q.isk} onChange={(isk) => setQ({ ...q, isk, iskGrup: undefined })} compact />
+          <dt className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="whitespace-nowrap">Genel iskonto</span>
+            <DiscountButton title="Genel iskonto" vat={q.vat} liste={H.araNet} adet={1} genel value={q.isk} onChange={(isk) => setQ({ ...q, isk, iskGrup: undefined })} compact />
             {q.iskGrup && !iskYok(q.isk) && <span className="text-[11px] font-semibold text-success">{q.iskGrup}</span>}
           </dt>
-          <dd className={cn("tabular font-medium", H.genelIsk > 0 && "text-success")}>{H.genelIsk ? `${H.genelIsk > 0 ? "−" : "+"}${money(Math.abs(H.genelIsk))}` : "—"}</dd>
+          <dd className={cn("tabular shrink-0 whitespace-nowrap font-medium", H.genelIsk > 0 && "text-success")}>{H.genelIsk ? `${H.genelIsk > 0 ? "−" : "+"}${money(Math.abs(H.genelIsk))}` : "—"}</dd>
         </div>
         {/* Ara toplam, KDV ve genel toplam KDV tercihinden bağımsızdır: money KDV dahil modda 1,2 ile çarpar, burada çift KDV olurdu */}
         <Row label="Ara toplam (KDV hariç)" value={TL(H.net)} />
@@ -241,55 +247,24 @@ function IconBtn({ label, onClick, children }: { label: string; onClick: () => v
   );
 }
 
-/** İskonto: yüzde ya da adet başına TL; eksi değer ilave (zam) demektir */
-function DiscountButton({ value, onChange, compact }: { value?: Isk; onChange: (i: Isk) => void; compact?: boolean }) {
+/** İskonto düğmesi: yüzde, TL ya da doğrudan fiyat penceresini açar; eksi değer ilave (zam) demektir */
+function DiscountButton({ value, onChange, compact, ...sheet }: { value?: Isk; onChange: (i: Isk) => void; compact?: boolean; title: string; vat: 0 | 1; liste: number; adet: number; genel?: boolean }) {
   const [open, setOpen] = useState(false);
-  const isk = value ?? { tip: "yuzde" as const, d: 0 };
   return (
-    <span className="relative">
+    <>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(true)}
         className={cn(
-          "inline-flex h-8 items-center gap-1 rounded-full border px-2.5 text-[11px] font-semibold",
+          "inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-[11px] font-semibold",
           iskYok(value) ? "border-border text-muted-foreground hover:text-foreground" : "border-success/30 bg-success-soft text-success",
           compact && "h-7",
         )}
       >
-        <Percent className="size-3" /> {iskYok(value) ? "İskonto" : iskEtiket(value)}
+        {!iskYok(value) && value!.tip === "fiyat" ? <Tag className="size-3" /> : <Percent className="size-3" />} {iskYok(value) ? "İskonto / fiyat" : iskEtiket(value, sheet.vat, sheet.genel)}
       </button>
-      {open && (
-        <span className="absolute right-0 top-full z-20 mt-1.5 flex w-60 flex-col gap-2 rounded-xl border border-border bg-card p-3 shadow-pop">
-          <span className="inline-flex rounded-full bg-muted p-1">
-            {(["yuzde", "tutar"] as const).map((t) => (
-              <button key={t} type="button" onClick={() => onChange({ ...isk, tip: t })} className={cn("h-7 flex-1 rounded-full text-xs font-semibold", isk.tip === t ? "bg-card shadow-card" : "text-muted-foreground")}>
-                {t === "yuzde" ? "Yüzde (%)" : "Tutar (TL)"}
-              </button>
-            ))}
-          </span>
-          <input
-            autoFocus
-            inputMode="decimal"
-            defaultValue={isk.d || ""}
-            placeholder={isk.tip === "yuzde" ? "örn. 10" : "örn. 500"}
-            onChange={(e) => {
-              const n = Number(e.target.value.replace(",", "."));
-              if (Number.isFinite(n)) onChange({ tip: isk.tip, d: isk.tip === "yuzde" ? Math.max(-100, Math.min(100, n)) : n });
-            }}
-            className="tabular h-9 rounded-lg border border-input bg-card px-3 text-sm outline-none focus:border-primary"
-          />
-          <span className="text-[11px] text-muted-foreground">Eksi değer ilave (zam) olarak uygulanır.</span>
-          <span className="flex gap-2">
-            <Button size="sm" variant="ghost" className="flex-1" onClick={() => { onChange({ tip: "yuzde", d: 0 }); setOpen(false); }}>
-              Kaldır
-            </Button>
-            <Button size="sm" className="flex-1" onClick={() => setOpen(false)}>
-              Tamam
-            </Button>
-          </span>
-        </span>
-      )}
-    </span>
+      {open && <DiscountSheet open onClose={() => setOpen(false)} value={value} onChange={onChange} {...sheet} />}
+    </>
   );
 }
 

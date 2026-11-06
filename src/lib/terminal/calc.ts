@@ -116,7 +116,12 @@ export function colorText(g: Gazebo) {
   const wall = !need.anyWall ? null : need.walls ? colorName(g.wallColor ?? g.color) : "dijital baskı";
   return !wall || roof === wall ? `Renk: ${roof}` : `Tavan: ${roof} · Duvar: ${wall}`;
 }
-export type Isk = { tip: "yuzde" | "tutar"; d: number };
+/**
+ * İskonto (tutarlar KDV hariç):
+ * "yuzde" %, "tutar" adet başına TL (genel iskontoda toplamdan TL), "satir" satır toplamından TL,
+ * "fiyat" satırda net birim fiyat, genel iskontoda hedef ara toplam.
+ */
+export type Isk = { tip: "yuzde" | "tutar" | "satir" | "fiyat"; d: number };
 /** views: teklife eklenirken 3D'den alınan iki çapraz açı görüntüsü (sol-ön, sağ-arka); PDF'e basılır */
 export type CartGazebo = Gazebo & { id: string; qty: number; isk: Isk; views?: string[] };
 /**
@@ -284,20 +289,48 @@ export function sideFrom(raw: unknown): Side {
 
 /* ---------------- iskonto ----------------
    İki kademe: (1) satır — her gazebo ve ürün kendi indirimini taşır, (2) genel — satır indirimlerinden sonraki ara toplama.
-   tip "yuzde" = %, "tutar" = adet başına TL. d pozitifse indirim, negatifse ilave (zam). Birim tam TL'ye yuvarlanır. */
+   tip "yuzde" = %, "tutar" = adet başına TL, "satir" = satır toplamından TL, "fiyat" = net birim fiyat.
+   d pozitifse indirim, negatifse ilave (zam). Yüzdede birim tam TL'ye yuvarlanır (eski kayıtlarla aynı sonuç);
+   TL ve birim fiyatta girilen tutar yuvarlanmaz (KDV dahil yazılan 10.000 TL, KDV dahil 10.000 TL kalsın). */
 export const iskYok = (i?: Isk) => !i || !i.d;
 export function netBirim(liste: number, i?: Isk) {
   if (iskYok(i)) return liste;
-  const v = i!.tip === "yuzde" ? liste * (1 - i!.d / 100) : liste - i!.d;
-  return Math.max(0, Math.round(v));
+  if (i!.tip === "fiyat") return Math.max(0, i!.d);
+  if (i!.tip === "yuzde") return Math.max(0, Math.round(liste * (1 - i!.d / 100)));
+  return Math.max(0, liste - i!.d);
 }
+/** Satırın net birimi ve net tutarı (liste birim fiyattan, adet ve satır iskontosuyla) */
+export function satirNet(liste: number, adet: number, i?: Isk) {
+  if (!iskYok(i) && i!.tip === "satir") {
+    const v = Math.max(0, liste * adet - i!.d);
+    return { net: adet ? v / adet : 0, v };
+  }
+  const net = netBirim(liste, i);
+  return { net, v: net * adet };
+}
+/** Kullanıcının yazdığı tutar (ekrandaki KDV tercihine göre) → KDV hariç saklanan değer */
+export const haricOf = (n: number, vat: 0 | 1) => Math.round((vat ? n / 1.2 : n) * 10_000) / 10_000;
 export const TL = (n: number) => `${Math.round(n).toLocaleString("tr-TR")} TL`;
-/** "%10 ind." / "1.500 TL ilave" */
-export function iskEtiket(i?: Isk) {
+const yuzde = (n: number) => `%${n.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}`;
+/**
+ * "%10 ind." / "500 TL/adet ind." / "2.000 TL ilave" / "Birim 10.000 TL" — tutarlar ekrandaki KDV tercihiyle.
+ * genel: genel iskonto ("tutar" toplamdan TL, "fiyat" hedef toplam).
+ */
+export function iskEtiket(i?: Isk, vat: 0 | 1 = 0, genel = false) {
   if (iskYok(i)) return "";
-  const art = i!.d < 0;
+  const k = (n: number) => TL(vat ? n * 1.2 : n);
+  const ek = i!.d < 0 ? " ilave" : " ind.";
   const d = Math.abs(i!.d);
-  return (i!.tip === "yuzde" ? `%${String(d).replace(".", ",")}` : TL(d)) + (art ? " ilave" : " ind.");
+  if (i!.tip === "yuzde") return yuzde(d) + ek;
+  if (i!.tip === "fiyat") return `${genel ? "Toplam" : "Birim"} ${k(i!.d)}`;
+  return k(d) + (i!.tip === "tutar" && !genel ? "/adet" : "") + ek;
+}
+/** Belgedeki (PDF, döküm) iskonto yazısı: elle girilen fiyat müşteriye liste fiyatına göre oran olarak gösterilir */
+export function belgeEtiket(i: Isk | undefined, vat: 0 | 1, liste: number, net: number, genel = false) {
+  if (iskYok(i) || i!.tip !== "fiyat") return iskEtiket(i, vat, genel);
+  if (liste <= 0 || Math.abs(liste - net) < 0.005) return "";
+  const p = Math.round((1 - net / liste) * 10_000) / 100;
+  return yuzde(Math.abs(p)) + (p > 0 ? " ind." : " ilave");
 }
 
 export type Row = { key: string; t: string; s: string; birim: number; net: number; adet: number; isk?: Isk; liste: number; v: number; bad?: boolean };
@@ -307,12 +340,12 @@ export function allRows(q: QuoteState, catalog: Catalog): Row[] {
   const rows: Row[] = [];
   for (const c of q.cart) {
     const liste = gzTotal(c, q.mode);
-    const net = netBirim(liste, c.isk);
+    const { net, v } = satirNet(liste, c.qty, c.isk);
     rows.push({
       key: c.id,
       t: `Gazebo ${SZ[c.size]} m${c.qty > 1 ? ` × ${c.qty}` : ""}`,
       s: partsOf(c, q.mode).join(" · ") || "bileşen yok",
-      birim: liste, net, adet: c.qty, isk: c.isk, liste: liste * c.qty, v: net * c.qty,
+      birim: liste, net, adet: c.qty, isk: c.isk, liste: liste * c.qty, v,
       bad: unpricedWalls(c, q.mode) > 0,
     });
   }
@@ -323,15 +356,15 @@ export function allRows(q: QuoteState, catalog: Catalog): Row[] {
       for (const { key, hex, olcu, qty } of itemLines(q, it)) {
         const i = q.prodIsk[key];
         const birim = linePrice(pr, olcu);
-        const net = netBirim(birim, i);
+        const { net, v } = satirNet(birim, qty, i);
         const ad = hex ? `${it.n} · ${colorName(hex)}` : it.n;
         const s = olcu ? [olcuText(olcu), it.s].filter(Boolean).join(" · ") : it.s;
-        rows.push({ key, t: ad + (qty > 1 ? ` × ${qty}` : ""), s, birim, net, adet: qty, isk: i, liste: birim * qty, v: net * qty });
+        rows.push({ key, t: ad + (qty > 1 ? ` × ${qty}` : ""), s, birim, net, adet: qty, isk: i, liste: birim * qty, v });
       }
     }
   for (const x of q.extra ?? []) {
-    const net = netBirim(x.birim, x.isk);
-    rows.push({ key: x.id, t: x.ad + (x.adet > 1 ? ` × ${x.adet}` : ""), s: x.aciklama, birim: x.birim, net, adet: x.adet, isk: x.isk, liste: x.birim * x.adet, v: net * x.adet });
+    const { net, v } = satirNet(x.birim, x.adet, x.isk);
+    rows.push({ key: x.id, t: x.ad + (x.adet > 1 ? ` × ${x.adet}` : ""), s: x.aciklama, birim: x.birim, net, adet: x.adet, isk: x.isk, liste: x.birim * x.adet, v });
   }
   return rows;
 }
@@ -341,7 +374,9 @@ export function hesap(q: QuoteState, catalog: Catalog, rows = allRows(q, catalog
   const araListe = rows.reduce((a, r) => a + r.liste, 0);
   const araNet = rows.reduce((a, r) => a + r.v, 0);
   const satirIsk = araListe - araNet;
-  let genelIsk = iskYok(q.isk) ? 0 : Math.round(q.isk.tip === "yuzde" ? (araNet * q.isk.d) / 100 : q.isk.d);
+  // Yüzde tam TL'ye yuvarlanır (eski kayıtlar); TL ve hedef toplam kuruşuyla (KDV dahil yazılan tutar aynen çıksın)
+  const g = q.isk;
+  let genelIsk = iskYok(g) ? 0 : g.tip === "yuzde" ? Math.round((araNet * g.d) / 100) : Math.round((g.tip === "fiyat" ? araNet - g.d : g.d) * 100) / 100;
   if (genelIsk > araNet) genelIsk = araNet; // toplam eksiye düşmesin
   return { rows, araListe, araNet, satirIsk, genelIsk, net: araNet - genelIsk };
 }
@@ -366,15 +401,15 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: Br
   const kalemler = [
     ...q.cart.map((c) => {
       const liste = gzTotal(c, q.mode);
-      const net = netBirim(liste, c.isk);
+      const { net, v } = satirNet(liste, c.qty, c.isk);
       const wd = wallDetail(c);
       return {
         ad: `Gazebo çadır ${SZ[c.size]} m`,
         alt: [...partsOf(c, q.mode), colorText(c)].join(" · ") + (wd !== "Duvarsız" ? `\n${wd}` : ""),
         adet: c.qty,
         birim: adj(liste),
-        isk: iskEtiket(c.isk),
-        tutar: adj(net * c.qty),
+        isk: belgeEtiket(c.isk, q.vat, liste, net),
+        tutar: adj(v),
         // 3D görüntüsü varsa satır görseli odur; iki açı tablonun altında büyük basılır
         img: c.views?.[0] ?? `r:${c.size}`,
         gorseller: c.views ?? [],
@@ -388,6 +423,7 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: Br
         return itemLines(q, it).map(({ key, hex, olcu, qty }) => {
           const i = q.prodIsk[key];
           const birim = linePrice(pr, olcu);
+          const { net, v } = satirNet(birim, qty, i);
           return {
             ad: it.n,
             alt: hex
@@ -395,7 +431,7 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: Br
               : olcu
                 ? [olcuText(olcu), `m² ${TL(adj(pr))}`, it.s].filter(Boolean).join(" · ")
                 : it.s,
-            adet: qty, birim: adj(birim), isk: iskEtiket(i), tutar: adj(netBirim(birim, i) * qty),
+            adet: qty, birim: adj(birim), isk: belgeEtiket(i, q.vat, birim, net), tutar: adj(v),
             // Renkli ürün: PDF'te o rengin boyanmış görseli (hazırsa)
             img: hex && it.img ? (recolored(imgSrc(it.img), hex) ?? it.img) : it.img,
             parcalar: [],
@@ -403,9 +439,10 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: Br
         });
       }),
     ),
-    ...(q.extra ?? []).map((x) => ({
-      ad: x.ad, alt: x.aciklama, adet: x.adet, birim: adj(x.birim), isk: iskEtiket(x.isk), tutar: adj(netBirim(x.birim, x.isk) * x.adet), img: null as string | null, parcalar: [],
-    })),
+    ...(q.extra ?? []).map((x) => {
+      const { net, v } = satirNet(x.birim, x.adet, x.isk);
+      return { ad: x.ad, alt: x.aciklama, adet: x.adet, birim: adj(x.birim), isk: belgeEtiket(x.isk, q.vat, x.birim, net), tutar: adj(v), img: null as string | null, parcalar: [] };
+    }),
   ];
   const H = hesap(q, catalog);
   const ham = H.net;
@@ -436,7 +473,7 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: Br
     araListe: H.araListe,
     satirIsk: H.satirIsk,
     genelIsk: H.genelIsk,
-    genelIskEtiket: q.iskGrup && !iskYok(q.isk) ? `${q.iskGrup} · ${iskEtiket(q.isk)}` : iskEtiket(q.isk),
+    genelIskEtiket: q.iskGrup && !iskYok(q.isk) ? `${q.iskGrup} · ${iskEtiket(q.isk, q.vat, true)}` : belgeEtiket(q.isk, q.vat, H.araNet, H.net, true),
     araToplam: ham,
     kdv: ham * 0.2,
     genelToplam: ham * 1.2,
