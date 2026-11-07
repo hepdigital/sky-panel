@@ -1,0 +1,45 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/teklifler/yeni/page": {
+          "moduleId": 952811,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "405d9f44b1c20910f41cefe083510f39bef5b9f88b": {
+      "workers": {
+        "app/panel/teklifler/yeni/page": {
+          "moduleId": 952811,
+          "async": false
+        }
+      },
+      "exportedName": "musteriAra",
+      "filename": "src/app/panel/teklifler/actions.ts"
+    },
+    "40458b4acced91dd8d2e09d2e4e36095ea165fb5d2": {
+      "workers": {
+        "app/panel/teklifler/yeni/page": {
+          "moduleId": 952811,
+          "async": false
+        }
+      },
+      "exportedName": "teklifKaydet",
+      "filename": "src/app/panel/teklifler/actions.ts"
+    },
+    "4065e58fa71f9df72c2b6511c24ff5ef8283cc3c3d": {
+      "workers": {
+        "app/panel/teklifler/yeni/page": {
+          "moduleId": 952811,
+          "async": false
+        }
+      },
+      "exportedName": "satisUrunuAra",
+      "filename": "src/app/panel/teklifler/actions.ts"
+    }
+  },
+  "edge": {}
+}

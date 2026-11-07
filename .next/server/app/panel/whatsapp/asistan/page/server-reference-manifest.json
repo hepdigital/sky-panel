@@ -1,0 +1,45 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/whatsapp/asistan/page": {
+          "moduleId": 385665,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "40056ac7a90a7d0d6a8d17c9348b3bcbda1abe0a16": {
+      "workers": {
+        "app/panel/whatsapp/asistan/page": {
+          "moduleId": 385665,
+          "async": false
+        }
+      },
+      "exportedName": "waAyarKaydet",
+      "filename": "src/app/panel/whatsapp/actions.ts"
+    },
+    "7c693ed6c50cfddbeb217384d7076d11684c701f96": {
+      "workers": {
+        "app/panel/whatsapp/asistan/page": {
+          "moduleId": 385665,
+          "async": false
+        }
+      },
+      "exportedName": "waDeneme",
+      "filename": "src/app/panel/whatsapp/actions.ts"
+    },
+    "004d3c6918b4e0af11dcc7bd68e8f4288888b07077": {
+      "workers": {
+        "app/panel/whatsapp/asistan/page": {
+          "moduleId": 385665,
+          "async": false
+        }
+      },
+      "exportedName": "waDenemeSifirla",
+      "filename": "src/app/panel/whatsapp/actions.ts"
+    }
+  },
+  "edge": {}
+}

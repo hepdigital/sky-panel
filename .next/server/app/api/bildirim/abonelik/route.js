@@ -1,0 +1,10 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/bildirim/abonelik/route.js")
+R.c("server/chunks/[root-of-the-server]__0tg0t0go6b4e1._.js")
+R.c("server/chunks/_1x8ih0askcq-l._.js")
+R.c("server/chunks/_0haypcvnkw-7i._.js")
+R.c("server/chunks/[root-of-the-server]__1pi-us-sbliba._.js")
+R.c("server/chunks/_036031ywd_ldu._.js")
+R.c("server/chunks/node_modules_next_1ecu2w0y7uado._.js")
+R.c("server/chunks/_next-internal_server_app_api_bildirim_abonelik_route_actions_1glup3f9kk4q2.js")
+R.m(1562)
+module.exports=R.m(1562).exports

@@ -1,0 +1,35 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/whatsapp/urunler/page": {
+          "moduleId": 33480,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "40405c2860fbee9e02e7f7b29178f0826e916faad4": {
+      "workers": {
+        "app/panel/whatsapp/urunler/page": {
+          "moduleId": 33480,
+          "async": false
+        }
+      },
+      "exportedName": "waKartGorselYukle",
+      "filename": "src/app/panel/whatsapp/actions.ts"
+    },
+    "609845ecaa8952f0d8fa887ffa355795c59d2a01b8": {
+      "workers": {
+        "app/panel/whatsapp/urunler/page": {
+          "moduleId": 33480,
+          "async": false
+        }
+      },
+      "exportedName": "waKartKaydet",
+      "filename": "src/app/panel/whatsapp/actions.ts"
+    }
+  },
+  "edge": {}
+}

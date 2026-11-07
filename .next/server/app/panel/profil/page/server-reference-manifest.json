@@ -1,0 +1,35 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/profil/page": {
+          "moduleId": 904928,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "6095df0cf37bcdf894cc0cf98aa907f471cded4f48": {
+      "workers": {
+        "app/panel/profil/page": {
+          "moduleId": 904928,
+          "async": false
+        }
+      },
+      "exportedName": "girisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "601b9d982306f01a04faba350fe9d36ca3b524a288": {
+      "workers": {
+        "app/panel/profil/page": {
+          "moduleId": 904928,
+          "async": false
+        }
+      },
+      "exportedName": "sifreDegistir",
+      "filename": "src/app/panel/profil/actions.ts"
+    }
+  },
+  "edge": {}
+}

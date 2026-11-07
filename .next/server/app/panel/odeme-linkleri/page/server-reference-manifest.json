@@ -1,0 +1,45 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/odeme-linkleri/page": {
+          "moduleId": 125760,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "404ca6d0bc86f8dcdf7404454e3dd0af80f03bd6bb": {
+      "workers": {
+        "app/panel/odeme-linkleri/page": {
+          "moduleId": 125760,
+          "async": false
+        }
+      },
+      "exportedName": "odemeLinkiIptal",
+      "filename": "src/app/panel/odeme-linkleri/actions.ts"
+    },
+    "40f81c3202d5e2defe2169739e949509921c05c9b9": {
+      "workers": {
+        "app/panel/odeme-linkleri/page": {
+          "moduleId": 125760,
+          "async": false
+        }
+      },
+      "exportedName": "odemeLinkiOlustur",
+      "filename": "src/app/panel/odeme-linkleri/actions.ts"
+    },
+    "60b0702465b79a8f9598b2eaf4a5ee238538a3e342": {
+      "workers": {
+        "app/panel/odeme-linkleri/page": {
+          "moduleId": 125760,
+          "async": false
+        }
+      },
+      "exportedName": "taksitTablosu",
+      "filename": "src/app/panel/odeme-linkleri/actions.ts"
+    }
+  },
+  "edge": {}
+}

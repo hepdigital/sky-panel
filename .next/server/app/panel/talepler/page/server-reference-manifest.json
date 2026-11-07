@@ -1,0 +1,35 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/talepler/page": {
+          "moduleId": 833409,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "707d55bea8ef394b43e167ca932ae0d2bdb12c0dd9": {
+      "workers": {
+        "app/panel/talepler/page": {
+          "moduleId": 833409,
+          "async": false
+        }
+      },
+      "exportedName": "talepGuncelle",
+      "filename": "src/app/panel/talepler/actions.ts"
+    },
+    "0015bf0f6bf7ca9d4887416ccb983012ba0a6e78a9": {
+      "workers": {
+        "app/panel/talepler/page": {
+          "moduleId": 833409,
+          "async": false
+        }
+      },
+      "exportedName": "talepleriYenile",
+      "filename": "src/app/panel/talepler/actions.ts"
+    }
+  },
+  "edge": {}
+}

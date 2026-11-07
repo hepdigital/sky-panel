@@ -1,0 +1,219 @@
+{
+  "app": {
+    "[project]/src/app/_not-found/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/giris/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/istasyon/[station]/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/istasyon/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/konfigurator/[marka]/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2",
+      "static/media/e84c5cd1ffbefa6f-s.p.1emuuracu50qd.woff2",
+      "static/media/dd9dfc3601372168-s.p.43zbiuwnnoiok.woff2",
+      "static/media/cdf6f527ee34c972-s.p.1975l3y3401x_.woff2",
+      "static/media/22a701959b157a82-s.p.2o7m9ogm38dql.woff2",
+      "static/media/d89abe7e263475e6-s.p.19xuq3td7fwu_.woff2",
+      "static/media/6bafae418e8a1b08-s.p.3o_v2fun1jzxk.woff2",
+      "static/media/b0b9e5e07c9deaa9-s.p.3go-kn2r40gie.woff2",
+      "static/media/76e9fd951b869c7b-s.p.3bh2vc0w-r-ll.woff2"
+    ],
+    "[project]/src/app/odeme/[token]/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/bildirimler/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/galeri/[id]/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/galeri/ayarlar/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/galeri/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/gorevler/[id]/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/gorevler/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/kullanicilar/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/markalar/[id]/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/markalar/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/musteriler/[id]/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/musteriler/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/odeme-linkleri/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/pazaryeri/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/profil/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/satis-urunleri/fiyat-kapsami/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/satis-urunleri/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/sevkiyat/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/siparisler/[id]/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/siparisler/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/siparisler/yeni/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/siteler/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/talepler/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/teklifler/[id]/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/teklifler/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/teklifler/yeni/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/uretim/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/urunler/gazebo/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/urunler/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/whatsapp/asistan/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/whatsapp/ornekler/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/whatsapp/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/panel/whatsapp/urunler/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/portal/cari/bakiye-yukle/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/portal/cari/borc-ode/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/portal/cari/odeme-linki/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/portal/cari/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/portal/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/portal/siparis-ver/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/portal/siparisler/[id]/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/portal/siparisler/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/portal/urunler/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/sifre-belirle/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ],
+    "[project]/src/app/t/[token]/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ]
+  },
+  "appUsingSizeAdjust": true,
+  "pages": {},
+  "pagesUsingSizeAdjust": false
+}

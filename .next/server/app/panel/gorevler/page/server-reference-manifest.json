@@ -1,0 +1,45 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/gorevler/page": {
+          "moduleId": 253559,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "606252432dae6cac225369ec21ce9011a776fa9fba": {
+      "workers": {
+        "app/panel/gorevler/page": {
+          "moduleId": 253559,
+          "async": false
+        }
+      },
+      "exportedName": "gorevDurumu",
+      "filename": "src/app/panel/gorevler/actions.ts"
+    },
+    "400fce9b48eb6d3ed43d37746c75eaaae4cfedbf08": {
+      "workers": {
+        "app/panel/gorevler/page": {
+          "moduleId": 253559,
+          "async": false
+        }
+      },
+      "exportedName": "gorevKaydet",
+      "filename": "src/app/panel/gorevler/actions.ts"
+    },
+    "40c22fdf86c6de0c8c1176130f9963bf4bbf9451d4": {
+      "workers": {
+        "app/panel/gorevler/page": {
+          "moduleId": 253559,
+          "async": false
+        }
+      },
+      "exportedName": "tekrarKaydet",
+      "filename": "src/app/panel/gorevler/actions.ts"
+    }
+  },
+  "edge": {}
+}

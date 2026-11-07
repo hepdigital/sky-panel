@@ -1,0 +1,4403 @@
+{
+  "Creator": "EGR GF [4.2.0]",
+  "Format": "1.1",
+  "Geometry": "GLTF",
+  "Objects": [
+    {
+      "Selectable": "Self",
+      "OrderNumber": "314022",
+      "BasketId": "409da2d0-bc5f-4742-ab11-2ae32f13d2f1",
+      "Children": [
+        {
+          "Selectable": "Parent",
+          "Children": [
+            {
+              "Selectable": "Parent",
+              "Geometry": "b0968507ef8da7bb78210e136b9f708c",
+              "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+              "Transform": {
+                "Position": [
+                  -4e-7,
+                  2.37295,
+                  -0.00001243
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "1174eef30c04eb45b2c8815ffdfb9939",
+              "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+              "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  -0.00001513,
+                  0.8807525,
+                  -0.0164122
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "dc727fc6207c105fee31d30019dcbb4a",
+              "Layer": "72_MASTERTENT_STRUK_D3_PLASTIK",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  0.0004996,
+                  2.16303579,
+                  -0.02807518
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "1ad2756b9c36db8d0b5daf4636b7bec6",
+              "Layer": "72_MASTERTENT_STRUK_D3_VERSTELL_KNOPF",
+              "Material": "mastertent.basics.plastic_ral5007",
+              "Transform": {
+                "Position": [
+                  0.03399951,
+                  2.06955004,
+                  -0.00001278
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "f9bc4c63e657669b2f4f314ae82dff25",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL_1",
+              "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  -0.00100002,
+                  1.07595,
+                  0.00071867
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "987de0fb1022dd066b08b6ca2bd9ad35",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+              "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  -0.00100002,
+                  1.07595,
+                  0.00071867
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "96c4278d992c13927152803d6682ab10",
+              "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+              "Transform": {
+                "Position": [
+                  -0.00001513,
+                  0.00595979,
+                  0.0002378
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "b2010376d9bdf0bb9f6d09135bef6e6c",
+              "Layer": "72_MASTERTENT_STRUK_D3_FUSS",
+              "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  -2e-8,
+                  0,
+                  -0.00001233
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "18c37208a7624fac653f58979deb3d51",
+              "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+              "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  -0.00001513,
+                  0.0087525,
+                  0.0002378
+                ],
+                "Scale": [
+                  1,
+                  1.141,
+                  1
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  2.9394,
+                  0,
+                  0
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              },
+              "Children": [
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "b0968507ef8da7bb78210e136b9f708c",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      -4e-7,
+                      2.37295,
+                      -0.00001243
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "1174eef30c04eb45b2c8815ffdfb9939",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -0.00001513,
+                      0.8807525,
+                      -0.0164122
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "dc727fc6207c105fee31d30019dcbb4a",
+                  "Layer": "72_MASTERTENT_STRUK_D3_PLASTIK",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.0004996,
+                      2.16303579,
+                      -0.02807518
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "1ad2756b9c36db8d0b5daf4636b7bec6",
+                  "Layer": "72_MASTERTENT_STRUK_D3_VERSTELL_KNOPF",
+                  "Material": "mastertent.basics.plastic_ral5007",
+                  "Transform": {
+                    "Position": [
+                      0.03399951,
+                      2.06955004,
+                      -0.00001278
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "f9bc4c63e657669b2f4f314ae82dff25",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_1",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -0.00100002,
+                      1.07595,
+                      0.00071867
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "987de0fb1022dd066b08b6ca2bd9ad35",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -0.00100002,
+                      1.07595,
+                      0.00071867
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "96c4278d992c13927152803d6682ab10",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      -0.00001513,
+                      0.00595979,
+                      0.0002378
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "b2010376d9bdf0bb9f6d09135bef6e6c",
+                  "Layer": "72_MASTERTENT_STRUK_D3_FUSS",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -2e-8,
+                      0,
+                      -0.00001233
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "18c37208a7624fac653f58979deb3d51",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -0.00001513,
+                      0.0087525,
+                      0.0002378
+                    ],
+                    "Scale": [
+                      1,
+                      1.141,
+                      1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  0,
+                  0,
+                  2.9394
+                ],
+                "Rotation": [
+                  0,
+                  0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              },
+              "Children": [
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "b0968507ef8da7bb78210e136b9f708c",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      -4e-7,
+                      2.37295,
+                      -0.00001243
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "1174eef30c04eb45b2c8815ffdfb9939",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -0.00001513,
+                      0.8807525,
+                      -0.0164122
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "dc727fc6207c105fee31d30019dcbb4a",
+                  "Layer": "72_MASTERTENT_STRUK_D3_PLASTIK",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.0004996,
+                      2.16303579,
+                      -0.02807518
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "1ad2756b9c36db8d0b5daf4636b7bec6",
+                  "Layer": "72_MASTERTENT_STRUK_D3_VERSTELL_KNOPF",
+                  "Material": "mastertent.basics.plastic_ral5007",
+                  "Transform": {
+                    "Position": [
+                      0.03399951,
+                      2.06955004,
+                      -0.00001278
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "f9bc4c63e657669b2f4f314ae82dff25",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_1",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -0.00100002,
+                      1.07595,
+                      0.00071867
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "987de0fb1022dd066b08b6ca2bd9ad35",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -0.00100002,
+                      1.07595,
+                      0.00071867
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "96c4278d992c13927152803d6682ab10",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      -0.00001513,
+                      0.00595979,
+                      0.0002378
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "b2010376d9bdf0bb9f6d09135bef6e6c",
+                  "Layer": "72_MASTERTENT_STRUK_D3_FUSS",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -2e-8,
+                      0,
+                      -0.00001233
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "18c37208a7624fac653f58979deb3d51",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -0.00001513,
+                      0.0087525,
+                      0.0002378
+                    ],
+                    "Scale": [
+                      1,
+                      1.141,
+                      1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  2.9394,
+                  0,
+                  2.9394
+                ],
+                "Rotation": [
+                  0,
+                  1,
+                  0,
+                  0
+                ]
+              },
+              "Children": [
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "b0968507ef8da7bb78210e136b9f708c",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      -4e-7,
+                      2.37295,
+                      -0.00001243
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "1174eef30c04eb45b2c8815ffdfb9939",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -0.00001513,
+                      0.8807525,
+                      -0.0164122
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "dc727fc6207c105fee31d30019dcbb4a",
+                  "Layer": "72_MASTERTENT_STRUK_D3_PLASTIK",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.0004996,
+                      2.16303579,
+                      -0.02807518
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "1ad2756b9c36db8d0b5daf4636b7bec6",
+                  "Layer": "72_MASTERTENT_STRUK_D3_VERSTELL_KNOPF",
+                  "Material": "mastertent.basics.plastic_ral5007",
+                  "Transform": {
+                    "Position": [
+                      0.03399951,
+                      2.06955004,
+                      -0.00001278
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "f9bc4c63e657669b2f4f314ae82dff25",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_1",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -0.00100002,
+                      1.07595,
+                      0.00071867
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "987de0fb1022dd066b08b6ca2bd9ad35",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -0.00100002,
+                      1.07595,
+                      0.00071867
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "96c4278d992c13927152803d6682ab10",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      -0.00001513,
+                      0.00595979,
+                      0.0002378
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "b2010376d9bdf0bb9f6d09135bef6e6c",
+                  "Layer": "72_MASTERTENT_STRUK_D3_FUSS",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -2e-8,
+                      0,
+                      -0.00001233
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "18c37208a7624fac653f58979deb3d51",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      -0.00001513,
+                      0.0087525,
+                      0.0002378
+                    ],
+                    "Scale": [
+                      1,
+                      1.141,
+                      1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  1.4697,
+                  0,
+                  -0.2
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  3.3394,
+                  0,
+                  1.6697
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  1.4697,
+                  0,
+                  3.5394
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  -0.4,
+                  0,
+                  1.6697
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "4539e68a9bf87bc114e087730cefb70f",
+              "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+              "Transform": {
+                "Position": [
+                  0.00023793,
+                  2.361919,
+                  -0.02722474
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "e2d779842583509e7d5505f30fc7479f",
+              "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+              "Transform": {
+                "Position": [
+                  -0.02418345,
+                  2.319954,
+                  -0.02418318
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "fee1db01a699fe86b3cdc20839dd30d1",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+              "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+              "Transform": {
+                "Position": [
+                  -4e-7,
+                  2.32995,
+                  -0.02170013
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "8be23206699bae77c56d99cc753734fd",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+              "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+              "Transform": {
+                "Position": [
+                  -4e-7,
+                  2.08695,
+                  -0.02700013
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  2.9394,
+                  0,
+                  0
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              },
+              "Children": [
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "4539e68a9bf87bc114e087730cefb70f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      0.00023793,
+                      2.361919,
+                      -0.02722474
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "e2d779842583509e7d5505f30fc7479f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      -0.02418345,
+                      2.319954,
+                      -0.02418318
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "fee1db01a699fe86b3cdc20839dd30d1",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+                  "Transform": {
+                    "Position": [
+                      -4e-7,
+                      2.32995,
+                      -0.02170013
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "8be23206699bae77c56d99cc753734fd",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+                  "Transform": {
+                    "Position": [
+                      -4e-7,
+                      2.08695,
+                      -0.02700013
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  0,
+                  0,
+                  2.9394
+                ],
+                "Rotation": [
+                  0,
+                  0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              },
+              "Children": [
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "4539e68a9bf87bc114e087730cefb70f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      0.00023793,
+                      2.361919,
+                      -0.02722474
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "e2d779842583509e7d5505f30fc7479f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      -0.02418345,
+                      2.319954,
+                      -0.02418318
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "fee1db01a699fe86b3cdc20839dd30d1",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+                  "Transform": {
+                    "Position": [
+                      -4e-7,
+                      2.32995,
+                      -0.02170013
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "8be23206699bae77c56d99cc753734fd",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+                  "Transform": {
+                    "Position": [
+                      -4e-7,
+                      2.08695,
+                      -0.02700013
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  2.9394,
+                  0,
+                  2.9394
+                ],
+                "Rotation": [
+                  0,
+                  1,
+                  0,
+                  0
+                ]
+              },
+              "Children": [
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "4539e68a9bf87bc114e087730cefb70f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      0.00023793,
+                      2.361919,
+                      -0.02722474
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "e2d779842583509e7d5505f30fc7479f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      -0.02418345,
+                      2.319954,
+                      -0.02418318
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "fee1db01a699fe86b3cdc20839dd30d1",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+                  "Transform": {
+                    "Position": [
+                      -4e-7,
+                      2.32995,
+                      -0.02170013
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "8be23206699bae77c56d99cc753734fd",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+                  "Transform": {
+                    "Position": [
+                      -4e-7,
+                      2.08695,
+                      -0.02700013
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "d1c12efa3a7a618ea6533ff5133b2225",
+              "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+              "Transform": {
+                "Position": [
+                  1.46971853,
+                  2.359919,
+                  -0.02699966
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "daafe130ad05c752df05bef53466824f",
+              "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+              "Transform": {
+                "Position": [
+                  0.04024388,
+                  2.08861396,
+                  -0.00900013
+                ],
+                "Rotation": [
+                  0,
+                  0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "daafe130ad05c752df05bef53466824f",
+              "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+              "Transform": {
+                "Position": [
+                  1.5099628,
+                  2.08861396,
+                  -0.00900013
+                ],
+                "Rotation": [
+                  0,
+                  0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "76edd9ed1283b82fe48cb1832eb43e50",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+              "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  0.73485906,
+                  2.22645,
+                  -0.01650013
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "76edd9ed1283b82fe48cb1832eb43e50",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+              "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  2.20457799,
+                  2.22645,
+                  -0.01650013
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "00e3b2bb803a145fd61c8fae66f211fb",
+              "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+              "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  1.42947389,
+                  2.08861402,
+                  0.00899987
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "00e3b2bb803a145fd61c8fae66f211fb",
+              "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+              "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  2.89919282,
+                  2.08861402,
+                  0.00899987
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "6584ee2ec349622d02df59d196d5489c",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+              "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+              "Transform": {
+                "Position": [
+                  1.46971853,
+                  2.32995,
+                  -0.02450013
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "23ebea6ca08c2cac7a4baecd6804255f",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+              "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+              "Transform": {
+                "Position": [
+                  1.46971853,
+                  2.08695,
+                  -0.02450013
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+              "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  0.03876592,
+                  2.35591457,
+                  0.00149987
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+              "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  1.50848484,
+                  2.35591457,
+                  0.00149987
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+              "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  2.88520377,
+                  2.35591457,
+                  -0.01650013
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+              "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  2.88520377,
+                  2.11291457,
+                  0.00149987
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+              "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  0.03876592,
+                  2.11291457,
+                  -0.01650013
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+              "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  1.41548484,
+                  2.35591457,
+                  -0.01650013
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+              "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  1.41548484,
+                  2.11291457,
+                  0.00149987
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+              "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  1.50848484,
+                  2.11291457,
+                  -0.01650013
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  1.4697,
+                  0,
+                  0
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              },
+              "Children": [
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "daafe130ad05c752df05bef53466824f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      0.04024388,
+                      2.08861396,
+                      -0.00900013
+                    ],
+                    "Rotation": [
+                      0,
+                      0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "76edd9ed1283b82fe48cb1832eb43e50",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.73485906,
+                      2.22645,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "00e3b2bb803a145fd61c8fae66f211fb",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.42947389,
+                      2.08861402,
+                      0.00899987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.03876592,
+                      2.35591457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.03876592,
+                      2.11291457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.41548484,
+                      2.35591457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.41548484,
+                      2.11291457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  0,
+                  0,
+                  1.4697
+                ]
+              },
+              "Children": [
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "daafe130ad05c752df05bef53466824f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      0.04024388,
+                      2.08861396,
+                      -0.00900013
+                    ],
+                    "Rotation": [
+                      0,
+                      0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "76edd9ed1283b82fe48cb1832eb43e50",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.73485906,
+                      2.22645,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "00e3b2bb803a145fd61c8fae66f211fb",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.42947389,
+                      2.08861402,
+                      0.00899987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.03876592,
+                      2.35591457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.03876592,
+                      2.11291457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.41548484,
+                      2.35591457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.41548484,
+                      2.11291457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "e233b61dc23fac39f5a2c30f430253c2",
+              "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+              "Transform": {
+                "Position": [
+                  1.46971853,
+                  3.23342555,
+                  1.4707188
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "9791bbae16802467daf09073b4dde25d",
+              "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+              "Transform": {
+                "Position": [
+                  1.47396853,
+                  2.35995,
+                  1.4062188
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "1c6a912526ad06e57299f8d88c92df8c",
+              "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+              "Transform": {
+                "Position": [
+                  1.46971853,
+                  3.23342555,
+                  1.4707188
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "2fcae3d9c38680138078a6f5ccc973c6",
+              "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+              "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  1.46971853,
+                  2.12492555,
+                  1.4487188
+                ],
+                "Scale": [
+                  1,
+                  1.15,
+                  1
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "11b597bdbbda3c5513543857d19ba240",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+              "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+              "Transform": {
+                "Position": [
+                  1.49371853,
+                  2.32995,
+                  1.4697188
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "758edd14c40ec44b815d655a4540f5a9",
+              "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+              "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+              "Transform": {
+                "Position": [
+                  1.49481852,
+                  2.08695,
+                  1.4697188
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "9307537f7b70b268eee286a5bf7f4a2a",
+              "Layer": "72_MASTERTENT_STRUK_D3_PLASTIK",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  1.46960339,
+                  2.31572374,
+                  1.49031773
+                ],
+                "Rotation": [
+                  0,
+                  1,
+                  0,
+                  0
+                ],
+                "Scale": [
+                  -1,
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "9307537f7b70b268eee286a5bf7f4a2a",
+              "Layer": "72_MASTERTENT_STRUK_D3_PLASTIK",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  1.46960339,
+                  2.31572374,
+                  1.44731773
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "58d030ce9adf18db792cca0771bb5bab",
+              "Layer": "72_MASTERTENT_STRUK_D3_PLASTIK",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  1.46971852,
+                  2.08270533,
+                  1.44645949
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Geometry": "58d030ce9adf18db792cca0771bb5bab",
+              "Layer": "72_MASTERTENT_STRUK_D3_PLASTIK",
+              "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 0",
+              "Transform": {
+                "Position": [
+                  1.46971852,
+                  2.08270533,
+                  1.49297811
+                ],
+                "Rotation": [
+                  0,
+                  1,
+                  0,
+                  0
+                ],
+                "Scale": [
+                  -1,
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  1.4697,
+                  0,
+                  1.4697
+                ]
+              },
+              "Children": [
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "daafe130ad05c752df05bef53466824f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      0.04024388,
+                      2.08861396,
+                      -0.00900013
+                    ],
+                    "Rotation": [
+                      0,
+                      0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "76edd9ed1283b82fe48cb1832eb43e50",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.73485906,
+                      2.22645,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "00e3b2bb803a145fd61c8fae66f211fb",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.42947389,
+                      2.08861402,
+                      0.00899987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.03876592,
+                      2.35591457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.03876592,
+                      2.11291457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.41548484,
+                      2.35591457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.41548484,
+                      2.11291457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  1.4697,
+                  0,
+                  1.4697
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              },
+              "Children": [
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "daafe130ad05c752df05bef53466824f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      0.04024388,
+                      2.08861396,
+                      -0.00900013
+                    ],
+                    "Rotation": [
+                      0,
+                      0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "76edd9ed1283b82fe48cb1832eb43e50",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.73485906,
+                      2.22645,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "00e3b2bb803a145fd61c8fae66f211fb",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.42947389,
+                      2.08861402,
+                      0.00899987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.03876592,
+                      2.35591457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.03876592,
+                      2.11291457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.41548484,
+                      2.35591457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.41548484,
+                      2.11291457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  0,
+                  0,
+                  2.9394
+                ],
+                "Rotation": [
+                  0,
+                  0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              },
+              "Children": [
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "d1c12efa3a7a618ea6533ff5133b2225",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      1.46971853,
+                      2.359919,
+                      -0.02699966
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "daafe130ad05c752df05bef53466824f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      0.04024388,
+                      2.08861396,
+                      -0.00900013
+                    ],
+                    "Rotation": [
+                      0,
+                      0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "daafe130ad05c752df05bef53466824f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      1.5099628,
+                      2.08861396,
+                      -0.00900013
+                    ],
+                    "Rotation": [
+                      0,
+                      0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "76edd9ed1283b82fe48cb1832eb43e50",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.73485906,
+                      2.22645,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "76edd9ed1283b82fe48cb1832eb43e50",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      2.20457799,
+                      2.22645,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "00e3b2bb803a145fd61c8fae66f211fb",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.42947389,
+                      2.08861402,
+                      0.00899987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "00e3b2bb803a145fd61c8fae66f211fb",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      2.89919282,
+                      2.08861402,
+                      0.00899987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "6584ee2ec349622d02df59d196d5489c",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+                  "Transform": {
+                    "Position": [
+                      1.46971853,
+                      2.32995,
+                      -0.02450013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "23ebea6ca08c2cac7a4baecd6804255f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+                  "Transform": {
+                    "Position": [
+                      1.46971853,
+                      2.08695,
+                      -0.02450013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.03876592,
+                      2.35591457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.50848484,
+                      2.35591457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      2.88520377,
+                      2.35591457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      2.88520377,
+                      2.11291457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.03876592,
+                      2.11291457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.41548484,
+                      2.35591457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.41548484,
+                      2.11291457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.50848484,
+                      2.11291457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  2.9394,
+                  0,
+                  0
+                ],
+                "Rotation": [
+                  0,
+                  -0.707106781186547,
+                  0,
+                  0.707106781186548
+                ]
+              },
+              "Children": [
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "d1c12efa3a7a618ea6533ff5133b2225",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      1.46971853,
+                      2.359919,
+                      -0.02699966
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "daafe130ad05c752df05bef53466824f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      0.04024388,
+                      2.08861396,
+                      -0.00900013
+                    ],
+                    "Rotation": [
+                      0,
+                      0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "daafe130ad05c752df05bef53466824f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      1.5099628,
+                      2.08861396,
+                      -0.00900013
+                    ],
+                    "Rotation": [
+                      0,
+                      0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "76edd9ed1283b82fe48cb1832eb43e50",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.73485906,
+                      2.22645,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "76edd9ed1283b82fe48cb1832eb43e50",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      2.20457799,
+                      2.22645,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "00e3b2bb803a145fd61c8fae66f211fb",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.42947389,
+                      2.08861402,
+                      0.00899987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "00e3b2bb803a145fd61c8fae66f211fb",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      2.89919282,
+                      2.08861402,
+                      0.00899987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "6584ee2ec349622d02df59d196d5489c",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+                  "Transform": {
+                    "Position": [
+                      1.46971853,
+                      2.32995,
+                      -0.02450013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "23ebea6ca08c2cac7a4baecd6804255f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+                  "Transform": {
+                    "Position": [
+                      1.46971853,
+                      2.08695,
+                      -0.02450013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.03876592,
+                      2.35591457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.50848484,
+                      2.35591457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      2.88520377,
+                      2.35591457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      2.88520377,
+                      2.11291457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.03876592,
+                      2.11291457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.41548484,
+                      2.35591457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.41548484,
+                      2.11291457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.50848484,
+                      2.11291457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "Selectable": "Parent",
+              "Transform": {
+                "Position": [
+                  2.9394,
+                  0,
+                  2.9394
+                ],
+                "Rotation": [
+                  0,
+                  1,
+                  0,
+                  0
+                ]
+              },
+              "Children": [
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "d1c12efa3a7a618ea6533ff5133b2225",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      1.46971853,
+                      2.359919,
+                      -0.02699966
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "daafe130ad05c752df05bef53466824f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      0.04024388,
+                      2.08861396,
+                      -0.00900013
+                    ],
+                    "Rotation": [
+                      0,
+                      0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "daafe130ad05c752df05bef53466824f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_ABDECKUNG",
+                  "Material": "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180",
+                  "Transform": {
+                    "Position": [
+                      1.5099628,
+                      2.08861396,
+                      -0.00900013
+                    ],
+                    "Rotation": [
+                      0,
+                      0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "76edd9ed1283b82fe48cb1832eb43e50",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.73485906,
+                      2.22645,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "76edd9ed1283b82fe48cb1832eb43e50",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      2.20457799,
+                      2.22645,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "00e3b2bb803a145fd61c8fae66f211fb",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.42947389,
+                      2.08861402,
+                      0.00899987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "00e3b2bb803a145fd61c8fae66f211fb",
+                  "Layer": "72_MASTERTENT_STRUK_D3_GESTELL",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      2.89919282,
+                      2.08861402,
+                      0.00899987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "6584ee2ec349622d02df59d196d5489c",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+                  "Transform": {
+                    "Position": [
+                      1.46971853,
+                      2.32995,
+                      -0.02450013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "23ebea6ca08c2cac7a4baecd6804255f",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL_ALU",
+                  "Material": "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90",
+                  "Transform": {
+                    "Position": [
+                      1.46971853,
+                      2.08695,
+                      -0.02450013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.03876592,
+                      2.35591457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.50848484,
+                      2.35591457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      2.88520377,
+                      2.35591457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      2.88520377,
+                      2.11291457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      0.03876592,
+                      2.11291457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.41548484,
+                      2.35591457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.41548484,
+                      2.11291457,
+                      0.00149987
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "0e30a24c32de2a59ca7e687a93f3d410",
+                  "Layer": "72_MASTERTENT_STRUK_D3_METALL",
+                  "Material": "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0",
+                  "Transform": {
+                    "Position": [
+                      1.50848484,
+                      2.11291457,
+                      -0.01650013
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Selectable": "Self",
+          "OrderNumber": "310168",
+          "BasketId": "606c9064-72b6-4ea5-98af-3dac5d8ea590",
+          "Children": [
+            {
+              "Selectable": "Parent",
+              "Children": [
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "08e005c846766477f7b6dab2da3b9df2",
+                  "Layer": "72_MASTERTENT_DACH_D3_DACH",
+                  "Material": "mastertent.basics.pirontex_pantone11_0601",
+                  "Transform": {
+                    "Position": [
+                      -0.05208282,
+                      2.01369262,
+                      -0.05148315
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "c9400e2c378323e630875351a9091037",
+                  "Layer": "72_MASTERTENT_DACH_D3_NAHT_ECKE",
+                  "Material": "mastertent.basics.seam_corner_blau",
+                  "Transform": {
+                    "Position": [
+                      -0.04921066,
+                      2.02869275,
+                      2.94492777
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.725939403991798,
+                      0,
+                      0.687758665326751
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "c9400e2c378323e630875351a9091037",
+                  "Layer": "72_MASTERTENT_DACH_D3_NAHT_ECKE",
+                  "Material": "mastertent.basics.seam_corner_blau",
+                  "Transform": {
+                    "Position": [
+                      2.96141632,
+                      2.02869324,
+                      -0.05023062
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.999562895649609,
+                      0,
+                      0.0295637893473435
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "c9400e2c378323e630875351a9091037",
+                  "Layer": "72_MASTERTENT_DACH_D3_NAHT_ECKE",
+                  "Material": "mastertent.basics.seam_corner_blau",
+                  "Transform": {
+                    "Position": [
+                      2.98978882,
+                      2.02869275,
+                      2.9614661
+                    ],
+                    "Rotation": [
+                      0,
+                      0.727702457661375,
+                      0,
+                      0.685892945811221
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "c9400e2c378323e630875351a9091037",
+                  "Layer": "72_MASTERTENT_DACH_D3_NAHT_ECKE",
+                  "Material": "mastertent.basics.seam_corner_blau",
+                  "Transform": {
+                    "Position": [
+                      -0.05028297,
+                      2.02869324,
+                      -0.021858
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.685892945811221,
+                      0,
+                      0.727702457661375
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "c9400e2c378323e630875351a9091037",
+                  "Layer": "72_MASTERTENT_DACH_D3_NAHT_ECKE",
+                  "Material": "mastertent.basics.seam_corner_blau",
+                  "Transform": {
+                    "Position": [
+                      2.98871652,
+                      2.02869324,
+                      -0.00532003
+                    ],
+                    "Rotation": [
+                      0,
+                      0.68775866532675,
+                      0,
+                      0.725939403991798
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "c9400e2c378323e630875351a9091037",
+                  "Layer": "72_MASTERTENT_DACH_D3_NAHT_ECKE",
+                  "Material": "mastertent.basics.seam_corner_blau",
+                  "Transform": {
+                    "Position": [
+                      2.94487823,
+                      2.02869275,
+                      2.9887663
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.0269978592207663,
+                      0,
+                      0.999635491365476
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "c9400e2c378323e630875351a9091037",
+                  "Layer": "72_MASTERTENT_DACH_D3_NAHT_ECKE",
+                  "Material": "mastertent.basics.seam_corner_blau",
+                  "Transform": {
+                    "Position": [
+                      -0.00537237,
+                      2.02869324,
+                      -0.0491582
+                    ],
+                    "Rotation": [
+                      0,
+                      0.999635491365492,
+                      0,
+                      0.0269978592207659
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "c9400e2c378323e630875351a9091037",
+                  "Layer": "72_MASTERTENT_DACH_D3_NAHT_ECKE",
+                  "Material": "mastertent.basics.seam_corner_blau",
+                  "Transform": {
+                    "Position": [
+                      -0.02191046,
+                      2.02869275,
+                      2.98983836
+                    ],
+                    "Rotation": [
+                      0,
+                      0.0295637893473436,
+                      0,
+                      0.999562895649606
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "95c94ff1da9e9eaf7c6a6d81002e696a",
+                  "Layer": "72_MASTERTENT_DACH_D3_DACH",
+                  "Material": "mastertent.basics.pirontex_pantone11_0601",
+                  "Transform": {
+                    "Position": [
+                      -0.03091245,
+                      1.9641943,
+                      2.96899459
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "95c94ff1da9e9eaf7c6a6d81002e696a",
+                  "Layer": "72_MASTERTENT_DACH_D3_DACH",
+                  "Material": "mastertent.basics.pirontex_pantone11_0601",
+                  "Transform": {
+                    "Position": [
+                      2.96894506,
+                      1.9641943,
+                      2.97046809
+                    ],
+                    "Rotation": [
+                      0,
+                      0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "95c94ff1da9e9eaf7c6a6d81002e696a",
+                  "Layer": "72_MASTERTENT_DACH_D3_DACH",
+                  "Material": "mastertent.basics.pirontex_pantone11_0601",
+                  "Transform": {
+                    "Position": [
+                      -0.0294392,
+                      1.96419479,
+                      -0.03085998
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "95c94ff1da9e9eaf7c6a6d81002e696a",
+                  "Layer": "72_MASTERTENT_DACH_D3_DACH",
+                  "Material": "mastertent.basics.pirontex_pantone11_0601",
+                  "Transform": {
+                    "Position": [
+                      2.97041831,
+                      1.96419479,
+                      -0.02938685
+                    ],
+                    "Rotation": [
+                      0,
+                      1,
+                      0,
+                      0
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "52b2672cd9216cefcada295764ef8561",
+                  "Layer": "72_MASTERTENT_DACH_D3_DACH",
+                  "Material": "mastertent.basics.pirontex_pantone11_0601",
+                  "Transform": {
+                    "Position": [
+                      -0.05208282,
+                      2.01369262,
+                      -0.05148315
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Geometry": "3d561ddd2c311bc0c467f73226421d22",
+                  "Layer": "72_MASTERTENT_DACH_D3_KLETT",
+                  "Material": "mastertent.basics.klett_pantone11_0601",
+                  "Transform": {
+                    "Position": [
+                      -0.04770641,
+                      2.02362585,
+                      -0.04710388
+                    ]
+                  }
+                },
+                {
+                  "Selectable": "Parent",
+                  "Transform": {
+                    "Position": [
+                      0.3006235,
+                      2.03,
+                      -0.044347
+                    ],
+                    "Rotation": [
+                      0,
+                      0.99999390765686,
+                      0,
+                      0.00349065141522705
+                    ]
+                  },
+                  "Children": [
+                    {
+                      "Selectable": "Parent",
+                      "Geometry": "fe8aa76761d48fff8407f4c4c67ca428",
+                      "Layer": "72_MASTERTENT_DACH_D3_LOGO_PIRONTEX",
+                      "Material": "mastertent.basics.logo_pirontex_blau",
+                      "Transform": {
+                        "Position": [
+                          0,
+                          -0.0003074,
+                          0
+                        ],
+                        "Rotation": [
+                          0,
+                          -0.00174532836589831,
+                          0,
+                          0.999998476913288
+                        ],
+                        "Scale": [
+                          15.5333333333333,
+                          0.933333333333333,
+                          1
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "Selectable": "Parent",
+                  "Transform": {
+                    "Position": [
+                      2.6388824,
+                      2.03,
+                      2.9851
+                    ]
+                  },
+                  "Children": [
+                    {
+                      "Selectable": "Parent",
+                      "Geometry": "fe8aa76761d48fff8407f4c4c67ca428",
+                      "Layer": "72_MASTERTENT_DACH_D3_LOGO_PIRONTEX",
+                      "Material": "mastertent.basics.logo_pirontex_blau",
+                      "Transform": {
+                        "Position": [
+                          0,
+                          -0.0003074,
+                          0
+                        ],
+                        "Rotation": [
+                          0,
+                          -0.00174532836589831,
+                          0,
+                          0.999998476913288
+                        ],
+                        "Scale": [
+                          15.5333333333333,
+                          0.933333333333333,
+                          1
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "Selectable": "Parent",
+                  "Transform": {
+                    "Position": [
+                      1.469,
+                      2.07,
+                      -0.02283
+                    ]
+                  },
+                  "Children": [
+                    {
+                      "Selectable": "Parent",
+                      "Transform": {
+                        "Position": [
+                          0,
+                          0.16533,
+                          0
+                        ]
+                      },
+                      "Children": [
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "2193f1e9f9aedc1865ab71cedeadb297",
+                          "Layer": "72_MASTERTENT_DACH_D3_GURT",
+                          "Material": "mastertent.basics.spanngurt",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ]
+                          }
+                        },
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "9585d0a82ef8ffcde053bcd9aa722878",
+                          "Layer": "72_MASTERTENT_DACH_D3_GURT",
+                          "Material": "mastertent.basics.spanngurt",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ],
+                            "Scale": [
+                              1,
+                              0.797288466513922,
+                              1
+                            ]
+                          }
+                        },
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "f63b316de4752b078b153dfa46f19c7b",
+                          "Layer": "72_MASTERTENT_DACH_D3_PLASTIK",
+                          "Material": "mastertent.basics.plastic_black",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ]
+                          }
+                        },
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "d732875ce5db275360defe142248a795",
+                          "Layer": "72_MASTERTENT_DACH_D3_PLASTIK",
+                          "Material": "mastertent.basics.plastic_black",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Selectable": "Parent",
+                  "Transform": {
+                    "Position": [
+                      -0.0228,
+                      2.07,
+                      1.47
+                    ],
+                    "Rotation": [
+                      0,
+                      0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  },
+                  "Children": [
+                    {
+                      "Selectable": "Parent",
+                      "Transform": {
+                        "Position": [
+                          0,
+                          0.16533,
+                          0
+                        ]
+                      },
+                      "Children": [
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "2193f1e9f9aedc1865ab71cedeadb297",
+                          "Layer": "72_MASTERTENT_DACH_D3_GURT",
+                          "Material": "mastertent.basics.spanngurt",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ]
+                          }
+                        },
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "9585d0a82ef8ffcde053bcd9aa722878",
+                          "Layer": "72_MASTERTENT_DACH_D3_GURT",
+                          "Material": "mastertent.basics.spanngurt",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ],
+                            "Scale": [
+                              1,
+                              0.797288466513922,
+                              1
+                            ]
+                          }
+                        },
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "f63b316de4752b078b153dfa46f19c7b",
+                          "Layer": "72_MASTERTENT_DACH_D3_PLASTIK",
+                          "Material": "mastertent.basics.plastic_black",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ]
+                          }
+                        },
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "d732875ce5db275360defe142248a795",
+                          "Layer": "72_MASTERTENT_DACH_D3_PLASTIK",
+                          "Material": "mastertent.basics.plastic_black",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Selectable": "Parent",
+                  "Transform": {
+                    "Position": [
+                      2.9622,
+                      2.07,
+                      1.4694
+                    ],
+                    "Rotation": [
+                      0,
+                      -0.707106781186547,
+                      0,
+                      0.707106781186548
+                    ]
+                  },
+                  "Children": [
+                    {
+                      "Selectable": "Parent",
+                      "Transform": {
+                        "Position": [
+                          0,
+                          0.16533,
+                          0
+                        ]
+                      },
+                      "Children": [
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "2193f1e9f9aedc1865ab71cedeadb297",
+                          "Layer": "72_MASTERTENT_DACH_D3_GURT",
+                          "Material": "mastertent.basics.spanngurt",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ]
+                          }
+                        },
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "9585d0a82ef8ffcde053bcd9aa722878",
+                          "Layer": "72_MASTERTENT_DACH_D3_GURT",
+                          "Material": "mastertent.basics.spanngurt",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ],
+                            "Scale": [
+                              1,
+                              0.797288466513922,
+                              1
+                            ]
+                          }
+                        },
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "f63b316de4752b078b153dfa46f19c7b",
+                          "Layer": "72_MASTERTENT_DACH_D3_PLASTIK",
+                          "Material": "mastertent.basics.plastic_black",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ]
+                          }
+                        },
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "d732875ce5db275360defe142248a795",
+                          "Layer": "72_MASTERTENT_DACH_D3_PLASTIK",
+                          "Material": "mastertent.basics.plastic_black",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Selectable": "Parent",
+                  "Transform": {
+                    "Position": [
+                      1.4703,
+                      2.07,
+                      2.96227
+                    ],
+                    "Rotation": [
+                      0,
+                      1,
+                      0,
+                      0
+                    ]
+                  },
+                  "Children": [
+                    {
+                      "Selectable": "Parent",
+                      "Transform": {
+                        "Position": [
+                          0,
+                          0.16533,
+                          0
+                        ]
+                      },
+                      "Children": [
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "2193f1e9f9aedc1865ab71cedeadb297",
+                          "Layer": "72_MASTERTENT_DACH_D3_GURT",
+                          "Material": "mastertent.basics.spanngurt",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ]
+                          }
+                        },
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "9585d0a82ef8ffcde053bcd9aa722878",
+                          "Layer": "72_MASTERTENT_DACH_D3_GURT",
+                          "Material": "mastertent.basics.spanngurt",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ],
+                            "Scale": [
+                              1,
+                              0.797288466513922,
+                              1
+                            ]
+                          }
+                        },
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "f63b316de4752b078b153dfa46f19c7b",
+                          "Layer": "72_MASTERTENT_DACH_D3_PLASTIK",
+                          "Material": "mastertent.basics.plastic_black",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ]
+                          }
+                        },
+                        {
+                          "Selectable": "Parent",
+                          "Geometry": "d732875ce5db275360defe142248a795",
+                          "Layer": "72_MASTERTENT_DACH_D3_PLASTIK",
+                          "Material": "mastertent.basics.plastic_black",
+                          "Transform": {
+                            "Position": [
+                              0.00004039,
+                              0,
+                              0.0000294
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "Geometries": {
+    "00e3b2bb803a145fd61c8fae66f211fb": "https://eaiws01.zingerle.group/geometry-cache/00/e3/b2bb803a145fd61c8fae66f211fb.glb",
+    "08e005c846766477f7b6dab2da3b9df2": "https://eaiws01.zingerle.group/geometry-cache/08/e0/05c846766477f7b6dab2da3b9df2.glb",
+    "0e30a24c32de2a59ca7e687a93f3d410": "https://eaiws01.zingerle.group/geometry-cache/0e/30/a24c32de2a59ca7e687a93f3d410.glb",
+    "1174eef30c04eb45b2c8815ffdfb9939": "https://eaiws01.zingerle.group/geometry-cache/11/74/eef30c04eb45b2c8815ffdfb9939.glb",
+    "11b597bdbbda3c5513543857d19ba240": "https://eaiws01.zingerle.group/geometry-cache/11/b5/97bdbbda3c5513543857d19ba240.glb",
+    "18c37208a7624fac653f58979deb3d51": "https://eaiws01.zingerle.group/geometry-cache/18/c3/7208a7624fac653f58979deb3d51.glb",
+    "1ad2756b9c36db8d0b5daf4636b7bec6": "https://eaiws01.zingerle.group/geometry-cache/1a/d2/756b9c36db8d0b5daf4636b7bec6.glb",
+    "1c6a912526ad06e57299f8d88c92df8c": "https://eaiws01.zingerle.group/geometry-cache/1c/6a/912526ad06e57299f8d88c92df8c.glb",
+    "2193f1e9f9aedc1865ab71cedeadb297": "https://eaiws01.zingerle.group/geometry-cache/21/93/f1e9f9aedc1865ab71cedeadb297.glb",
+    "23ebea6ca08c2cac7a4baecd6804255f": "https://eaiws01.zingerle.group/geometry-cache/23/eb/ea6ca08c2cac7a4baecd6804255f.glb",
+    "2fcae3d9c38680138078a6f5ccc973c6": "https://eaiws01.zingerle.group/geometry-cache/2f/ca/e3d9c38680138078a6f5ccc973c6.glb",
+    "3d561ddd2c311bc0c467f73226421d22": "https://eaiws01.zingerle.group/geometry-cache/3d/56/1ddd2c311bc0c467f73226421d22.glb",
+    "4539e68a9bf87bc114e087730cefb70f": "https://eaiws01.zingerle.group/geometry-cache/45/39/e68a9bf87bc114e087730cefb70f.glb",
+    "52b2672cd9216cefcada295764ef8561": "https://eaiws01.zingerle.group/geometry-cache/52/b2/672cd9216cefcada295764ef8561.glb",
+    "58d030ce9adf18db792cca0771bb5bab": "https://eaiws01.zingerle.group/geometry-cache/58/d0/30ce9adf18db792cca0771bb5bab.glb",
+    "6584ee2ec349622d02df59d196d5489c": "https://eaiws01.zingerle.group/geometry-cache/65/84/ee2ec349622d02df59d196d5489c.glb",
+    "758edd14c40ec44b815d655a4540f5a9": "https://eaiws01.zingerle.group/geometry-cache/75/8e/dd14c40ec44b815d655a4540f5a9.glb",
+    "76edd9ed1283b82fe48cb1832eb43e50": "https://eaiws01.zingerle.group/geometry-cache/76/ed/d9ed1283b82fe48cb1832eb43e50.glb",
+    "8be23206699bae77c56d99cc753734fd": "https://eaiws01.zingerle.group/geometry-cache/8b/e2/3206699bae77c56d99cc753734fd.glb",
+    "9307537f7b70b268eee286a5bf7f4a2a": "https://eaiws01.zingerle.group/geometry-cache/93/07/537f7b70b268eee286a5bf7f4a2a.glb",
+    "9585d0a82ef8ffcde053bcd9aa722878": "https://eaiws01.zingerle.group/geometry-cache/95/85/d0a82ef8ffcde053bcd9aa722878.glb",
+    "95c94ff1da9e9eaf7c6a6d81002e696a": "https://eaiws01.zingerle.group/geometry-cache/95/c9/4ff1da9e9eaf7c6a6d81002e696a.glb",
+    "96c4278d992c13927152803d6682ab10": "https://eaiws01.zingerle.group/geometry-cache/96/c4/278d992c13927152803d6682ab10.glb",
+    "9791bbae16802467daf09073b4dde25d": "https://eaiws01.zingerle.group/geometry-cache/97/91/bbae16802467daf09073b4dde25d.glb",
+    "987de0fb1022dd066b08b6ca2bd9ad35": "https://eaiws01.zingerle.group/geometry-cache/98/7d/e0fb1022dd066b08b6ca2bd9ad35.glb",
+    "b0968507ef8da7bb78210e136b9f708c": "https://eaiws01.zingerle.group/geometry-cache/b0/96/8507ef8da7bb78210e136b9f708c.glb",
+    "b2010376d9bdf0bb9f6d09135bef6e6c": "https://eaiws01.zingerle.group/geometry-cache/b2/01/0376d9bdf0bb9f6d09135bef6e6c.glb",
+    "c9400e2c378323e630875351a9091037": "https://eaiws01.zingerle.group/geometry-cache/c9/40/0e2c378323e630875351a9091037.glb",
+    "d1c12efa3a7a618ea6533ff5133b2225": "https://eaiws01.zingerle.group/geometry-cache/d1/c1/2efa3a7a618ea6533ff5133b2225.glb",
+    "d732875ce5db275360defe142248a795": "https://eaiws01.zingerle.group/geometry-cache/d7/32/875ce5db275360defe142248a795.glb",
+    "daafe130ad05c752df05bef53466824f": "https://eaiws01.zingerle.group/geometry-cache/da/af/e130ad05c752df05bef53466824f.glb",
+    "dc727fc6207c105fee31d30019dcbb4a": "https://eaiws01.zingerle.group/geometry-cache/dc/72/7fc6207c105fee31d30019dcbb4a.glb",
+    "e233b61dc23fac39f5a2c30f430253c2": "https://eaiws01.zingerle.group/geometry-cache/e2/33/b61dc23fac39f5a2c30f430253c2.glb",
+    "e2d779842583509e7d5505f30fc7479f": "https://eaiws01.zingerle.group/geometry-cache/e2/d7/79842583509e7d5505f30fc7479f.glb",
+    "f63b316de4752b078b153dfa46f19c7b": "https://eaiws01.zingerle.group/geometry-cache/f6/3b/316de4752b078b153dfa46f19c7b.glb",
+    "f9bc4c63e657669b2f4f314ae82dff25": "https://eaiws01.zingerle.group/geometry-cache/f9/bc/4c63e657669b2f4f314ae82dff25.glb",
+    "fe8aa76761d48fff8407f4c4c67ca428": "https://eaiws01.zingerle.group/geometry-cache/fe/8a/a76761d48fff8407f4c4c67ca428.glb",
+    "fee1db01a699fe86b3cdc20839dd30d1": "https://eaiws01.zingerle.group/geometry-cache/fe/e1/db01a699fe86b3cdc20839dd30d1.glb"
+  },
+  "Materials": {
+    "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 0": {
+      "type": "metal",
+      "amb": [
+        0.839215695858002,
+        0.839215695858002,
+        0.839215695858002
+      ],
+      "dif": [
+        0.839215695858002,
+        0.839215695858002,
+        0.839215695858002
+      ],
+      "spe": [
+        0.180905863642693,
+        0.180905863642693,
+        0.180905863642693
+      ],
+      "emission": [
+        0,
+        0,
+        0
+      ],
+      "shi": 17.007532119751,
+      "reflection": 0.128511846065521,
+      "ref": 1,
+      "tra": 0,
+      "metallic": 1,
+      "roughness": 0.569999992847443,
+      "baseColor": [
+        0.839215695858002,
+        0.839215695858002,
+        0.839215695858002
+      ],
+      "clearcoat": 0,
+      "clearcoatRoughness": 0,
+      "sheen": 0,
+      "sheenColor": [
+        1,
+        1,
+        1
+      ],
+      "sheenRoughness": 0.5,
+      "checksum": "04c59dcf60f46dfe2390288bf98d79dc",
+      "semiTransparent": false,
+      "bumps": "https://eaiws01.zingerle.group/OFML/data/TGUt-69MSVq25I1Z08sZyw/mastertent/basics/1/bump1.png",
+      "bumpsChecksum": "4ee797a461d47023a9455bd997241f13",
+      "nscale": [
+        83.3333,
+        83.3333,
+        1
+      ],
+      "nrotate": [
+        0,
+        0,
+        0
+      ],
+      "noffset": [
+        0,
+        0,
+        0
+      ]
+    },
+    "mastertent.basics.frame_alu; auto xzx yz; rotate 0 0 90": {
+      "type": "metal",
+      "amb": [
+        0.839215695858002,
+        0.839215695858002,
+        0.839215695858002
+      ],
+      "dif": [
+        0.839215695858002,
+        0.839215695858002,
+        0.839215695858002
+      ],
+      "spe": [
+        0.180905863642693,
+        0.180905863642693,
+        0.180905863642693
+      ],
+      "emission": [
+        0,
+        0,
+        0
+      ],
+      "shi": 17.007532119751,
+      "reflection": 0.128511846065521,
+      "ref": 1,
+      "tra": 0,
+      "metallic": 1,
+      "roughness": 0.569999992847443,
+      "baseColor": [
+        0.839215695858002,
+        0.839215695858002,
+        0.839215695858002
+      ],
+      "clearcoat": 0,
+      "clearcoatRoughness": 0,
+      "sheen": 0,
+      "sheenColor": [
+        1,
+        1,
+        1
+      ],
+      "sheenRoughness": 0.5,
+      "checksum": "3b24fa930d341967d922163c18d1b192",
+      "semiTransparent": false,
+      "bumps": "https://eaiws01.zingerle.group/OFML/data/TGUt-69MSVq25I1Z08sZyw/mastertent/basics/1/bump1.png",
+      "bumpsChecksum": "4ee797a461d47023a9455bd997241f13",
+      "nscale": [
+        83.3333,
+        83.3333,
+        1
+      ],
+      "nrotate": [
+        0,
+        0,
+        90
+      ],
+      "noffset": [
+        0,
+        0,
+        0
+      ]
+    },
+    "mastertent.basics.klett_pantone11_0601": {
+      "type": "common",
+      "amb": [
+        0.811365902423859,
+        0.817954242229462,
+        0.819887459278107
+      ],
+      "dif": [
+        0.811365902423859,
+        0.817954242229462,
+        0.819887459278107
+      ],
+      "spe": [
+        0,
+        0,
+        0
+      ],
+      "emission": [
+        0,
+        0,
+        0
+      ],
+      "shi": 1,
+      "reflection": 0,
+      "ref": 1,
+      "tra": 0,
+      "metallic": 0,
+      "roughness": 0.879999995231628,
+      "baseColor": [
+        0.811365902423859,
+        0.817954242229462,
+        0.819887459278107
+      ],
+      "clearcoat": 0,
+      "clearcoatRoughness": 0,
+      "sheen": 0,
+      "sheenColor": [
+        1,
+        1,
+        1
+      ],
+      "sheenRoughness": 0.5,
+      "checksum": "b3a2e0c3a53a958a7e0d2bd52fe363ac",
+      "semiTransparent": false,
+      "tex": "https://eaiws01.zingerle.group/OFML/data/TGUt-69MSVq25I1Z08sZyw/mastertent/basics/1/klett_pantone11_0601.jpg",
+      "texTransparent": false,
+      "texChecksum": "2d493124294fda90c567af1939eb4f31",
+      "bumps": "https://eaiws01.zingerle.group/OFML/data/TGUt-69MSVq25I1Z08sZyw/mastertent/basics/1/klett_normal.png",
+      "bumpsChecksum": "0c5f9b696185df35b52bb05acd8ebcd1",
+      "scale": [
+        10,
+        10,
+        1
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ],
+      "offset": [
+        0,
+        0,
+        0
+      ],
+      "nscale": [
+        10,
+        10,
+        1
+      ],
+      "nrotate": [
+        0,
+        0,
+        0
+      ],
+      "noffset": [
+        0,
+        0,
+        0
+      ]
+    },
+    "mastertent.basics.logo_pirontex_blau": {
+      "type": "common",
+      "amb": [
+        0.0959999933838844,
+        0.122332982718945,
+        0.150215566158295
+      ],
+      "dif": [
+        0.0959999933838844,
+        0.122332982718945,
+        0.150215566158295
+      ],
+      "spe": [
+        0,
+        0,
+        0
+      ],
+      "emission": [
+        0,
+        0,
+        0
+      ],
+      "shi": 1,
+      "reflection": 0,
+      "ref": 1,
+      "tra": 0,
+      "metallic": 0,
+      "roughness": 0.699999988079071,
+      "baseColor": [
+        0.0959999933838844,
+        0.122332982718945,
+        0.150215566158295
+      ],
+      "clearcoat": 0,
+      "clearcoatRoughness": 0,
+      "sheen": 0,
+      "sheenColor": [
+        1,
+        1,
+        1
+      ],
+      "sheenRoughness": 0.5,
+      "checksum": "745822cd95c83c7685278afbabe9733c",
+      "semiTransparent": true,
+      "tex": "https://eaiws01.zingerle.group/geometry-cache/b2/76/784b2bf598807e5dfb997d0422dd.png",
+      "texTransparent": true,
+      "texChecksum": "b276784b2bf598807e5dfb997d0422dd",
+      "scale": [
+        4.29184549356223,
+        35.7142857142857,
+        1
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ],
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    "mastertent.basics.pirontex_pantone11_0601": {
+      "type": "common",
+      "amb": [
+        0.923525989055634,
+        0.930921971797943,
+        0.93426901102066
+      ],
+      "dif": [
+        0.923525989055634,
+        0.930921971797943,
+        0.93426901102066
+      ],
+      "spe": [
+        0.0325623862445354,
+        0.0325623862445354,
+        0.0325623862445354
+      ],
+      "emission": [
+        0,
+        0,
+        0
+      ],
+      "shi": 8.56597137451172,
+      "reflection": 0,
+      "ref": 1,
+      "tra": 0,
+      "metallic": 0,
+      "roughness": 0.660000026226044,
+      "baseColor": [
+        0.923525989055634,
+        0.930921971797943,
+        0.93426901102066
+      ],
+      "clearcoat": 0,
+      "clearcoatRoughness": 0,
+      "sheen": 0,
+      "sheenColor": [
+        1,
+        1,
+        1
+      ],
+      "sheenRoughness": 0.5,
+      "checksum": "f0a80618390d60dd85afcffb7d536d1f",
+      "semiTransparent": false,
+      "tex": "https://eaiws01.zingerle.group/OFML/data/TGUt-69MSVq25I1Z08sZyw/mastertent/basics/1/pirontex_pantone11_0601.png",
+      "texTransparent": false,
+      "texChecksum": "675c960d8e07290fd0bfec7b47789b9e",
+      "bumps": "https://eaiws01.zingerle.group/OFML/data/TGUt-69MSVq25I1Z08sZyw/mastertent/basics/1/pirontex_normal.png",
+      "bumpsChecksum": "bbd693895533457334efdedcc0715dc9",
+      "scale": [
+        813.008130081301,
+        561.797752808989,
+        1
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ],
+      "offset": [
+        0,
+        0,
+        0
+      ],
+      "nscale": [
+        813.008130081301,
+        561.797752808989,
+        1
+      ],
+      "nrotate": [
+        0,
+        0,
+        0
+      ],
+      "noffset": [
+        0,
+        0,
+        0
+      ]
+    },
+    "mastertent.basics.plastic_black": {
+      "type": "common",
+      "amb": [
+        0,
+        0,
+        0
+      ],
+      "dif": [
+        0,
+        0,
+        0
+      ],
+      "spe": [
+        0,
+        0,
+        0
+      ],
+      "emission": [
+        0,
+        0,
+        0
+      ],
+      "shi": 1,
+      "reflection": 0,
+      "ref": 1,
+      "tra": 0,
+      "metallic": 0,
+      "roughness": 0.75,
+      "baseColor": [
+        0,
+        0,
+        0
+      ],
+      "clearcoat": 0,
+      "clearcoatRoughness": 0,
+      "sheen": 0,
+      "sheenColor": [
+        1,
+        1,
+        1
+      ],
+      "sheenRoughness": 0.5,
+      "checksum": "e0f42644a3d06df5af80e3605da3242c"
+    },
+    "mastertent.basics.plastic_ral5007": {
+      "type": "common",
+      "amb": [
+        0.243137255311012,
+        0.372549027204514,
+        0.541176497936249
+      ],
+      "dif": [
+        0.243137255311012,
+        0.372549027204514,
+        0.541176497936249
+      ],
+      "spe": [
+        0,
+        0,
+        0
+      ],
+      "emission": [
+        0,
+        0,
+        0
+      ],
+      "shi": 1,
+      "reflection": 0,
+      "ref": 1,
+      "tra": 0,
+      "metallic": 0,
+      "roughness": 0.75,
+      "baseColor": [
+        0.243137255311012,
+        0.372549027204514,
+        0.541176497936249
+      ],
+      "clearcoat": 0,
+      "clearcoatRoughness": 0,
+      "sheen": 0,
+      "sheenColor": [
+        1,
+        1,
+        1
+      ],
+      "sheenRoughness": 0.5,
+      "checksum": "f93571bfa8922a57a076251e83d73260"
+    },
+    "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 0": {
+      "type": "common",
+      "amb": [
+        0.541176497936249,
+        0.584313750267029,
+        0.592156887054443
+      ],
+      "dif": [
+        0.541176497936249,
+        0.584313750267029,
+        0.592156887054443
+      ],
+      "spe": [
+        0,
+        0,
+        0
+      ],
+      "emission": [
+        0,
+        0,
+        0
+      ],
+      "shi": 1,
+      "reflection": 0,
+      "ref": 1,
+      "tra": 0,
+      "metallic": 0,
+      "roughness": 0.75,
+      "baseColor": [
+        0.541176497936249,
+        0.584313750267029,
+        0.592156887054443
+      ],
+      "clearcoat": 0,
+      "clearcoatRoughness": 0,
+      "sheen": 0,
+      "sheenColor": [
+        1,
+        1,
+        1
+      ],
+      "sheenRoughness": 0.5,
+      "checksum": "943b60f11efd3326dbbcf9d5585e6386"
+    },
+    "mastertent.basics.plastic_ral7001; auto xzx yz; rotate 0 0 180": {
+      "type": "common",
+      "amb": [
+        0.541176497936249,
+        0.584313750267029,
+        0.592156887054443
+      ],
+      "dif": [
+        0.541176497936249,
+        0.584313750267029,
+        0.592156887054443
+      ],
+      "spe": [
+        0,
+        0,
+        0
+      ],
+      "emission": [
+        0,
+        0,
+        0
+      ],
+      "shi": 1,
+      "reflection": 0,
+      "ref": 1,
+      "tra": 0,
+      "metallic": 0,
+      "roughness": 0.75,
+      "baseColor": [
+        0.541176497936249,
+        0.584313750267029,
+        0.592156887054443
+      ],
+      "clearcoat": 0,
+      "clearcoatRoughness": 0,
+      "sheen": 0,
+      "sheenColor": [
+        1,
+        1,
+        1
+      ],
+      "sheenRoughness": 0.5,
+      "checksum": "943b60f11efd3326dbbcf9d5585e6386"
+    },
+    "mastertent.basics.seam_corner_blau": {
+      "type": "common",
+      "amb": [
+        0.0828505009412766,
+        0.126096993684769,
+        0.159071996808052
+      ],
+      "dif": [
+        0.0828505009412766,
+        0.126096993684769,
+        0.159071996808052
+      ],
+      "spe": [
+        0.105380780994892,
+        0.105380780994892,
+        0.105380780994892
+      ],
+      "emission": [
+        0,
+        0,
+        0
+      ],
+      "shi": 40.857048034668,
+      "reflection": 0.0671913996338844,
+      "ref": 1,
+      "tra": 0,
+      "metallic": 0,
+      "roughness": 0.351359993219376,
+      "baseColor": [
+        0.0828505009412766,
+        0.126096993684769,
+        0.159071996808052
+      ],
+      "clearcoat": 0,
+      "clearcoatRoughness": 0,
+      "sheen": 0,
+      "sheenColor": [
+        1,
+        1,
+        1
+      ],
+      "sheenRoughness": 0.5,
+      "checksum": "fb22f15b81d6997bcac67cad9d1c7db4",
+      "semiTransparent": true,
+      "tex": "https://eaiws01.zingerle.group/OFML/data/TGUt-69MSVq25I1Z08sZyw/mastertent/basics/1/seam_corner_blau.png",
+      "texTransparent": true,
+      "texChecksum": "69c0b482679fdcf31c8ad1685942f052",
+      "bumps": "https://eaiws01.zingerle.group/OFML/data/TGUt-69MSVq25I1Z08sZyw/mastertent/basics/1/seam_corner_normal.png",
+      "bumpsChecksum": "d38082da29c40f4deeab29762fe66eab",
+      "scale": [
+        66.6666666666667,
+        33.3333333333333,
+        1
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ],
+      "offset": [
+        0,
+        0,
+        0
+      ],
+      "nscale": [
+        66.6666666666667,
+        33.3333333333333,
+        1
+      ],
+      "nrotate": [
+        0,
+        0,
+        0
+      ],
+      "noffset": [
+        0,
+        0,
+        0
+      ]
+    },
+    "mastertent.basics.spanngurt": {
+      "type": "common",
+      "amb": [
+        0.499879032373428,
+        0.512459516525269,
+        0.482799351215363
+      ],
+      "dif": [
+        0.499879032373428,
+        0.512459516525269,
+        0.482799351215363
+      ],
+      "spe": [
+        0.0325623862445354,
+        0.0325623862445354,
+        0.0325623862445354
+      ],
+      "emission": [
+        0,
+        0,
+        0
+      ],
+      "shi": 8.56597137451172,
+      "reflection": 0,
+      "ref": 1,
+      "tra": 0,
+      "metallic": 0,
+      "roughness": 0.660000026226044,
+      "baseColor": [
+        0.499879032373428,
+        0.512459516525269,
+        0.482799351215363
+      ],
+      "clearcoat": 0,
+      "clearcoatRoughness": 0,
+      "sheen": 0,
+      "sheenColor": [
+        1,
+        1,
+        1
+      ],
+      "sheenRoughness": 0.5,
+      "checksum": "2d3c0b41098a4a47981ba999fdbac0fb",
+      "semiTransparent": false,
+      "tex": "https://eaiws01.zingerle.group/OFML/data/TGUt-69MSVq25I1Z08sZyw/mastertent/basics/1/spanngurt.png",
+      "texTransparent": false,
+      "texChecksum": "a005c5929202f6846e5824b16ee46fbe",
+      "scale": [
+        40,
+        40,
+        1
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ],
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    "mastertent.basics.stainless_steel; auto xzx yz; rotate 0 0 0": {
+      "type": "metal",
+      "amb": [
+        0.792156875133514,
+        0.800000011920929,
+        0.807843148708344
+      ],
+      "dif": [
+        0.792156875133514,
+        0.800000011920929,
+        0.807843148708344
+      ],
+      "spe": [
+        0.552216172218323,
+        0.557683646678925,
+        0.563151121139526
+      ],
+      "emission": [
+        0,
+        0,
+        0
+      ],
+      "shi": 65.6276092529297,
+      "reflection": 0.494724303483963,
+      "ref": 1,
+      "tra": 0,
+      "metallic": 1,
+      "roughness": 0.180000007152557,
+      "baseColor": [
+        0.792156875133514,
+        0.800000011920929,
+        0.807843148708344
+      ],
+      "clearcoat": 0,
+      "clearcoatRoughness": 0,
+      "sheen": 0,
+      "sheenColor": [
+        1,
+        1,
+        1
+      ],
+      "sheenRoughness": 0.5,
+      "checksum": "2a9152956174bd9d0d427da28ebbc928"
+    }
+  }
+}

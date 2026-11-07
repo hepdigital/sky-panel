@@ -1,0 +1,3 @@
+module.exports=[455661,a=>{"use strict";var b=a.i(164108),c=a.i(724629);a.S([b,"00600105e58ed160c29d1cb9317021b64b1d3415de,a",0,c,"40131913da2bbdbce5383e020f0683b7f8a2fc9f0b,g,40156f321a651cf9f0821c8ba8fc5de0d911dc968c,Y,40dbb3fb6d047c2880b8fbb6d4099b42fa45824f7d,Q,605c079a3faa4dda21a625d98a35116c1e617865f9,S,60c6e4dd17b03ce8aa3db13a9bff4693343c8bc1ae,J,60f38de53e62b399eedef3dc4a31e555a23e96ba3f,h,70099e40a3b01c8f3503aba55376b153e20bf169ff,r"],455661)}];
+
+//# sourceMappingURL=_next-internal_server_app_panel_urunler_page_actions_1efhib-54s8--.js.map

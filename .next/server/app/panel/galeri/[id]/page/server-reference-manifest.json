@@ -1,0 +1,105 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/galeri/[id]/page": {
+          "moduleId": 525620,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "60fab5d75a0b6143b5a4261cc835860cb095c93661": {
+      "workers": {
+        "app/panel/galeri/[id]/page": {
+          "moduleId": 525620,
+          "async": false
+        }
+      },
+      "exportedName": "albumGuncelle",
+      "filename": "src/app/panel/galeri/actions.ts"
+    },
+    "603a9b8b49f84512a3dfaffb6433d30e8a1aa1c231": {
+      "workers": {
+        "app/panel/galeri/[id]/page": {
+          "moduleId": 525620,
+          "async": false
+        }
+      },
+      "exportedName": "albumOlustur",
+      "filename": "src/app/panel/galeri/actions.ts"
+    },
+    "40de1443c78ce20543fa446d4d29daae9a93ee2d83": {
+      "workers": {
+        "app/panel/galeri/[id]/page": {
+          "moduleId": 525620,
+          "async": false
+        }
+      },
+      "exportedName": "albumSil",
+      "filename": "src/app/panel/galeri/actions.ts"
+    },
+    "608119a0a9b735aad6aa3bc2704d98221514a9b150": {
+      "workers": {
+        "app/panel/galeri/[id]/page": {
+          "moduleId": 525620,
+          "async": false
+        }
+      },
+      "exportedName": "albumTasi",
+      "filename": "src/app/panel/galeri/actions.ts"
+    },
+    "605e7c3464212d36da3741ab2f293eecbdf6e77c15": {
+      "workers": {
+        "app/panel/galeri/[id]/page": {
+          "moduleId": 525620,
+          "async": false
+        }
+      },
+      "exportedName": "gorselAciklama",
+      "filename": "src/app/panel/galeri/actions.ts"
+    },
+    "4015a6175a9a09fe453bdeb07c393d5a00641ba429": {
+      "workers": {
+        "app/panel/galeri/[id]/page": {
+          "moduleId": 525620,
+          "async": false
+        }
+      },
+      "exportedName": "gorselBasa",
+      "filename": "src/app/panel/galeri/actions.ts"
+    },
+    "404c71bce7f3f28467d83383a657b634aee1ecb50e": {
+      "workers": {
+        "app/panel/galeri/[id]/page": {
+          "moduleId": 525620,
+          "async": false
+        }
+      },
+      "exportedName": "gorselKapak",
+      "filename": "src/app/panel/galeri/actions.ts"
+    },
+    "400886ea9bb98387258d0bf7cd2a84d211be7ccc56": {
+      "workers": {
+        "app/panel/galeri/[id]/page": {
+          "moduleId": 525620,
+          "async": false
+        }
+      },
+      "exportedName": "gorselSil",
+      "filename": "src/app/panel/galeri/actions.ts"
+    },
+    "60ed2a734ea8ffe4c872b2dabb716930d156abf3fc": {
+      "workers": {
+        "app/panel/galeri/[id]/page": {
+          "moduleId": 525620,
+          "async": false
+        }
+      },
+      "exportedName": "gorselTasi",
+      "filename": "src/app/panel/galeri/actions.ts"
+    }
+  },
+  "edge": {}
+}

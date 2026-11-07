@@ -1,0 +1,75 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/gorevler/[id]/page": {
+          "moduleId": 409819,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "4079c400ebbb060549739eff1fae57f35ad71696c1": {
+      "workers": {
+        "app/panel/gorevler/[id]/page": {
+          "moduleId": 409819,
+          "async": false
+        }
+      },
+      "exportedName": "gorevDosyaSil",
+      "filename": "src/app/panel/gorevler/actions.ts"
+    },
+    "606252432dae6cac225369ec21ce9011a776fa9fba": {
+      "workers": {
+        "app/panel/gorevler/[id]/page": {
+          "moduleId": 409819,
+          "async": false
+        }
+      },
+      "exportedName": "gorevDurumu",
+      "filename": "src/app/panel/gorevler/actions.ts"
+    },
+    "4052a7ff0f21a1320fa610bb8fb7690508bb751360": {
+      "workers": {
+        "app/panel/gorevler/[id]/page": {
+          "moduleId": 409819,
+          "async": false
+        }
+      },
+      "exportedName": "gorevSil",
+      "filename": "src/app/panel/gorevler/actions.ts"
+    },
+    "603d98586c0affcff44919123535cb6bb4522a8ab7": {
+      "workers": {
+        "app/panel/gorevler/[id]/page": {
+          "moduleId": 409819,
+          "async": false
+        }
+      },
+      "exportedName": "gorevYorum",
+      "filename": "src/app/panel/gorevler/actions.ts"
+    },
+    "400fce9b48eb6d3ed43d37746c75eaaae4cfedbf08": {
+      "workers": {
+        "app/panel/gorevler/[id]/page": {
+          "moduleId": 409819,
+          "async": false
+        }
+      },
+      "exportedName": "gorevKaydet",
+      "filename": "src/app/panel/gorevler/actions.ts"
+    },
+    "40c22fdf86c6de0c8c1176130f9963bf4bbf9451d4": {
+      "workers": {
+        "app/panel/gorevler/[id]/page": {
+          "moduleId": 409819,
+          "async": false
+        }
+      },
+      "exportedName": "tekrarKaydet",
+      "filename": "src/app/panel/gorevler/actions.ts"
+    }
+  },
+  "edge": {}
+}

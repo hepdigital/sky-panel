@@ -1,0 +1,46 @@
+{
+  "status": 200,
+  "headers": {
+    "link": "</_next/static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2>; rel=preload; as=\"font\"; crossorigin=\"\"; type=\"font/woff2\", </_next/static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2>; rel=preload; as=\"font\"; crossorigin=\"\"; type=\"font/woff2\", </brand/logo-white.svg>; rel=preload; as=\"image\"",
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/portal/layout,_N_T_/portal/cari/layout,_N_T_/portal/cari/bakiye-yukle/layout,_N_T_/portal/cari/bakiye-yukle/page,_N_T_/portal/cari/bakiye-yukle"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/portal/cari/bakiye-yukle/__PAGE__"
+  ],
+  "prefetchHints": {
+    "hints": 49216,
+    "slots": {
+      "children": {
+        "hints": 49248,
+        "slots": {
+          "children": {
+            "hints": 49248,
+            "slots": {
+              "children": {
+                "hints": 49248,
+                "slots": {
+                  "children": {
+                    "hints": 49312,
+                    "slots": null
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/3f2d1b63101275dcd81c135eec138763262b41004abd924a4bd7613d05ba6759/$/portal/cari/bakiye-yukle",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/portal/cari/bakiye-yukle/page"
+    },
+    "isFallback": false
+  }
+}

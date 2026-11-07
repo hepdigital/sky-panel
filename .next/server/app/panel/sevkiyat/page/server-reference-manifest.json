@@ -1,0 +1,55 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/sevkiyat/page": {
+          "moduleId": 208844,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "402d00de5339cc2befdebd7faa5b9ca3087442dc08": {
+      "workers": {
+        "app/panel/sevkiyat/page": {
+          "moduleId": 208844,
+          "async": false
+        }
+      },
+      "exportedName": "kargoTarifeKaydet",
+      "filename": "src/app/panel/sevkiyat/actions.ts"
+    },
+    "600c39b52748b399b756b019f64dc2a46afba88386": {
+      "workers": {
+        "app/panel/sevkiyat/page": {
+          "moduleId": 208844,
+          "async": false
+        }
+      },
+      "exportedName": "gonderiBagla",
+      "filename": "src/app/panel/sevkiyat/actions.ts"
+    },
+    "0015f52f2c7a4fd8563f1268390f5539f2b5d8d3c8": {
+      "workers": {
+        "app/panel/sevkiyat/page": {
+          "moduleId": 208844,
+          "async": false
+        }
+      },
+      "exportedName": "yurticiEsitle",
+      "filename": "src/app/panel/sevkiyat/actions.ts"
+    },
+    "6097670ac87a89fa98bf9531a77a923051a1f98159": {
+      "workers": {
+        "app/panel/sevkiyat/page": {
+          "moduleId": 208844,
+          "async": false
+        }
+      },
+      "exportedName": "yurticiKaydet",
+      "filename": "src/app/panel/sevkiyat/actions.ts"
+    }
+  },
+  "edge": {}
+}

@@ -1,0 +1,23 @@
+{
+  "name": "sky-panel",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "build": "echo Paket derlenmis durumda"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "next": "16.4.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "mysql2": "3.24.6",
+    "drizzle-orm": "0.45.4",
+    "nodemailer": "10.2.1",
+    "web-push": "3.6.7",
+    "sharp": "0.35.5",
+    "@img/sharp-linux-x64": "0.35.5",
+    "@img/sharp-libvips-linux-x64": "1.3.4"
+  }
+}

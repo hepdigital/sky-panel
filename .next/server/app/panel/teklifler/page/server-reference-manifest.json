@@ -1,0 +1,65 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/teklifler/page": {
+          "moduleId": 652558,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "404079cb98e4c27257eb67c92faba92c9d6d1cf63d": {
+      "workers": {
+        "app/panel/teklifler/page": {
+          "moduleId": 652558,
+          "async": false
+        }
+      },
+      "exportedName": "kanalKaydet",
+      "filename": "src/app/panel/teklifler/actions.ts"
+    },
+    "4061a0dd52630f1eccf829de6655eaf3aee90bf9e8": {
+      "workers": {
+        "app/panel/teklifler/page": {
+          "moduleId": 652558,
+          "async": false
+        }
+      },
+      "exportedName": "siparisOlustur",
+      "filename": "src/app/panel/siparisler/actions.ts"
+    },
+    "60ed1b0d637121466ec6bd42a5b9b2937693f571bf": {
+      "workers": {
+        "app/panel/teklifler/page": {
+          "moduleId": 652558,
+          "async": false
+        }
+      },
+      "exportedName": "asamaDegistir",
+      "filename": "src/app/panel/teklifler/[id]/actions.ts"
+    },
+    "709f350106a4ebf8242cc034650a966667474843ae": {
+      "workers": {
+        "app/panel/teklifler/page": {
+          "moduleId": 652558,
+          "async": false
+        }
+      },
+      "exportedName": "epostaGonder",
+      "filename": "src/app/panel/teklifler/[id]/actions.ts"
+    },
+    "40e5683e4efa11d29e58e524563dd873698da34871": {
+      "workers": {
+        "app/panel/teklifler/page": {
+          "moduleId": 652558,
+          "async": false
+        }
+      },
+      "exportedName": "gonderildi",
+      "filename": "src/app/panel/teklifler/[id]/actions.ts"
+    }
+  },
+  "edge": {}
+}

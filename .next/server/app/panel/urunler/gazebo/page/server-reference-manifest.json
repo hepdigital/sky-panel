@@ -1,0 +1,35 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/urunler/gazebo/page": {
+          "moduleId": 465500,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "4058f51e01926b033fca6f4d71e3684ff998c52e96": {
+      "workers": {
+        "app/panel/urunler/gazebo/page": {
+          "moduleId": 465500,
+          "async": false
+        }
+      },
+      "exportedName": "kargoPaketKaydet",
+      "filename": "src/app/panel/sevkiyat/actions.ts"
+    },
+    "6053d7145595dc7a6ac9bff08490d01a0a6ac96d5e": {
+      "workers": {
+        "app/panel/urunler/gazebo/page": {
+          "moduleId": 465500,
+          "async": false
+        }
+      },
+      "exportedName": "gazeboFiyatKaydet",
+      "filename": "src/app/panel/urunler/gazebo/actions.ts"
+    }
+  },
+  "edge": {}
+}

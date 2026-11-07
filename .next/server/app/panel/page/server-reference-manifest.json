@@ -1,0 +1,95 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/page": {
+          "moduleId": 460523,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "70307490274e5fe1189fc48b2a2d6aebdbe7b2656f": {
+      "workers": {
+        "app/panel/page": {
+          "moduleId": 460523,
+          "async": false
+        }
+      },
+      "exportedName": "siparisDurumu",
+      "filename": "src/app/panel/siparisler/actions.ts"
+    },
+    "7812c2552e28e49ff2f6c4ea8f6a80033e0aa8e693": {
+      "workers": {
+        "app/panel/page": {
+          "moduleId": 460523,
+          "async": false
+        }
+      },
+      "exportedName": "siparisKargo",
+      "filename": "src/app/panel/siparisler/actions.ts"
+    },
+    "0019c5df7bb70c0259e96ce3f3c694af9518f45c97": {
+      "workers": {
+        "app/panel/page": {
+          "moduleId": 460523,
+          "async": false
+        }
+      },
+      "exportedName": "siteleriEsitle",
+      "filename": "src/app/panel/siparisler/actions.ts"
+    },
+    "707d55bea8ef394b43e167ca932ae0d2bdb12c0dd9": {
+      "workers": {
+        "app/panel/page": {
+          "moduleId": 460523,
+          "async": false
+        }
+      },
+      "exportedName": "talepGuncelle",
+      "filename": "src/app/panel/talepler/actions.ts"
+    },
+    "4061a0dd52630f1eccf829de6655eaf3aee90bf9e8": {
+      "workers": {
+        "app/panel/page": {
+          "moduleId": 460523,
+          "async": false
+        }
+      },
+      "exportedName": "siparisOlustur",
+      "filename": "src/app/panel/siparisler/actions.ts"
+    },
+    "60ed1b0d637121466ec6bd42a5b9b2937693f571bf": {
+      "workers": {
+        "app/panel/page": {
+          "moduleId": 460523,
+          "async": false
+        }
+      },
+      "exportedName": "asamaDegistir",
+      "filename": "src/app/panel/teklifler/[id]/actions.ts"
+    },
+    "709f350106a4ebf8242cc034650a966667474843ae": {
+      "workers": {
+        "app/panel/page": {
+          "moduleId": 460523,
+          "async": false
+        }
+      },
+      "exportedName": "epostaGonder",
+      "filename": "src/app/panel/teklifler/[id]/actions.ts"
+    },
+    "40e5683e4efa11d29e58e524563dd873698da34871": {
+      "workers": {
+        "app/panel/page": {
+          "moduleId": 460523,
+          "async": false
+        }
+      },
+      "exportedName": "gonderildi",
+      "filename": "src/app/panel/teklifler/[id]/actions.ts"
+    }
+  },
+  "edge": {}
+}

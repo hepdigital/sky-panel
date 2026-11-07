@@ -1,0 +1,55 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/siteler/page": {
+          "moduleId": 945905,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "40f4fb14f6d2133f0f7eb5fa4cc0ad9e6ada38bcdc": {
+      "workers": {
+        "app/panel/siteler/page": {
+          "moduleId": 945905,
+          "async": false
+        }
+      },
+      "exportedName": "siteEsitle",
+      "filename": "src/app/panel/siteler/actions.ts"
+    },
+    "402096b6ad2b224420013da73c5b618a24cc54d264": {
+      "workers": {
+        "app/panel/siteler/page": {
+          "moduleId": 945905,
+          "async": false
+        }
+      },
+      "exportedName": "siteGecmisCek",
+      "filename": "src/app/panel/siteler/actions.ts"
+    },
+    "4037c3e00da547a5515350f137b4e7dbc8541c72be": {
+      "workers": {
+        "app/panel/siteler/page": {
+          "moduleId": 945905,
+          "async": false
+        }
+      },
+      "exportedName": "siteKaydet",
+      "filename": "src/app/panel/siteler/actions.ts"
+    },
+    "400c62d24c3411410ecd99e54b1852c7695f9a4313": {
+      "workers": {
+        "app/panel/siteler/page": {
+          "moduleId": 945905,
+          "async": false
+        }
+      },
+      "exportedName": "siteTest",
+      "filename": "src/app/panel/siteler/actions.ts"
+    }
+  },
+  "edge": {}
+}

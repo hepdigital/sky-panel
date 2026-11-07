@@ -1,0 +1,41 @@
+{
+  "status": 200,
+  "headers": {
+    "link": "</_next/static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2>; rel=preload; as=\"font\"; crossorigin=\"\"; type=\"font/woff2\", </_next/static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2>; rel=preload; as=\"font\"; crossorigin=\"\"; type=\"font/woff2\", </brand/logo-white.svg>; rel=preload; as=\"image\"",
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/portal/layout,_N_T_/portal/siparisler/layout,_N_T_/portal/siparisler/page,_N_T_/portal/siparisler"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/portal/siparisler/__PAGE__"
+  ],
+  "prefetchHints": {
+    "hints": 49216,
+    "slots": {
+      "children": {
+        "hints": 49248,
+        "slots": {
+          "children": {
+            "hints": 49248,
+            "slots": {
+              "children": {
+                "hints": 49312,
+                "slots": null
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/e8ba8178aaa0013101d4dc21d05f7dfdfeeb874a4cb296ca2e6ae2a404a92fd6/$/portal/siparisler",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/portal/siparisler/page"
+    },
+    "isFallback": false
+  }
+}

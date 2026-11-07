@@ -1,0 +1,25 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/whatsapp/ornekler/page": {
+          "moduleId": 548553,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "60c0d56bfdad4e85e9dc532ded9ca2d4704e5a0080": {
+      "workers": {
+        "app/panel/whatsapp/ornekler/page": {
+          "moduleId": 548553,
+          "async": false
+        }
+      },
+      "exportedName": "waOrnekGuncelle",
+      "filename": "src/app/panel/whatsapp/actions.ts"
+    }
+  },
+  "edge": {}
+}

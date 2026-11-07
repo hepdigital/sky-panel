@@ -1,0 +1,65 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/whatsapp/page": {
+          "moduleId": 862498,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "407335c92818399f96e0a6ae45b79cc005750fa10e": {
+      "workers": {
+        "app/panel/whatsapp/page": {
+          "moduleId": 862498,
+          "async": false
+        }
+      },
+      "exportedName": "waAsistanaBirak",
+      "filename": "src/app/panel/whatsapp/actions.ts"
+    },
+    "40e62ad3f770226e7d7526327764442d77f8001035": {
+      "workers": {
+        "app/panel/whatsapp/page": {
+          "moduleId": 862498,
+          "async": false
+        }
+      },
+      "exportedName": "waDevral",
+      "filename": "src/app/panel/whatsapp/actions.ts"
+    },
+    "60d6eed4db31b105494d60e6f1a4b7bc2a2737f042": {
+      "workers": {
+        "app/panel/whatsapp/page": {
+          "moduleId": 862498,
+          "async": false
+        }
+      },
+      "exportedName": "waGonder",
+      "filename": "src/app/panel/whatsapp/actions.ts"
+    },
+    "404b8d064d82e1e041157607a22e6bc3240f47db3a": {
+      "workers": {
+        "app/panel/whatsapp/page": {
+          "moduleId": 862498,
+          "async": false
+        }
+      },
+      "exportedName": "waKapat",
+      "filename": "src/app/panel/whatsapp/actions.ts"
+    },
+    "40babbcd840942cc006a5da02fb47138e4b312cb5c": {
+      "workers": {
+        "app/panel/whatsapp/page": {
+          "moduleId": 862498,
+          "async": false
+        }
+      },
+      "exportedName": "waOdemeLinkiGonder",
+      "filename": "src/app/panel/whatsapp/actions.ts"
+    }
+  },
+  "edge": {}
+}

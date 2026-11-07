@@ -1,0 +1,11 @@
+{
+  "pages": {},
+  "app": {
+    "[project]/src/app/panel/satis-urunleri/page": [
+      "static/media/9f5a2b9f13a4ecbb-s.p.35a5cae5tspm2.woff2",
+      "static/media/d8aeca813a9ab546-s.p.18rizl4rsrl42.woff2"
+    ]
+  },
+  "appUsingSizeAdjust": true,
+  "pagesUsingSizeAdjust": false
+}

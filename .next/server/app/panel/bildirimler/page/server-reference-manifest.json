@@ -1,0 +1,45 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/bildirimler/page": {
+          "moduleId": 666466,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "407a65290e666768faa080e6c0787d88d17396d93c": {
+      "workers": {
+        "app/panel/bildirimler/page": {
+          "moduleId": 666466,
+          "async": false
+        }
+      },
+      "exportedName": "cihazKaldir",
+      "filename": "src/app/panel/bildirimler/actions.ts"
+    },
+    "002742044845827fcd5972c3e45b317a1dfddc8149": {
+      "workers": {
+        "app/panel/bildirimler/page": {
+          "moduleId": 666466,
+          "async": false
+        }
+      },
+      "exportedName": "denemeGonder",
+      "filename": "src/app/panel/bildirimler/actions.ts"
+    },
+    "60984ecec4d1099d7e67a3c1278f1093a574a464bc": {
+      "workers": {
+        "app/panel/bildirimler/page": {
+          "moduleId": 666466,
+          "async": false
+        }
+      },
+      "exportedName": "tercihKaydet",
+      "filename": "src/app/panel/bildirimler/actions.ts"
+    }
+  },
+  "edge": {}
+}

@@ -1,0 +1,10 @@
+var R=require("../../../../../chunks/[turbopack]_runtime.js")("server/app/panel/whatsapp/medya/[ad]/route.js")
+R.c("server/chunks/src_server_files_ts_0uyz1_55z2y77._.js")
+R.c("server/chunks/_11gp-r363qhls._.js")
+R.c("server/chunks/[root-of-the-server]__1wwhz-k7b0kg4._.js")
+R.c("server/chunks/_1afgd2hx3env_._.js")
+R.c("server/chunks/[root-of-the-server]__1pi-us-sbliba._.js")
+R.c("server/chunks/node_modules_next_1yt6zlmy45gbu._.js")
+R.c("server/chunks/_next-internal_server_app_panel_whatsapp_medya_[ad]_route_actions_11wfybqmf8imb.js")
+R.m(175259)
+module.exports=R.m(175259).exports

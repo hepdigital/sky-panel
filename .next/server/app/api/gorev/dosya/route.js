@@ -1,0 +1,13 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/gorev/dosya/route.js")
+R.c("server/chunks/[root-of-the-server]__10i9drwj0pea7._.js")
+R.c("server/chunks/src_server_files_ts_0uyz1_55z2y77._.js")
+R.c("server/chunks/src_server_tasks_ts_0z8jslssi0w5q._.js")
+R.c("server/chunks/_0l7fihhl5lm8d._.js")
+R.c("server/chunks/_1x8ih0askcq-l._.js")
+R.c("server/chunks/[root-of-the-server]__1pi-us-sbliba._.js")
+R.c("server/chunks/node_modules_next_1mk24tcy2h5rp._.js")
+R.c("server/chunks/_0yq946g850vgg._.js")
+R.c("server/chunks/node_modules_next_0br6x7vj8yluw._.js")
+R.c("server/chunks/_next-internal_server_app_api_gorev_dosya_route_actions_0412vmwkh2u2-.js")
+R.m(596299)
+module.exports=R.m(596299).exports

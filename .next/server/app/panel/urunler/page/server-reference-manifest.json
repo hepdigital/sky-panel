@@ -1,0 +1,85 @@
+{
+  "node": {
+    "00600105e58ed160c29d1cb9317021b64b1d3415de": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 455661,
+          "async": false
+        }
+      },
+      "exportedName": "cikisYap",
+      "filename": "src/app/giris/actions.ts"
+    },
+    "40156f321a651cf9f0821c8ba8fc5de0d911dc968c": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 455661,
+          "async": false
+        }
+      },
+      "exportedName": "kategoriKaydet",
+      "filename": "src/app/panel/urunler/actions.ts"
+    },
+    "60c6e4dd17b03ce8aa3db13a9bff4693343c8bc1ae": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 455661,
+          "async": false
+        }
+      },
+      "exportedName": "kategoriTasi",
+      "filename": "src/app/panel/urunler/actions.ts"
+    },
+    "60f38de53e62b399eedef3dc4a31e555a23e96ba3f": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 455661,
+          "async": false
+        }
+      },
+      "exportedName": "renkStok",
+      "filename": "src/app/panel/urunler/actions.ts"
+    },
+    "70099e40a3b01c8f3503aba55376b153e20bf169ff": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 455661,
+          "async": false
+        }
+      },
+      "exportedName": "urunFiyat",
+      "filename": "src/app/panel/urunler/actions.ts"
+    },
+    "40dbb3fb6d047c2880b8fbb6d4099b42fa45824f7d": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 455661,
+          "async": false
+        }
+      },
+      "exportedName": "urunGorselYukle",
+      "filename": "src/app/panel/urunler/actions.ts"
+    },
+    "40131913da2bbdbce5383e020f0683b7f8a2fc9f0b": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 455661,
+          "async": false
+        }
+      },
+      "exportedName": "urunKaydet",
+      "filename": "src/app/panel/urunler/actions.ts"
+    },
+    "605c079a3faa4dda21a625d98a35116c1e617865f9": {
+      "workers": {
+        "app/panel/urunler/page": {
+          "moduleId": 455661,
+          "async": false
+        }
+      },
+      "exportedName": "urunTasi",
+      "filename": "src/app/panel/urunler/actions.ts"
+    }
+  },
+  "edge": {}
+}

@@ -1,0 +1,23 @@
+{
+  "devFiles": [],
+  "ampDevFiles": [],
+  "polyfillFiles": [
+    "static/chunks/0cz1d0mv5g_q7.js"
+  ],
+  "lowPriorityFiles": [],
+  "rootMainFiles": [
+    "static/chunks/093w4w_19h9qh.js",
+    "static/chunks/3lmrd7637jlju.js",
+    "static/chunks/2rixy0vi80djk.js",
+    "static/chunks/0kt3czh02vaxy.js",
+    "static/chunks/2rt26mgub-l61.js",
+    "static/chunks/turbopack-2c3mg3r-05n1w.js"
+  ],
+  "pages": {},
+  "ampFirstPages": [],
+  "rootMainFilesTree": {},
+  "pagesChunkGroupBootstrapParams": {
+    "/portal/cari/bakiye-yukle/page": {"otherChunks":["static/chunks/093w4w_19h9qh.js","static/chunks/3lmrd7637jlju.js","static/chunks/2rixy0vi80djk.js","static/chunks/0kt3czh02vaxy.js","static/chunks/2rt26mgub-l61.js"],"runtimeModuleIds":[494553]}
+  },
+  "chunkLoadingGlobal": "TURBOPACK"
+}
