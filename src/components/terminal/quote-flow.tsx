@@ -50,6 +50,9 @@ function waNumber(tel: string | null) {
   return d.length >= 11 ? d : "";
 }
 
+/** PDF'e basılacak online onay linki: yalnız müşteri henüz yanıt vermemişken (taslak / gönderildi) */
+export const onayBekliyor = (f: QuoteFlowInfo) => (f.asama === "taslak" || f.asama === "gonderildi" ? f.link : null);
+
 /** Teklifin durumu ve gönderimi: WhatsApp (link), e-posta (link + PDF), link kopyalama, elle onay/red */
 export function QuoteFlow({ id, no, veri, flow, satisci }: { id: number; no: string; veri: PdfData; flow: QuoteFlowInfo; satisci: string }) {
   const router = useRouter();
@@ -175,7 +178,7 @@ export function QuoteFlow({ id, no, veri, flow, satisci }: { id: number; no: str
                 disabled={pending || !to}
                 title={flow.mailReady ? undefined : "SMTP ayarları yapılınca çalışır"}
                 onClick={() =>
-                  run(async () => epostaGonder(id, to, await pdfBase64(veri).catch(() => null)), "E-posta gönderildi.")
+                  run(async () => epostaGonder(id, to, await pdfBase64({ ...veri, link: onayBekliyor(flow) }).catch(() => null)), "E-posta gönderildi.")
                 }
               >
                 <Mail /> Gönder

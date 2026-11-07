@@ -103,7 +103,7 @@ export function SaveSheet({
     onSaved(musteri ? { ...musteri, id: r.musteriId } : null);
     setDone({ id: r.id, no: r.no });
     try {
-      await downloadPdf({ ...data, no: r.no, dosyaAdi: r.dosyaAdi });
+      await downloadPdf({ ...data, no: r.no, dosyaAdi: r.dosyaAdi, link: r.link });
     } catch (e) {
       setErr(`${r.no} kaydedildi ama PDF oluşturulamadı (${e instanceof Error ? e.message : e}). Teklif sayfasından indirebilirsiniz.`);
     }

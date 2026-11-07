@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import type { PdfData } from "@/lib/terminal/calc";
 import { downloadPdf } from "@/lib/terminal/pdf";
 import { cn, formatDate, formatTRY } from "@/lib/utils";
-import { QuoteFlow, type QuoteFlowInfo } from "./quote-flow";
+import { QuoteFlow, onayBekliyor, type QuoteFlowInfo } from "./quote-flow";
 import { QuoteItems } from "./quote-items";
 import { OPEN_KEY } from "./terminal";
 
@@ -49,7 +49,8 @@ export function QuoteDetail({ quote, flow }: { quote: Quote; flow: QuoteFlowInfo
   async function pdf() {
     setBusy(true);
     setErr(null);
-    await downloadPdf(v).catch((e) => setErr(`PDF oluşturulamadı: ${e instanceof Error ? e.message : e}`));
+    // Müşteri henüz yanıt vermediyse PDF'te online onay linki ve QR kodu basılır
+    await downloadPdf({ ...v, link: onayBekliyor(flow) }).catch((e) => setErr(`PDF oluşturulamadı: ${e instanceof Error ? e.message : e}`));
     setBusy(false);
   }
 

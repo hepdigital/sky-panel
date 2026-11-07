@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { ReceiptText } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { imgSrc, type PdfData } from "@/lib/terminal/calc";
+import { imgSrc, oranEtiket, type PdfData } from "@/lib/terminal/calc";
 import { formatTRY } from "@/lib/utils";
 
 /** Kalem görseli: 3D görüntüsü (data:), yüklenen dosya ya da terminal görsel anahtarı */
@@ -40,7 +40,10 @@ export function QuoteItems({ v, compact }: { v: PdfData; compact?: boolean }) {
                   <p className="tabular text-[11px] text-muted-foreground">
                     {k.adet} × {formatTRY(k.birim, { whole: true })}
                   </p>
-                  {k.isk && <p className="text-[11px] font-semibold text-success">{k.isk}</p>}
+                  {/* Oran kayıttaki tutarlardan: iskonto türü ne olursa olsun (eski kayıtlar dahil) PDF'teki gibi yüzde */}
+                  {oranEtiket(k.birim * k.adet, k.tutar) && (
+                    <p className={`text-[11px] font-semibold ${k.tutar > k.birim * k.adet ? "text-warning" : "text-success"}`}>{oranEtiket(k.birim * k.adet, k.tutar)}</p>
+                  )}
                 </div>
               </div>
 
@@ -95,9 +98,14 @@ export function QuoteItems({ v, compact }: { v: PdfData; compact?: boolean }) {
           </>
         )}
         {v.genelIsk !== 0 && (
-          <div className="flex justify-between text-success">
-            <dt>Genel iskonto {v.genelIskEtiket}</dt>
-            <dd className="tabular">−{formatTRY(v.genelIsk, { whole: true })}</dd>
+          <div className={v.genelIsk > 0 ? "flex justify-between text-success" : "flex justify-between"}>
+            <dt>
+              {v.genelIsk > 0 ? "Genel iskonto" : "Genel ilave"} {v.genelIskEtiket}
+            </dt>
+            <dd className="tabular">
+              {v.genelIsk > 0 ? "−" : "+"}
+              {formatTRY(Math.abs(v.genelIsk), { whole: true })}
+            </dd>
           </div>
         )}
         <div className="flex justify-between">

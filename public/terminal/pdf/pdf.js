@@ -21,6 +21,16 @@ window.SKY_PDF = (function(){
   var FF = "SKYSans";
 
   var money = function(n){ return Math.round(n).toLocaleString("tr-TR") + " TL"; };
+  /* Kalemin liste fiyatina gore iskonto orani — kayittaki tutarlardan (birim x adet -> tutar) hesaplanir,
+     boylece iskonto turu (yuzde, TL, birim fiyat) ne olursa olsun ve eski kayitlarda da musteri ayni bicimi gorur.
+     Indirimde "%15,19", ilavede "+%5"; fark yoksa bos. */
+  function oran(k){
+    var liste = k.birim * k.adet;
+    if (!(liste > 0) || Math.abs(liste - k.tutar) < 0.5) return "";
+    var p = Math.round((1 - k.tutar / liste) * 10000) / 100;
+    if (!p) return "";
+    return (p < 0 ? "+%" : "%") + Math.abs(p).toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+  }
 
   /* ---------- marka ----------
      Panelde teklif verisi markanin kimligini tasir (q.firma): firma kunyesi, banka, renk, logo.
@@ -224,7 +234,8 @@ window.SKY_PDF = (function(){
     var sol = [{ t: q.musteri || "—", bold: true, size: 13 }];
     if (q.yetkili) sol.push({ t: q.yetkili });
     if (q.iletisim) sol.push({ t: q.iletisim });
-    var sag = [{ t: q.modeAd + " fiyat listesi" + (q.vatOn ? " · KDV dahil" : " · KDV hariç") }];
+    /* fiyat listesi/KDV satiri yok: KDV notu toplamlarin yaninda, toptan uyarisi tablonun ustunde */
+    var sag = [];
     if (q.gecerlilik) sag.push({ t: "Geçerlilik: " + q.gecerlilik });
     if (q.hazirlayan) sag.push({ t: "Hazırlayan: " + q.hazirlayan });
     var y1 = col(M, "Sayın", sol), y2 = col(M + bw + gap, "Teklif bilgileri", sag);
@@ -246,7 +257,11 @@ window.SKY_PDF = (function(){
       doc.setFillColor.apply(doc, GREEN);
       doc.rect(0, PH - 13, PW, 0.9, "F");
       setF(doc, 6.8, "normal", [205,214,224]);
-      var lines = doc.splitTextToSize(kunye, CW - 22).slice(0, 2);
+      /* sagdaki "no · sayfa" yazisina binmesin */
+      setF(doc, 7.4, "bold", [255,255,255]);
+      var sagW = doc.getTextWidth(q.no + "  ·  " + i + " / " + n) + 6;
+      setF(doc, 6.8, "normal", [205,214,224]);
+      var lines = doc.splitTextToSize(kunye, CW - sagW).slice(0, 2);
       doc.text(lines, M, PH - (lines.length > 1 ? 7.6 : 5.8));
       setF(doc, 7.4, "bold", [255,255,255]);
       doc.text(q.no + "  ·  " + i + " / " + n, PW - M, PH - 5.8, { align: "right" });
@@ -263,7 +278,6 @@ window.SKY_PDF = (function(){
     if (q.iletisim) sol.push({ t: q.iletisim, size: 8.6 });
 
     var sag = [];
-    sag.push({ t: q.modeAd + " fiyat listesi" + (q.vatOn ? " · KDV dahil" : " · KDV hariç"), size: 8.6 });
     if (q.gecerlilik) sag.push({ t: "Geçerlilik: " + q.gecerlilik, size: 8.6 });
     if (q.hazirlayan) sag.push({ t: "Hazırlayan: " + q.hazirlayan, size: 8.6 });
 
@@ -342,12 +356,15 @@ window.SKY_PDF = (function(){
       var ims = (k.gorseller || []).map(function(u){ return imgCache[u]; }).filter(Boolean);
       if (!ims.length) return;
       var gap = 4, w = (CW - gap * (ims.length - 1)) / ims.length, h = w / ims[0].ratio;
+      /* en fazla 56 mm yukseklik: toplam ve notlar ayni sayfada kalabilsin; daralan gorseller ortalanir */
+      if (h > 56){ h = 56; w = h * ims[0].ratio; }
+      var x0 = M + (CW - (w * ims.length + gap * (ims.length - 1))) / 2;
       if (y + h + 14 > PH - 24){ doc.addPage(); y = 24; }
       setF(doc, 8.6, "bold", INK);
       doc.text(k.ad + " · ürün görselleri", M, y + 7);
       y += 10;
       ims.forEach(function(im, i){
-        var x = M + i * (w + gap);
+        var x = x0 + i * (w + gap);
         doc.addImage(im.data, "JPEG", x, y, w, h);
         doc.setDrawColor.apply(doc, LINE);
         doc.setLineWidth(0.15);
@@ -359,51 +376,99 @@ window.SKY_PDF = (function(){
   }
 
   /* ---------- kalem tablosu ---------- */
+  /* yazi boyutundan satir yuksekligi (mm): autoTable ile ayni carpan (1.15) */
+  var LH = function(pt){ return pt * 1.15 * 25.4 / 72; };
+  function pads(cell){
+    var p = cell.styles.cellPadding;
+    return typeof p === "number" ? { top: p, bottom: p, left: p, right: p } : p;
+  }
+  var padX = function(cell){ var p = pads(cell); return p.left + p.right; };
+
+  /* bilesen kutusu: baslik + iki sutun kart (gorsel, ad, fiyat) */
+  var CARD = 10.6, CGAP = 1.6;
+  function partsHeight(parts){
+    var rows = Math.ceil(parts.length / 2);
+    return 2 + 8 + rows * CARD + (rows - 1) * CGAP + 3.5;
+  }
+  function drawParts(doc, q, parts, x, y, w, h){
+    var bx = x + 1.5, by = y + 2, bw = w - 3, bh = h - 3.5;
+    doc.setFillColor.apply(doc, SOFT);
+    doc.roundedRect(bx, by, bw, bh, 1.8, 1.8, "F");
+    label(doc, "Bileşenler · 1 adet için · birim fiyata dahildir", bx + 3, by + 5.2);
+    var cw = (bw - 6 - 2) / 2;
+    parts.forEach(function(p, j){
+      var cx = bx + 3 + (j % 2) * (cw + 2), cy = by + 8 + Math.floor(j / 2) * (CARD + CGAP);
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor.apply(doc, LINE);
+      doc.setLineWidth(0.15);
+      doc.roundedRect(cx, cy, cw, CARD, 1.4, 1.4, "FD");
+      var im = q.gorsel && p.img ? imgCache[p.img] : null, tx = cx + 3;
+      if (im){
+        var s = CARD - 2.4, iw = s, ih = s / im.ratio;
+        if (ih > s){ ih = s; iw = s * im.ratio; }
+        doc.addImage(im.data, "JPEG", cx + 1.2 + (s - iw) / 2, cy + 1.2 + (s - ih) / 2, iw, ih, p.img);
+        tx = cx + s + 3.4;
+      }
+      var fiyat = p.fiyat === null ? "fiyat alınız" : money(p.fiyat);
+      setF(doc, 7.8, "bold", p.fiyat === null ? WARN : INK2);
+      var fw = doc.getTextWidth(fiyat);
+      doc.text(fiyat, cx + cw - 2.5, cy + CARD / 2 + 1, { align: "right" });
+      setF(doc, 7.4, "normal", INK2);
+      var lines = doc.splitTextToSize(p.ad, cx + cw - 2.5 - fw - 3 - tx).slice(0, 2);
+      var ly = cy + CARD / 2 + 1 - (lines.length - 1) * LH(7.4) / 2;
+      lines.forEach(function(l, i){ doc.text(l, tx, ly + i * LH(7.4)); });
+    });
+  }
   function table(doc, q, y){
     var G = !!q.gorsel;              /* gorsel sutunu basilsin mi */
     var ACI = G ? 2 : 1;             /* aciklama sutununun indeksi */
     var body = [], imgOf = [];       /* imgOf[i] = i. govde satirinin gorsel anahtari */
+    var I = q.kalemler.some(function(k){ return !!oran(k); });  /* iskonto sutunu: en az bir kalemde iskonto/ilave varsa */
 
-    function push(cells, imgKey, minH){
+    function push(cells, imgKey, minH, isk){
+      if (I) cells.splice(4, 0, isk ? { content: isk, styles: { halign: "right", textColor: isk.charAt(0) === "+" ? WARN : GREEN, fontStyle: "bold" } } : "");
       if (G) cells.splice(1, 0, { content: "", styles: minH ? { minCellHeight: minH } : {} });
       imgOf.push(G ? (imgKey || null) : null);
       body.push(cells);
     }
 
+    /* meta[i]: ana satirda { ad, alt } (aciklama adin altina ince yazilir), bilesen satirinda { parca } */
+    var meta = [];
+    var NC = 5 + (I ? 1 : 0) + (G ? 1 : 0);
     q.kalemler.forEach(function(k, i){
-      var yalin = !(k.parcalar || []).length;
       push([
         { content: String(i + 1), styles: { halign: "center" } },
-        { content: k.ad + (k.alt && yalin ? "\n" + k.alt : ""), styles: { fontStyle: "bold" } },
+        /* yukseklik ad + aciklamaya gore ayrilir; aciklama cizimde ince/gri yazilir (willDrawCell / didDrawCell) */
+        { content: k.ad + (k.alt ? "\n" + k.alt : ""), styles: { fontStyle: "bold", valign: k.alt ? "top" : "middle" } },
         { content: String(k.adet), styles: { halign: "center" } },
         { content: money(k.birim), styles: { halign: "right" } },
         { content: money(k.tutar), styles: { halign: "right", fontStyle: "bold" } }
-      ], k.img, k.img && G ? 15 : 0);
+      ], k.img, k.img && G ? 15 : 0, oran(k));
+      meta[body.length - 1] = k.alt ? { ad: k.ad, alt: k.alt } : null;
 
-      /* yapilandirma ozeti yalnizca bilesenli kalemlerde ayri satira duser;
-         tek satirlik urunlerde olcusu adin altina yazilir (bos satir acmasin) */
-      if (k.alt && !yalin) push(["", { content: k.alt }, "", "", ""], null, 0);
-
-      (k.parcalar || []).forEach(function(p){
-        push([
-          "",
-          { content: "•  " + p.ad },
-          "",
-          { content: p.fiyat === null ? "fiyat alınız" : money(p.fiyat),
-            styles: { halign: "right", textColor: p.fiyat === null ? WARN : INK3 } },
-          ""
-        ], p.img, p.img && G ? 10 : 0);
-      });
+      /* gazebo bilesenleri: musteri linkindeki gibi ayri kutuda kartlar; fiyatlar bilgi amacli, birim fiyata dahil */
+      var parts = k.parcalar || [];
+      if (parts.length){
+        body.push([{ content: "", colSpan: NC, styles: { minCellHeight: partsHeight(parts), cellPadding: 0, fillColor: [255,255,255] } }]);
+        imgOf.push(null);
+        meta[body.length - 1] = { parca: parts };
+      }
     });
 
     var head = ["#", "Açıklama", "Adet", "Birim fiyat", "Tutar"];
+    if (I) head.splice(4, 0, "İskonto");
     if (G) head.splice(1, 0, "");
-    var cols = G
-      ? { 0:{cellWidth:9, halign:"center", textColor:INK3, cellPadding:{top:2.6,bottom:2.6,left:1.5,right:1.5}},
-          1:{cellWidth:18, cellPadding:1}, 2:{cellWidth:"auto"},
-          3:{cellWidth:15, halign:"center"}, 4:{cellWidth:24, halign:"right"}, 5:{cellWidth:27, halign:"right"} }
-      : { 0:{cellWidth:12, halign:"center", textColor:INK3}, 1:{cellWidth:"auto"},
-          2:{cellWidth:14, halign:"center"}, 3:{cellWidth:27, halign:"right"}, 4:{cellWidth:30, halign:"right"} };
+    /* sutun genislikleri: "Birim fiyat" liste fiyatidir; iskonto sutunu varsa Tutar = adet x birim - iskonto */
+    var w = I ? [15, 25, 21, 27] : [15, 24, 0, 27];    /* adet, birim, iskonto, tutar */
+    var cols = {}, c = 0;
+    cols[c++] = G ? { cellWidth: 9, halign: "center", textColor: INK3, cellPadding: { top: 2.6, bottom: 2.6, left: 1.5, right: 1.5 } }
+                  : { cellWidth: 12, halign: "center", textColor: INK3 };
+    if (G) cols[c++] = { cellWidth: 18, cellPadding: 1 };
+    cols[c++] = { cellWidth: "auto" };
+    cols[c++] = { cellWidth: w[0], halign: "center" };
+    cols[c++] = { cellWidth: w[1], halign: "right" };
+    if (I) cols[c++] = { cellWidth: w[2], halign: "right" };
+    cols[c++] = { cellWidth: w[3], halign: "right" };
 
     doc.autoTable({
       startY: y,
@@ -417,20 +482,35 @@ window.SKY_PDF = (function(){
       headStyles: { font: FF, fontStyle: "bold", fillColor: TPL === "modern" ? GREEN : INK, textColor: [255,255,255], fontSize: 8,
                     cellPadding: { top: 3, bottom: 3, left: 3, right: 3 }, lineColor: TPL === "modern" ? GREEN : INK },
       columnStyles: cols,
-      didParseCell: function(d){
-        /* parca satirlari: daha kucuk, gri, girintili */
-        if (d.section !== "body" || d.row.raw[0] !== "") return;
-        if (d.column.index === ACI){
-          d.cell.styles.textColor = INK3;
-          d.cell.styles.fontSize = 8;
-          d.cell.styles.cellPadding = { top: 1.4, bottom: 1.4, left: 6, right: 3 };
-        } else if (!G || d.column.index !== 1){
-          d.cell.styles.fontSize = 8;
-          d.cell.styles.cellPadding = { top: 1.4, bottom: 1.4, left: 3, right: 3 };
-        }
+      rowPageBreak: "avoid",
+      willDrawCell: function(d){
+        /* ana satir: hucreye yalnizca ad basilir, aciklamayi didDrawCell yazar */
+        var m = meta[d.row.index];
+        if (d.section !== "body" || d.column.index !== ACI || !m || !m.alt) return;
+        setF(doc, 8.8, "bold", INK2);
+        var n = doc.splitTextToSize(m.ad, d.cell.width - padX(d.cell)).length;
+        d.cell.text = d.cell.text.slice(0, n);
+        m.n = n;
       },
       didDrawCell: function(d){
-        if (!G || d.section !== "body" || d.column.index !== 1) return;
+        if (d.section !== "body") return;
+        var m = meta[d.row.index];
+        if (m && m.parca && d.column.index === 0){
+          /* kutu aciklama sutununun hizasindan baslar (# ve gorsel sutunlari bos kalir) */
+          var inset = 0;
+          for (var c = 0; c < ACI; c++) inset += d.table.columns[c].width;
+          drawParts(doc, q, m.parca, d.cell.x + inset, d.cell.y, d.cell.width - inset, d.cell.height);
+          return;
+        }
+        if (m && m.alt && d.column.index === ACI){
+          var pad = pads(d.cell), ty = d.cell.y + pad.top + m.n * LH(8.8) + 0.6;
+          setF(doc, 7.8, "normal", INK3);
+          doc.splitTextToSize(m.alt, d.cell.width - pad.left - pad.right).forEach(function(l, j){
+            doc.text(l, d.cell.x + pad.left, ty + 2.4 + j * LH(7.8));
+          });
+          return;
+        }
+        if (!G || d.column.index !== 1) return;
         var key = imgOf[d.row.index], im = key ? imgCache[key] : null;
         if (!im) return;
         var mw = d.cell.width - 2, mh = d.cell.height - 2;
@@ -449,21 +529,86 @@ window.SKY_PDF = (function(){
   }
 
   /* ---------- toplam bloku ---------- */
+  /* [etiket, tutar, renk?]: liste toplami, satir iskontolari/ilaveleri, genel iskonto.
+     Eksi icin duz tire: PDF yazi tipinde uzun eksi (U+2212) yok, bos cikar. */
+  function discountRows(q){
+    var r = [], s = q.satirIsk || 0, g = q.genelIsk || 0;
+    if (!s && !g) return r;
+    r.push(["Liste toplamı (KDV hariç)", money(q.araListe)]);
+    var pct = function(n, base){ return base > 0 ? " (%" + (Math.round(Math.abs(n) / base * 10000) / 100).toLocaleString("tr-TR", { maximumFractionDigits: 2 }) + ")" : ""; };
+    if (s) r.push([(s > 0 ? "Satır iskontoları" : "Satır ilaveleri") + pct(s, q.araListe), (s > 0 ? "- " : "+ ") + money(Math.abs(s)), s > 0 ? GREEN : WARN]);
+    /* musterinin iskonto grubundan geldiyse etiket "Grup · %10 ind." bicimindedir: grup adi da yazilir */
+    var grup = / · /.test(q.genelIskEtiket || "") ? " · " + q.genelIskEtiket.split(" · ")[0] : "";
+    if (g) r.push([(g > 0 ? "Genel iskonto" : "Genel ilave") + pct(g, q.araListe - s) + grup,
+                   (g > 0 ? "- " : "+ ") + money(Math.abs(g)), g > 0 ? GREEN : WARN]);
+    return r;
+  }
+  /* sag blok (dokum + genel toplam) ve sol blok (KDV notu + online onay kutusu) yukseklikleri; cizmeden olcer */
+  var TBW = 84, TLH = 5.4;
+  function totalsRows(q){
+    var rows = discountRows(q);
+    rows.push(["Ara toplam (KDV hariç)", money(q.araToplam)], ["KDV %20", money(q.kdv)]);
+    return rows;
+  }
+  /* online onay kutusu: sol sutunda, QR kod solda, metin ve tiklanir baglanti sagda */
+  var QR = 22;
+  function onlineLines(doc, w){
+    setF(doc, 7.4, "normal", INK2);
+    return doc.splitTextToSize("QR kodu okutarak ya da bağlantıya tıklayarak teklifi inceleyip onaylayabilirsiniz; müşteri temsilciniz anında bilgilendirilir.", w);
+  }
+  function onlineBox(doc, q, x, y, w, draw){
+    if (!q.link) return 0;
+    var qx = q.qr ? QR + 4 : 0, tw = w - 8 - qx;
+    var lines = onlineLines(doc, tw);
+    setF(doc, 6.4, "normal", INK3);
+    var url = doc.splitTextToSize(q.link, tw).slice(0, 2);
+    var h = Math.max(q.qr ? QR + 6 : 0, 6 + 4.4 + lines.length * 3.4 + 1.6 + 4 + url.length * 2.8 + 3);
+    if (!draw) return h;
+    doc.setFillColor.apply(doc, tint(GREEN, 0.08));
+    doc.setDrawColor.apply(doc, tint(GREEN, 0.35));
+    doc.setLineWidth(0.25);
+    doc.roundedRect(x, y, w, h, 2, 2, "FD");
+    if (q.qr){
+      doc.addImage(q.qr, "PNG", x + 3, y + 3, QR, QR);
+      doc.link(x + 3, y + 3, QR, QR, { url: q.link });
+    }
+    var tx = x + 4 + qx, ty = y + 6.4;
+    setF(doc, 8.8, "bold", INK);
+    doc.text("Teklifi online onaylayın", tx, ty);
+    ty += 4.4;
+    setF(doc, 7.4, "normal", INK2);
+    lines.forEach(function(l){ doc.text(l, tx, ty); ty += 3.4; });
+    ty += 1.6;
+    setF(doc, 8, "bold", GREEN);
+    doc.textWithLink("Teklifi görüntüle ve onayla", tx, ty, { url: q.link });
+    ty += 3.4;
+    setF(doc, 6.4, "normal", INK3);
+    url.forEach(function(l){ doc.text(l, tx, ty); doc.link(tx, ty - 2.2, tw, 2.8, { url: q.link }); ty += 2.8; });
+    return h;
+  }
+  function totalsHeight(doc, q){
+    var right = 4 + TLH * totalsRows(q).length + 3 + 12;
+    var left = 9 + onlineBox(doc, q, 0, 0, PW - 2 * M - TBW - 8, false);
+    return Math.max(right, left);
+  }
   function totals(doc, q, y){
-    var bw = 84, x = PW - M - bw, lh = 5.4;
+    var bw = TBW, x = PW - M - bw, lh = TLH;
 
     setF(doc, 7.6, "normal", INK3);
     doc.text(q.vatOn ? "Satır tutarları KDV dahildir." : "Satır tutarları KDV hariçtir.", M, y + 6);
+    onlineBox(doc, q, M, y + 9, PW - 2 * M - bw - 8, true);
 
     var yy = y + 4;
-    setF(doc, 9, "normal", INK2);
-    doc.text("Ara toplam (KDV hariç)", x, yy + lh);
-    doc.text("KDV %20", x, yy + lh * 2);
-    setF(doc, 9, "normal", INK);
-    doc.text(money(q.araToplam), PW - M, yy + lh, { align: "right" });
-    doc.text(money(q.kdv), PW - M, yy + lh * 2, { align: "right" });
+    /* iskonto varsa liste toplamindan ara toplama kadar dokum (hepsi KDV haric) */
+    var rows = totalsRows(q);
+    rows.forEach(function(r, i){
+      setF(doc, 9, "normal", r[2] || INK2);
+      doc.text(r[0], x, yy + lh * (i + 1));
+      setF(doc, 9, "normal", r[2] || INK);
+      doc.text(r[1], PW - M, yy + lh * (i + 1), { align: "right" });
+    });
 
-    var by = yy + lh * 2 + 3;
+    var by = yy + lh * rows.length + 3;
     doc.setFillColor.apply(doc, TPL === "modern" ? DARK : GREEN);
     doc.roundedRect(x, by, bw, 12, 2, 2, "F");
     if (TPL === "modern"){ doc.setFillColor.apply(doc, GREEN); doc.rect(x, by, 2.2, 12, "F"); }
@@ -472,7 +617,7 @@ window.SKY_PDF = (function(){
     setF(doc, 12, "bold", [255,255,255]);
     doc.text(money(q.genelToplam), x + bw - 5, by + 7.9, { align: "right" });
 
-    return by + 12 + 8;
+    return y + totalsHeight(doc, q) + 8;
   }
 
   /* ---------- uyarilar + notlar ---------- */
@@ -586,7 +731,8 @@ window.SKY_PDF = (function(){
       }
       y = table(doc, q, y);
       y = views(doc, q, y);
-      if (y + 46 > PH - 24){ doc.addPage(); y = 24; }
+      /* toplam blogu bolunmez: tam yuksekligi sigmiyorsa yeni sayfaya (alt bilgi cizgisi PH-15'te) */
+      if (y + totalsHeight(doc, q) > PH - 18){ doc.addPage(); y = 24; }
       y = totals(doc, q, y);
       y = notes(doc, q, y);
       bank(doc, y);

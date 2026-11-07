@@ -8,7 +8,7 @@ import {
   emptyWall,
   normalizeWall,
   wallFromLegacy,
-  wallImage,
+  kindImage,
   wallKey,
   wallName,
   wallPrice,
@@ -244,7 +244,10 @@ export function wallDetail(g: Gazebo) {
 
 export type GzRow = { t: string; s: string; v: number; c: string; img: string | null; bad?: boolean };
 
-/** Gazebo dökümü: iskelet, tavan ve (aynı duvar/ölçü/kumaş birleştirilerek) duvarlar */
+/**
+ * Gazebo dökümü: iskelet, tavan ve (aynı duvar/ölçü/kumaş birleştirilerek) duvarlar. Görseller 3D yapılandırıcınınkiler
+ * (duvar tipi wk:*, tavan t:tavan); pencere/kapı ekleri (PVC, sineklik, perde) duvarın adında ve fiyatındadır.
+ */
 export function gzRows(g: Gazebo, mode: Mode): GzRow[] {
   const rows: GzRow[] = [];
   const fp = framePrice(g, mode);
@@ -253,14 +256,14 @@ export function gzRows(g: Gazebo, mode: Mode): GzRow[] {
     rows.push({ t: `${g.frame} iskelet`, s: `${SZ[g.size]} m · ${f.desc}`, v: fp, c: `${g.frame} iskelet (${f.desc})`, img: `f:${g.frame}` });
   }
   const rp = roofPrice(g, mode);
-  if (rp !== null) rows.push({ t: "Tavan kumaşı", s: `${SZ[g.size]} m · ${FABRICS[g.roofFab!].n}`, v: rp, c: `Tavan kumaşı · ${FABRICS[g.roofFab!].n}`, img: null });
+  if (rp !== null) rows.push({ t: "Tavan kumaşı", s: `${SZ[g.size]} m · ${FABRICS[g.roofFab!].n}`, v: rp, c: `Tavan kumaşı · ${FABRICS[g.roofFab!].n}`, img: "t:tavan" });
   const agg = new Map<string, { t: string; s: string; v: number; n: number; bad: boolean; img: string }>();
   for (const sl of usedSlots(g)) {
     const name = wallName(sl.wall);
     const dim = sl.wall.kind === "yarim" ? `100 × ${sl.cm}` : `${sl.h} × ${sl.cm}`;
     const pr = slotPrice(sl, mode);
     const key = `${wallKey(sl.wall)}|${dim}`;
-    const c = agg.get(key) ?? { t: name, s: `${dim} cm · ${FABRICS[sl.wall.f].n}`, v: 0, n: 0, bad: false, img: wallImage(sl.wall) };
+    const c = agg.get(key) ?? { t: name, s: `${dim} cm · ${FABRICS[sl.wall.f].n}`, v: 0, n: 0, bad: false, img: kindImage(sl.wall.kind)! };
     c.n++;
     if (pr === null) c.bad = true;
     else c.v += pr;
@@ -325,13 +328,14 @@ export function iskEtiket(i?: Isk, vat: 0 | 1 = 0, genel = false) {
   if (i!.tip === "fiyat") return `${genel ? "Toplam" : "Birim"} ${k(i!.d)}`;
   return k(d) + (i!.tip === "tutar" && !genel ? "/adet" : "") + ek;
 }
-/** Belgedeki (PDF, döküm) iskonto yazısı: elle girilen fiyat müşteriye liste fiyatına göre oran olarak gösterilir */
-export function belgeEtiket(i: Isk | undefined, vat: 0 | 1, liste: number, net: number, genel = false) {
-  if (iskYok(i) || i!.tip !== "fiyat") return iskEtiket(i, vat, genel);
+/** Liste fiyatına göre oran: "%15,19 ind." / "%5 ilave"; fark yoksa boş. PDF ve müşteri sayfası da kayıttaki tutarlardan bunu hesaplar */
+export function oranEtiket(liste: number, net: number) {
   if (liste <= 0 || Math.abs(liste - net) < 0.005) return "";
   const p = Math.round((1 - net / liste) * 10_000) / 100;
-  return yuzde(Math.abs(p)) + (p > 0 ? " ind." : " ilave");
+  return p === 0 ? "" : yuzde(Math.abs(p)) + (p > 0 ? " ind." : " ilave");
 }
+/** Belgedeki (PDF, döküm, müşteri linki) iskonto yazısı: türü ne olursa olsun müşteri liste fiyatına göre oranı görür */
+export const belgeEtiket = (i: Isk | undefined, liste: number, net: number) => (iskYok(i) ? "" : oranEtiket(liste, net));
 
 export type Row = { key: string; t: string; s: string; birim: number; net: number; adet: number; isk?: Isk; liste: number; v: number; bad?: boolean };
 
@@ -408,7 +412,7 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: Br
         alt: [...partsOf(c, q.mode), colorText(c)].join(" · ") + (wd !== "Duvarsız" ? `\n${wd}` : ""),
         adet: c.qty,
         birim: adj(liste),
-        isk: belgeEtiket(c.isk, q.vat, liste, net),
+        isk: belgeEtiket(c.isk, liste, net),
         tutar: adj(v),
         // 3D görüntüsü varsa satır görseli odur; iki açı tablonun altında büyük basılır
         img: c.views?.[0] ?? `r:${c.size}`,
@@ -431,7 +435,7 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: Br
               : olcu
                 ? [olcuText(olcu), `m² ${TL(adj(pr))}`, it.s].filter(Boolean).join(" · ")
                 : it.s,
-            adet: qty, birim: adj(birim), isk: belgeEtiket(i, q.vat, birim, net), tutar: adj(v),
+            adet: qty, birim: adj(birim), isk: belgeEtiket(i, birim, net), tutar: adj(v),
             // Renkli ürün: PDF'te o rengin boyanmış görseli (hazırsa)
             img: hex && it.img ? (recolored(imgSrc(it.img), hex) ?? it.img) : it.img,
             parcalar: [],
@@ -441,7 +445,7 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: Br
     ),
     ...(q.extra ?? []).map((x) => {
       const { net, v } = satirNet(x.birim, x.adet, x.isk);
-      return { ad: x.ad, alt: x.aciklama, adet: x.adet, birim: adj(x.birim), isk: belgeEtiket(x.isk, q.vat, x.birim, net), tutar: adj(v), img: null as string | null, parcalar: [] };
+      return { ad: x.ad, alt: x.aciklama, adet: x.adet, birim: adj(x.birim), isk: belgeEtiket(x.isk, x.birim, net), tutar: adj(v), img: null as string | null, parcalar: [] };
     }),
   ];
   const H = hesap(q, catalog);
@@ -473,7 +477,7 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: Br
     araListe: H.araListe,
     satirIsk: H.satirIsk,
     genelIsk: H.genelIsk,
-    genelIskEtiket: q.iskGrup && !iskYok(q.isk) ? `${q.iskGrup} · ${iskEtiket(q.isk, q.vat, true)}` : belgeEtiket(q.isk, q.vat, H.araNet, H.net, true),
+    genelIskEtiket: q.iskGrup && !iskYok(q.isk) ? `${q.iskGrup} · ${iskEtiket(q.isk, q.vat, true)}` : belgeEtiket(q.isk, H.araNet, H.net),
     araToplam: ham,
     kdv: ham * 0.2,
     genelToplam: ham * 1.2,
@@ -484,7 +488,11 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: Br
     firma: brand as BrandCard | undefined,
   };
 }
-export type PdfData = ReturnType<typeof quoteData>;
+/**
+ * link: müşterinin teklifi görüp onaylayacağı adres (/t/<kod>); kayıtta saklanmaz, PDF basılırken verilir — siparişe dönmüş
+ * ya da müşteri sayfasından indirilen PDF'te "online onaylayın" kutusu çıkmasın. qr: link'in QR kodu (pdf.ts üretir).
+ */
+export type PdfData = ReturnType<typeof quoteData> & { link?: string | null; qr?: string };
 
 /** PDF dosya adı (terminaldeki kuralın aynısı) */
 export function pdfFileName(no: string, musteri: string) {
