@@ -12,7 +12,7 @@ export async function musteriAra(q: string) {
 }
 
 /** Teklifi oturumdaki satışçı adına kaydeder */
-export async function teklifKaydet(input: SaveInput): Promise<{ ok: true; id: number; no: string; dosyaAdi: string; musteriId: number | null } | { ok: false; hata: string }> {
+export async function teklifKaydet(input: SaveInput): Promise<{ ok: true; id: number; no: string; dosyaAdi: string; musteriId: number | null; link: string } | { ok: false; hata: string }> {
   const me = await getSeller();
   if (!me) return { ok: false, hata: "Oturum kapanmış. Sayfayı yenileyip tekrar giriş yapın." };
   try {

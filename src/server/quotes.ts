@@ -9,6 +9,7 @@ import { brandCard, canUseBrand } from "./brands";
 import { getCatalog, getCosts } from "./catalog";
 import { gazeboCostTable, gazeboTables } from "./gazebo-prices";
 import { db, schema } from "./db";
+import { quoteLink } from "./quote-flow";
 
 const { musteriler, teklifler, kullanicilar } = schema;
 
@@ -136,6 +137,7 @@ export async function saveQuote(me: Me, input: SaveInput) {
     const musteriAdi = veri.musteri.trim() || firma;
     const stored = { ...veri, no, dosyaAdi: pdfFileName(no, musteriAdi ?? ""), firma: brandCard(marka) };
     const gun = Math.max(0, Math.min(365, Math.round(input.gun) || 0));
+    const token = randomToken(24);
 
     const [r] = await tx
       .insert(teklifler)
@@ -154,11 +156,11 @@ export async function saveQuote(me: Me, input: SaveInput) {
         maliyetEksik: cost.eksik,
         veri: JSON.stringify(stored),
         durum: input.durum ? JSON.stringify(input.durum) : null,
-        token: randomToken(24),
+        token,
         gecerlilik: gun ? new Date(Date.now() + gun * 86_400_000) : null,
       })
       .$returningId();
-    return { id: r.id, no, dosyaAdi: stored.dosyaAdi, musteriId };
+    return { id: r.id, no, dosyaAdi: stored.dosyaAdi, musteriId, link: quoteLink(token) };
   });
 }
 

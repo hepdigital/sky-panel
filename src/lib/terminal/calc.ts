@@ -8,7 +8,7 @@ import {
   emptyWall,
   normalizeWall,
   wallFromLegacy,
-  wallImage,
+  kindImage,
   wallKey,
   wallName,
   wallPrice,
@@ -244,7 +244,10 @@ export function wallDetail(g: Gazebo) {
 
 export type GzRow = { t: string; s: string; v: number; c: string; img: string | null; bad?: boolean };
 
-/** Gazebo dökümü: iskelet, tavan ve (aynı duvar/ölçü/kumaş birleştirilerek) duvarlar */
+/**
+ * Gazebo dökümü: iskelet, tavan ve (aynı duvar/ölçü/kumaş birleştirilerek) duvarlar. Görseller 3D yapılandırıcınınkiler
+ * (duvar tipi wk:*, tavan t:tavan); pencere/kapı ekleri (PVC, sineklik, perde) duvarın adında ve fiyatındadır.
+ */
 export function gzRows(g: Gazebo, mode: Mode): GzRow[] {
   const rows: GzRow[] = [];
   const fp = framePrice(g, mode);
@@ -253,14 +256,14 @@ export function gzRows(g: Gazebo, mode: Mode): GzRow[] {
     rows.push({ t: `${g.frame} iskelet`, s: `${SZ[g.size]} m · ${f.desc}`, v: fp, c: `${g.frame} iskelet (${f.desc})`, img: `f:${g.frame}` });
   }
   const rp = roofPrice(g, mode);
-  if (rp !== null) rows.push({ t: "Tavan kumaşı", s: `${SZ[g.size]} m · ${FABRICS[g.roofFab!].n}`, v: rp, c: `Tavan kumaşı · ${FABRICS[g.roofFab!].n}`, img: null });
+  if (rp !== null) rows.push({ t: "Tavan kumaşı", s: `${SZ[g.size]} m · ${FABRICS[g.roofFab!].n}`, v: rp, c: `Tavan kumaşı · ${FABRICS[g.roofFab!].n}`, img: "t:tavan" });
   const agg = new Map<string, { t: string; s: string; v: number; n: number; bad: boolean; img: string }>();
   for (const sl of usedSlots(g)) {
     const name = wallName(sl.wall);
     const dim = sl.wall.kind === "yarim" ? `100 × ${sl.cm}` : `${sl.h} × ${sl.cm}`;
     const pr = slotPrice(sl, mode);
     const key = `${wallKey(sl.wall)}|${dim}`;
-    const c = agg.get(key) ?? { t: name, s: `${dim} cm · ${FABRICS[sl.wall.f].n}`, v: 0, n: 0, bad: false, img: wallImage(sl.wall) };
+    const c = agg.get(key) ?? { t: name, s: `${dim} cm · ${FABRICS[sl.wall.f].n}`, v: 0, n: 0, bad: false, img: kindImage(sl.wall.kind)! };
     c.n++;
     if (pr === null) c.bad = true;
     else c.v += pr;
@@ -485,7 +488,11 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: Br
     firma: brand as BrandCard | undefined,
   };
 }
-export type PdfData = ReturnType<typeof quoteData>;
+/**
+ * link: müşterinin teklifi görüp onaylayacağı adres (/t/<kod>); kayıtta saklanmaz, PDF basılırken verilir — siparişe dönmüş
+ * ya da müşteri sayfasından indirilen PDF'te "online onaylayın" kutusu çıkmasın. qr: link'in QR kodu (pdf.ts üretir).
+ */
+export type PdfData = ReturnType<typeof quoteData> & { link?: string | null; qr?: string };
 
 /** PDF dosya adı (terminaldeki kuralın aynısı) */
 export function pdfFileName(no: string, musteri: string) {
