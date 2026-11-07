@@ -34,7 +34,7 @@ export function parseState(raw: unknown): QuoteState | null {
     extra: Array.isArray(d.extra)
       ? d.extra
           .filter((x) => x && typeof x.ad === "string" && Number.isFinite(x.birim))
-          .map((x) => ({ id: x.id || newId(), ad: x.ad, aciklama: x.aciklama ?? "", adet: Math.max(1, Math.min(999, x.adet || 1)), birim: x.birim, isk: x.isk ?? newIsk() }))
+          .map((x) => ({ id: x.id || newId(), ad: x.ad, aciklama: x.aciklama ?? "", adet: Math.max(1, Math.min(999, x.adet || 1)), birim: x.birim, isk: x.isk ?? newIsk(), ...(typeof x.kod === "string" ? { kod: x.kod } : {}), ...(typeof x.img === "string" ? { img: x.img } : {}) }))
       : undefined,
   };
 }

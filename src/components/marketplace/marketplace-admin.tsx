@@ -3,14 +3,14 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Barcode, ChevronDown, Download, ExternalLink, Globe, ImagePlus, Link2, Pencil, Plus, RefreshCw, Search, Send, Settings2, Store, Trash2, X } from "lucide-react";
+import { ArrowLeft, Barcode, ChevronDown, Download, ExternalLink, Globe, ImagePlus, Link2, Pencil, Plus, RefreshCw, Scale, Search, Send, Settings2, Store, Trash2, X } from "lucide-react";
 import {
   pyAyarKaydet, pyBarkod, pyDurumYenile, pyGonder, pyKategoriAra, pyKategoriYenile, pyMarkaAra, pyOzellikler, pyTyAktar, pyTyOnizle, pyUrunKaydet, pyUrunSil, pyWooAktar,
   pyWooAra, pyWooOnizle, pyWooVaryantlar, pyWooYenile,
 } from "@/app/panel/satis-urunleri/actions";
 import { urunGorselYukle } from "@/app/panel/urunler/actions";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet } from "@/components/ui/sheet";
 import { CargoLine } from "@/components/shipping/package-fields";
@@ -185,6 +185,11 @@ export function MarketplaceAdmin({ channels, items, catalog, logs, tarife }: { c
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {sites.length > 0 && (
+            <Link href="/panel/satis-urunleri/fiyat-kapsami" className={buttonVariants({ variant: "outline" })}>
+              <Scale /> Fiyat kapsamı
+            </Link>
+          )}
           {sites.length > 0 && (
             <Button variant="outline" onClick={() => setAktar(true)}>
               <Download /> Siteden ekle
