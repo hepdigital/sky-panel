@@ -4,7 +4,7 @@ import path from "node:path";
 import { FABRICS, M2_MIN, SIZES, SZ, gzRows, gzTotal, plan, val, type Gazebo, type Olcu } from "@/lib/terminal/calc";
 import { FRAME_MAT, FRAME_NAME, KONF_KDV, KONF_MODE, SIDE_NAMES, cleanConfig, cleanExtras, framesOf } from "@/lib/konfigurator";
 import { priceTable, withPriceTable } from "@/lib/terminal/price-table";
-import { wallImage, wallName, wallPrice, type PrintSide, type Wall } from "@/modules/gazebo/walls";
+import { kindImage, wallName, wallPrice, type PrintSide, type Wall } from "@/modules/gazebo/walls";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { fold, type Kart } from "./cards";
 import { getCatalog } from "../catalog";
@@ -265,7 +265,8 @@ export async function gazeboOnayGorseli(p: Extract<Awaited<ReturnType<typeof pri
   const startX = (W - (4 * tile + 3 * gap)) / 2;
   for (let n = 0; n < 4; n++) {
     const w = p.g.sides[n].walls[0];
-    const img = w.kind === "yok" ? null : await read(wallImage(w));
+    // 3D yapılandırıcının duvar görselleri (teklif PDF'iyle aynı)
+    const img = w.kind === "yok" ? null : await read(kindImage(w.kind)!);
     if (img) layers.push({ input: await sharp(img).resize(tile, tile, { fit: "contain", background: "#ffffff" }).flatten({ background: "#ffffff" }).png().toBuffer(), left: startX + n * (tile + gap), top: tilesY });
   }
   const lines = p.ozet.map((l, n) => `<text x="60" y="${textY + n * 44}" font-size="${n ? 26 : 32}" font-weight="${n ? 400 : 700}" fill="#111a26">${esc(l)}</text>`).join("");
