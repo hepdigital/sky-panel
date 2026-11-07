@@ -18,7 +18,7 @@ export function quoteText(q: QuoteState, catalog: Catalog, brand: Pick<BrandCard
     const liste = gzTotal(c, q.mode);
     const { net: unit, v } = satirNet(liste, c.qty, c.isk);
     L.push(`${no}) Gazebo ${SZ[c.size]} m${c.qty > 1 ? ` × ${c.qty} adet` : ""} — ${show(v)}`);
-    if (!iskYok(c.isk)) L.push(`   Liste: ${show(liste * c.qty)} · ${belgeEtiket(c.isk, q.vat, liste, unit)}`);
+    if (!iskYok(c.isk)) L.push(`   Liste: ${show(liste * c.qty)} · ${belgeEtiket(c.isk, liste, unit)}`);
     if (c.qty > 1) L.push(`   Birim fiyat: ${show(unit)}`);
     for (const r of gzRows(c, q.mode)) L.push(`   • ${r.c || r.t} — ${r.bad ? "fiyat alınız" : show(r.v)}`);
     L.push(`   • ${colorText(c)}`);
@@ -37,7 +37,7 @@ export function quoteText(q: QuoteState, catalog: Catalog, brand: Pick<BrandCard
         const { net, v } = satirNet(birim, qty, i);
         const s = olcu ? [olcuText(olcu), `m² ${show(pr)}`, it.s].filter(Boolean).join(" · ") : it.s;
         L.push(`${no}) ${hex ? `${it.n} · ${colorName(hex)}` : it.n}${qty > 1 ? ` × ${qty} adet` : ""} — ${show(v)}`);
-        L.push(`   ${s}${qty > 1 ? ` · birim ${show(net)}` : ""}${iskYok(i) ? "" : ` · liste ${show(birim)} · ${belgeEtiket(i, q.vat, birim, net)}`}`);
+        L.push(`   ${s}${qty > 1 ? ` · birim ${show(net)}` : ""}${iskYok(i) ? "" : ` · liste ${show(birim)} · ${belgeEtiket(i, birim, net)}`}`);
         L.push("");
       }
     }
@@ -47,7 +47,7 @@ export function quoteText(q: QuoteState, catalog: Catalog, brand: Pick<BrandCard
     no++;
     const { net, v } = satirNet(x.birim, x.adet, x.isk);
     L.push(`${no}) ${x.ad}${x.adet > 1 ? ` × ${x.adet} adet` : ""} — ${show(v)}`);
-    const detail = [x.aciklama, x.adet > 1 ? `birim ${show(net)}` : "", iskYok(x.isk) ? "" : `liste ${show(x.birim)} · ${belgeEtiket(x.isk, q.vat, x.birim, net)}`].filter(Boolean);
+    const detail = [x.aciklama, x.adet > 1 ? `birim ${show(net)}` : "", iskYok(x.isk) ? "" : `liste ${show(x.birim)} · ${belgeEtiket(x.isk, x.birim, net)}`].filter(Boolean);
     if (detail.length) L.push(`   ${detail.join(" · ")}`);
     L.push("");
   }
@@ -59,7 +59,7 @@ export function quoteText(q: QuoteState, catalog: Catalog, brand: Pick<BrandCard
   if (H.satirIsk || H.genelIsk) {
     L.push(`Ara toplam (liste): ${show(H.araListe)}`);
     if (H.satirIsk) L.push(`${H.satirIsk > 0 ? "Satır indirimleri: −" : "Satır ilaveleri: +"}${show(Math.abs(H.satirIsk))}`);
-    if (H.genelIsk) L.push(`Genel ${H.genelIsk > 0 ? "indirim" : "ilave"} (${belgeEtiket(q.isk, q.vat, H.araNet, H.net, true)}): ${H.genelIsk > 0 ? "−" : "+"}${show(Math.abs(H.genelIsk))}`);
+    if (H.genelIsk) L.push(`Genel ${H.genelIsk > 0 ? "indirim" : "ilave"} (${belgeEtiket(q.isk, H.araNet, H.net)}): ${H.genelIsk > 0 ? "−" : "+"}${show(Math.abs(H.genelIsk))}`);
   }
   if (q.vat) {
     L.push(`TOPLAM (KDV dahil): ${TL(H.net * 1.2)}`);

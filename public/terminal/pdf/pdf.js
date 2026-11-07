@@ -21,6 +21,16 @@ window.SKY_PDF = (function(){
   var FF = "SKYSans";
 
   var money = function(n){ return Math.round(n).toLocaleString("tr-TR") + " TL"; };
+  /* Kalemin liste fiyatina gore iskonto orani — kayittaki tutarlardan (birim x adet -> tutar) hesaplanir,
+     boylece iskonto turu (yuzde, TL, birim fiyat) ne olursa olsun ve eski kayitlarda da musteri ayni bicimi gorur.
+     Indirimde "%15,19", ilavede "+%5"; fark yoksa bos. */
+  function oran(k){
+    var liste = k.birim * k.adet;
+    if (!(liste > 0) || Math.abs(liste - k.tutar) < 0.5) return "";
+    var p = Math.round((1 - k.tutar / liste) * 10000) / 100;
+    if (!p) return "";
+    return (p < 0 ? "+%" : "%") + Math.abs(p).toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+  }
 
   /* ---------- marka ----------
      Panelde teklif verisi markanin kimligini tasir (q.firma): firma kunyesi, banka, renk, logo.
@@ -363,8 +373,10 @@ window.SKY_PDF = (function(){
     var G = !!q.gorsel;              /* gorsel sutunu basilsin mi */
     var ACI = G ? 2 : 1;             /* aciklama sutununun indeksi */
     var body = [], imgOf = [];       /* imgOf[i] = i. govde satirinin gorsel anahtari */
+    var I = q.kalemler.some(function(k){ return !!oran(k); });  /* iskonto sutunu: en az bir kalemde iskonto/ilave varsa */
 
-    function push(cells, imgKey, minH){
+    function push(cells, imgKey, minH, isk){
+      if (I) cells.splice(4, 0, isk ? { content: isk, styles: { halign: "right", textColor: isk.charAt(0) === "+" ? WARN : GREEN, fontStyle: "bold" } } : "");
       if (G) cells.splice(1, 0, { content: "", styles: minH ? { minCellHeight: minH } : {} });
       imgOf.push(G ? (imgKey || null) : null);
       body.push(cells);
@@ -378,7 +390,7 @@ window.SKY_PDF = (function(){
         { content: String(k.adet), styles: { halign: "center" } },
         { content: money(k.birim), styles: { halign: "right" } },
         { content: money(k.tutar), styles: { halign: "right", fontStyle: "bold" } }
-      ], k.img, k.img && G ? 15 : 0);
+      ], k.img, k.img && G ? 15 : 0, oran(k));
 
       /* yapilandirma ozeti yalnizca bilesenli kalemlerde ayri satira duser;
          tek satirlik urunlerde olcusu adin altina yazilir (bos satir acmasin) */
@@ -397,13 +409,19 @@ window.SKY_PDF = (function(){
     });
 
     var head = ["#", "Açıklama", "Adet", "Birim fiyat", "Tutar"];
+    if (I) head.splice(4, 0, "İskonto");
     if (G) head.splice(1, 0, "");
-    var cols = G
-      ? { 0:{cellWidth:9, halign:"center", textColor:INK3, cellPadding:{top:2.6,bottom:2.6,left:1.5,right:1.5}},
-          1:{cellWidth:18, cellPadding:1}, 2:{cellWidth:"auto"},
-          3:{cellWidth:15, halign:"center"}, 4:{cellWidth:24, halign:"right"}, 5:{cellWidth:27, halign:"right"} }
-      : { 0:{cellWidth:12, halign:"center", textColor:INK3}, 1:{cellWidth:"auto"},
-          2:{cellWidth:14, halign:"center"}, 3:{cellWidth:27, halign:"right"}, 4:{cellWidth:30, halign:"right"} };
+    /* sutun genislikleri: "Birim fiyat" liste fiyatidir; iskonto sutunu varsa Tutar = adet x birim - iskonto */
+    var w = I ? [15, 25, 21, 27] : [15, 24, 0, 27];    /* adet, birim, iskonto, tutar */
+    var cols = {}, c = 0;
+    cols[c++] = G ? { cellWidth: 9, halign: "center", textColor: INK3, cellPadding: { top: 2.6, bottom: 2.6, left: 1.5, right: 1.5 } }
+                  : { cellWidth: 12, halign: "center", textColor: INK3 };
+    if (G) cols[c++] = { cellWidth: 18, cellPadding: 1 };
+    cols[c++] = { cellWidth: "auto" };
+    cols[c++] = { cellWidth: w[0], halign: "center" };
+    cols[c++] = { cellWidth: w[1], halign: "right" };
+    if (I) cols[c++] = { cellWidth: w[2], halign: "right" };
+    cols[c++] = { cellWidth: w[3], halign: "right" };
 
     doc.autoTable({
       startY: y,
@@ -449,6 +467,20 @@ window.SKY_PDF = (function(){
   }
 
   /* ---------- toplam bloku ---------- */
+  /* [etiket, tutar, renk?]: liste toplami, satir iskontolari/ilaveleri, genel iskonto.
+     Eksi icin duz tire: PDF yazi tipinde uzun eksi (U+2212) yok, bos cikar. */
+  function discountRows(q){
+    var r = [], s = q.satirIsk || 0, g = q.genelIsk || 0;
+    if (!s && !g) return r;
+    r.push(["Liste toplamı (KDV hariç)", money(q.araListe)]);
+    var pct = function(n, base){ return base > 0 ? " (%" + (Math.round(Math.abs(n) / base * 10000) / 100).toLocaleString("tr-TR", { maximumFractionDigits: 2 }) + ")" : ""; };
+    if (s) r.push([(s > 0 ? "Satır iskontoları" : "Satır ilaveleri") + pct(s, q.araListe), (s > 0 ? "- " : "+ ") + money(Math.abs(s)), s > 0 ? GREEN : WARN]);
+    /* musterinin iskonto grubundan geldiyse etiket "Grup · %10 ind." bicimindedir: grup adi da yazilir */
+    var grup = / · /.test(q.genelIskEtiket || "") ? " · " + q.genelIskEtiket.split(" · ")[0] : "";
+    if (g) r.push([(g > 0 ? "Genel iskonto" : "Genel ilave") + pct(g, q.araListe - s) + grup,
+                   (g > 0 ? "- " : "+ ") + money(Math.abs(g)), g > 0 ? GREEN : WARN]);
+    return r;
+  }
   function totals(doc, q, y){
     var bw = 84, x = PW - M - bw, lh = 5.4;
 
@@ -456,14 +488,17 @@ window.SKY_PDF = (function(){
     doc.text(q.vatOn ? "Satır tutarları KDV dahildir." : "Satır tutarları KDV hariçtir.", M, y + 6);
 
     var yy = y + 4;
-    setF(doc, 9, "normal", INK2);
-    doc.text("Ara toplam (KDV hariç)", x, yy + lh);
-    doc.text("KDV %20", x, yy + lh * 2);
-    setF(doc, 9, "normal", INK);
-    doc.text(money(q.araToplam), PW - M, yy + lh, { align: "right" });
-    doc.text(money(q.kdv), PW - M, yy + lh * 2, { align: "right" });
+    /* iskonto varsa liste toplamindan ara toplama kadar dokum (hepsi KDV haric) */
+    var rows = discountRows(q);
+    rows.push(["Ara toplam (KDV hariç)", money(q.araToplam)], ["KDV %20", money(q.kdv)]);
+    rows.forEach(function(r, i){
+      setF(doc, 9, "normal", r[2] || INK2);
+      doc.text(r[0], x, yy + lh * (i + 1));
+      setF(doc, 9, "normal", r[2] || INK);
+      doc.text(r[1], PW - M, yy + lh * (i + 1), { align: "right" });
+    });
 
-    var by = yy + lh * 2 + 3;
+    var by = yy + lh * rows.length + 3;
     doc.setFillColor.apply(doc, TPL === "modern" ? DARK : GREEN);
     doc.roundedRect(x, by, bw, 12, 2, 2, "F");
     if (TPL === "modern"){ doc.setFillColor.apply(doc, GREEN); doc.rect(x, by, 2.2, 12, "F"); }
@@ -586,7 +621,7 @@ window.SKY_PDF = (function(){
       }
       y = table(doc, q, y);
       y = views(doc, q, y);
-      if (y + 46 > PH - 24){ doc.addPage(); y = 24; }
+      if (y + 46 + discountRows(q).length * 5.4 > PH - 24){ doc.addPage(); y = 24; }
       y = totals(doc, q, y);
       y = notes(doc, q, y);
       bank(doc, y);

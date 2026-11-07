@@ -2,6 +2,8 @@
 // Betikler yalnızca ilk PDF isteğinde, sırayla yüklenir (sayfa yükünü büyütmez).
 import type { PdfData } from "./calc";
 
+/** public/terminal/pdf/ altındaki bir betik değişince artırın: CDN ve tarayıcı eski dosyayı vermesin */
+const V = "2";
 const SCRIPTS = ["jspdf.umd.min.js", "jspdf.plugin.autotable.min.js", "fonts-tr.js", "images.js", "firma.js", "pdf.js"];
 
 declare global {
@@ -15,7 +17,7 @@ let loading: Promise<void> | null = null;
 function load(src: string) {
   return new Promise<void>((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = `/terminal/pdf/${src}`;
+    s.src = `/terminal/pdf/${src}?v=${V}`;
     s.async = false;
     s.onload = () => resolve();
     s.onerror = () => reject(new Error(`${src} yüklenemedi`));

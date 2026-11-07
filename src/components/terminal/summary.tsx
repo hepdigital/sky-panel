@@ -6,7 +6,7 @@ import { AlertTriangle, Copy, FileDown, Pencil, Percent, Plus, ReceiptText, Tag,
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QtyStepper } from "@/components/ui/qty-stepper";
-import { SZ, TL, cartUnpriced, hesap, iskEtiket, iskYok, imgSrc, modeName, splitKey, wallDetail, type BrandCard, type Catalog, type ExtraLine, type Isk, type QuoteState } from "@/lib/terminal/calc";
+import { SZ, TL, cartUnpriced, hesap, iskEtiket, iskYok, imgSrc, modeName, oranEtiket, satirNet, splitKey, wallDetail, type BrandCard, type Catalog, type ExtraLine, type Isk, type QuoteState } from "@/lib/terminal/calc";
 import { quoteCargo, type QuoteCargoData } from "@/lib/terminal/cargo";
 import type { costOf } from "@/lib/terminal/cost";
 import { recolored } from "@/lib/terminal/recolor";
@@ -250,6 +250,9 @@ function IconBtn({ label, onClick, children }: { label: string; onClick: () => v
 /** İskonto düğmesi: yüzde, TL ya da doğrudan fiyat penceresini açar; eksi değer ilave (zam) demektir */
 function DiscountButton({ value, onChange, compact, ...sheet }: { value?: Isk; onChange: (i: Isk) => void; compact?: boolean; title: string; vat: 0 | 1; liste: number; adet: number; genel?: boolean }) {
   const [open, setOpen] = useState(false);
+  // TL ya da fiyatla verilen satır iskontosunun liste fiyatına göre oranı (PDF'te müşteri bunu görür)
+  const o = !sheet.genel && !iskYok(value) && value!.tip !== "yuzde" ? oranEtiket(sheet.liste * sheet.adet, satirNet(sheet.liste, sheet.adet, value).v) : "";
+  const oran = o ? ` · ${o.replace(/ (ind\.|ilave)$/, "")}` : "";
   return (
     <>
       <button
@@ -261,7 +264,7 @@ function DiscountButton({ value, onChange, compact, ...sheet }: { value?: Isk; o
           compact && "h-7",
         )}
       >
-        {!iskYok(value) && value!.tip === "fiyat" ? <Tag className="size-3" /> : <Percent className="size-3" />} {iskYok(value) ? "İskonto / fiyat" : iskEtiket(value, sheet.vat, sheet.genel)}
+        {!iskYok(value) && value!.tip === "fiyat" ? <Tag className="size-3" /> : <Percent className="size-3" />} {iskYok(value) ? "İskonto / fiyat" : iskEtiket(value, sheet.vat, sheet.genel) + oran}
       </button>
       {open && <DiscountSheet open onClose={() => setOpen(false)} value={value} onChange={onChange} {...sheet} />}
     </>
