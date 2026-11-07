@@ -128,7 +128,11 @@ export type CartGazebo = Gazebo & { id: string; qty: number; isk: Isk; views?: s
  * Ek kalem: katalogdan bağımsız, adı ve fiyatı elle yazılan satır (nakliye, montaj, baskı ücreti…).
  * birim KDV hariç saklanır ve fiyat listesinden (toptan/perakende) etkilenmez.
  */
-export type ExtraLine = { id: string; ad: string; aciklama: string; adet: number; birim: number; isk: Isk };
+export type ExtraLine = {
+  id: string; ad: string; aciklama: string; adet: number; birim: number; isk: Isk;
+  /** Satış kartından seçildiyse kartın stok kodu (maliyet bu koddan) ve görseli; birim kartın KDV hariç fiyatıdır */
+  kod?: string; img?: string | null;
+};
 /** Ek kalem hazır adları */
 export const EXTRA_PRESETS = ["Nakliye bedeli", "Montaj bedeli", "Baskı ücreti", "Tasarım ücreti", "Kurulum ve söküm"];
 /** Teklifin tamamı (terminalin localStorage durumuyla aynı alanlar: eski teklifler aynen açılır) */
@@ -445,7 +449,7 @@ export function quoteData(q: QuoteState, f: PdfForm, catalog: Catalog, brand: Br
     ),
     ...(q.extra ?? []).map((x) => {
       const { net, v } = satirNet(x.birim, x.adet, x.isk);
-      return { ad: x.ad, alt: x.aciklama, adet: x.adet, birim: adj(x.birim), isk: belgeEtiket(x.isk, x.birim, net), tutar: adj(v), img: null as string | null, parcalar: [] };
+      return { ad: x.ad, alt: x.aciklama, adet: x.adet, birim: adj(x.birim), isk: belgeEtiket(x.isk, x.birim, net), tutar: adj(v), img: (x.img ?? null) as string | null, parcalar: [] };
     }),
   ];
   const H = hesap(q, catalog);

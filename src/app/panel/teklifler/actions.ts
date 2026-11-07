@@ -3,7 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { getSeller, isAdmin } from "@/server/auth";
 import { saveChannel } from "@/server/channels";
+import { searchSaleItems } from "@/server/marketplaces/panel-prices";
 import { QuoteError, saveQuote, searchCustomers, type SaveInput } from "@/server/quotes";
+
+/** Ek kalem penceresi: teklif kataloğunda olmayan satış ürünleri (ör. kış bahçesi) */
+export async function satisUrunuAra(q: string) {
+  const me = await getSeller();
+  if (!me) return [];
+  return searchSaleItems(String(q ?? ""));
+}
 
 export async function musteriAra(q: string) {
   const me = await getSeller();

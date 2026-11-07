@@ -32,7 +32,12 @@ export function costOf(q: QuoteState, catalog: Catalog, costs: Costs, gazebo: Pr
     const gz = q.cart.find((c) => c.id === r.key);
     const k = splitKey(r.key);
     // m² ürününün maliyeti m² başınadır: parça maliyeti alan × m² maliyeti
-    const c = gz ? (gazebo ? gazeboCost(gz, gazebo) : undefined) : costs[k.id] === undefined ? undefined : costs[k.id] * (k.olcu ? areaOf(k.olcu) : 1);
+    // Satış kartından gelen ek kalemin maliyeti kartınkidir ("kart:<stok kodu>")
+    const kart = gz ? undefined : q.extra?.find((x) => x.id === r.key)?.kod;
+    const c = gz
+      ? gazebo ? gazeboCost(gz, gazebo) : undefined
+      : kart ? costs[`kart:${kart}`]
+      : costs[k.id] === undefined ? undefined : costs[k.id] * (k.olcu ? areaOf(k.olcu) : 1);
     if (c === undefined) {
       eksik = true;
       continue;

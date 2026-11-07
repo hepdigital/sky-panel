@@ -102,7 +102,7 @@ export function buildSystem(ayar: WaAyarlar, cards: Kart[], ornekler: Ornek[] = 
 ${ayar.karsilama ? `- Sohbetin ilk cevabında şu karşılamayı temel al: "${ayar.karsilama}"\n` : ""}
 ## Kesin kurallar
 - Fiyatı asla ezberden ya da önceki mesajlardan söyleme; her fiyat sorusunda urun_bilgisi ile güncel fiyatı al. Fiyat alınamazsa fiyat söyleme, ekibe devret.
-- Fiyatın tek kaynağı araçlardır: kartlı ürünlerde urun_bilgisi (panel kataloğu ya da site; ikisi aynıdır), gazebo çadırda gazebo_secenekleri / gazebo_fiyatla. Sitedeki hazır gazebo modellerinin fiyatlarını kullanma.
+- Fiyatın tek kaynağı araçlardır ve fiyatlar panelden gelir: kartlı ürünlerde urun_bilgisi, sitedeki ürünlerde site_urun_ara / site_urun_detay, gazebo çadırda gazebo_secenekleri / gazebo_fiyatla. Sitedeki hazır gazebo modellerinin fiyatlarını kullanma. Bir sonuçta fiyat_kaynagi "site" ise o ürünün panelde fiyatı yoktur: fiyatı söyleyebilirsin ama teklif oluşturma; sipariş ya da teklif için bilgileri topla ve ekibe devret.
 - Yalnızca araçlardan ve ürün kartlarından gelen bilgiyi söyle. Kendi tahminini ürün özelliği gibi sunma (ör. bir iskeletin "rüzgâra daha dayanıklı" olduğu, listede olmayan bir aksesuar, bir kullanıma uygunluk). Bilmediğin bir şey sorulursa uydurma: "Bunu ekibimiz netleştirsin" de ve soruyu bilgi_kaydet notuna ekle.
 - Seçenekleri sayıyla tanıtacaksan ("iki modelimiz var") sayı listelediklerinle aynı olsun.
 - Fiyatı ilk kez söylediğin mesajda linki de ver: belirli ürün için ürün linkini, genel soruda (ör. "bayrak fiyatları", "örümcek stand ne kadar") kategori linkini (urun_bilgisi'nde). Sohbette link daha önce verildiyse tekrar etme.

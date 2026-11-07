@@ -8,6 +8,7 @@ import { phoneKey, phoneMatch } from "../customers";
 import { db, schema } from "../db";
 import { mailReady, sendMail } from "../mail";
 import { wcCategoryProducts, wcProductDetail, wcProductInfo, wcSearch, wcVariations } from "../marketplaces/woocommerce";
+import { panelPriceOf, sitePanelPrices, type PanelFiyat } from "../marketplaces/panel-prices";
 import { orderCargo } from "../orders";
 import { siteInstallments, siteTransferRate } from "../payment-links";
 import { notify, sellers } from "../push";
@@ -374,22 +375,37 @@ async function categoryInfo(card: Kart) {
   } catch {
     return { ...base, urunler: [], not: "Ürünler şu an siteden okunamadı; fiyat söyleme, ekibe devret." };
   }
-  const urunler = (live?.urunler ?? []).filter((u) => u.fiyat !== null);
+  const prices = live ? await sitePanelPrices(live.site.id).catch(() => new Map<number, PanelFiyat[]>()) : new Map<number, PanelFiyat[]>();
+  // Panelde karşılığı olan ürünün fiyatı ve seçenekleri panelden
+  const urunler = (live?.urunler ?? [])
+    .map((u) => {
+      const p = prices.get(u.id);
+      if (!p?.length) return { ...u, kaynak: "site" as const };
+      const min = Math.min(...p.map((x) => x.fiyat));
+      return { ...u, fiyat: min, varyantli: p.length > 1, secenekler: p.length > 1 ? p.map((x) => ({ ad: secenekAdi(x), fiyat: x.fiyat })) : [], kaynak: "panel" as const };
+    })
+    .filter((u) => u.fiyat !== null);
   if (!live || !urunler.length) return { ...base, urunler: [], not: "Kategoride fiyatı okunabilen ürün yok; fiyat söyleme, ekibe devret." };
   const oran = card.asistanSeviyesi === "cevaplar" ? await siteTransferRate(live.site) : null;
   return {
     ...base,
     one_cikan_urun_id: card.disUrunId,
     urunler: urunler.map((u) => ({
-      urun_id: u.id, ad: u.ad, [u.varyantli ? "baslangic_fiyati_kdv_dahil" : "fiyat_kdv_dahil"]: u.fiyat, link: u.link,
+      urun_id: u.id, ad: u.ad, [u.varyantli ? "baslangic_fiyati_kdv_dahil" : "fiyat_kdv_dahil"]: u.fiyat, link: u.link, fiyat_kaynagi: u.kaynak,
       ...(u.secenekler.length ? { secenekler_kdv_dahil: u.secenekler } : {}),
     })),
     ...(oran !== null ? { havale_eft_indirim_orani: oran } : {}),
-    not: `Genel soruda (ör. "bayrak fiyatı ne") seçenekleri kısaca özetle: hangi modeller / ölçüler var ve fiyatları; tek link olarak kategori_linki'ni ver, her ürünün linkini sıralama. Seçenekli üründe en düşük fiyat çoğu zaman tam ürün değildir (ör. "sadece baskı", "sadece iskelet"): fiyatı tam set / komple ürün seçeneği üzerinden söyle, diğer seçenekleri ayrıca belirt; yalnız baskı fiyatını ürün fiyatı gibi sunma. Müşteri belirli bir model ya da ölçü sorarsa o ürünün fiyatını ve linkini ver. Görmek isterse urun_gorseli_gonder.${
+    not: `${urunler.some((u) => u.kaynak === "site") ? `fiyat_kaynagi "site" olan ürünler: ${KAYNAK_SITE_NOTU} ` : ""}Genel soruda (ör. "bayrak fiyatı ne") seçenekleri kısaca özetle: hangi modeller / ölçüler var ve fiyatları; tek link olarak kategori_linki'ni ver, her ürünün linkini sıralama. Seçenekli üründe en düşük fiyat çoğu zaman tam ürün değildir (ör. "sadece baskı", "sadece iskelet"): fiyatı tam set / komple ürün seçeneği üzerinden söyle, diğer seçenekleri ayrıca belirt; yalnız baskı fiyatını ürün fiyatı gibi sunma. Müşteri belirli bir model ya da ölçü sorarsa o ürünün fiyatını ve linkini ver. Görmek isterse urun_gorseli_gonder.${
       card.asistanSeviyesi === "bilgi_verir" ? " Sonra ölçü, adet, baskı, il ve ad bilgisini topla, bilgi_kaydet ve ekibe_devret. Satışı kapatma: sipariş, ödeme linki, IBAN ya da teslim süresi sözü verme." : ""
     }`,
   };
 }
+
+/* Fiyat kaynağı: panel (siteye bağlı satış kartı). Panelde karşılığı yoksa geçici olarak sitedeki fiyat söylenir; o ürünle
+   panel teklifi oluşturulmaz (fiyat kapsamı raporunda listelenir). */
+const KAYNAK_SITE_NOTU = "Bu ürünün panelde fiyatı yok; söylediğin fiyat sitedeki fiyattır. Bu ürünle teklif oluşturma; sipariş/teklif için bilgileri topla ve ekibe devret.";
+/** Satış kartı seçeneğinin müşteriye görünen adı: renk ve/veya ölçü, yoksa kart adı */
+const secenekAdi = (x: PanelFiyat) => [x.olcu, x.renk].filter(Boolean).join(" · ") || x.ad;
 
 async function urunBilgisi(kod: string) {
   if (kod === "gazebo") return { kod, not: "Gazebo fiyatı gazebo_secenekleri ve gazebo_fiyatla ile alınır (sitedeki Kendin Tasarla fiyatları)." };
@@ -413,15 +429,22 @@ async function urunBilgisi(kod: string) {
     return { ...base, fiyat: null, not: "Fiyat şu an siteden okunamadı; fiyat söyleme, ekibe devret." };
   }
   if (!live) return { ...base, fiyat: null, not: "Bu ürünün canlı fiyatı tanımlı değil; fiyat söyleme, ekibe devret." };
-  const v = live.v;
+  const panel = await panelPriceOf(live.site.id, card.disUrunId!).catch(() => null);
+  const v = panel
+    ? { ...live.v, fiyat: panel.fiyat, varyantli: panel.coklu, listeFiyati: live.v.listeFiyati && live.v.listeFiyati > panel.fiyat ? live.v.listeFiyati : null }
+    : live.v;
   if (!v.yayinda || v.fiyat === null) return { ...base, fiyat: null, not: "Ürün sitede satışta değil; fiyat söyleme, ekibe devret." };
   const link = v.link || card.url;
+  const kaynak = panel
+    ? { fiyat_kaynagi: "panel", ...(panel.coklu ? { secenekler_kdv_dahil: panel.secenekler.map((x) => ({ ad: secenekAdi(x), fiyat: x.fiyat })) } : {}) }
+    : { fiyat_kaynagi: "site", kaynak_notu: KAYNAK_SITE_NOTU };
   if (card.asistanSeviyesi === "bilgi_verir")
     return {
       ...base,
       link,
       ...(v.varyantli ? { baslangic_fiyati_kdv_dahil: v.fiyat } : { fiyat_kdv_dahil: v.fiyat }),
       kisa_aciklama: v.kisaAciklama || null,
+      ...kaynak,
       not: `${v.varyantli ? `Fiyat ölçü/seçeneğe göre değişir: "${v.fiyat} TL'den başlayan fiyatlarla" de. ` : ""}Fiyatı, özellikleri ve linki ver; sonra ölçü, adet, baskı, il ve ad bilgisini topla, bilgi_kaydet ve ekibe_devret. Satışı kapatma: sipariş, ödeme linki, IBAN ya da teslim süresi sözü verme.`,
     };
   const oran = await siteTransferRate(live.site);
@@ -430,6 +453,7 @@ async function urunBilgisi(kod: string) {
     link,
     fiyat_kdv_dahil: v.fiyat,
     liste_fiyati: v.listeFiyati,
+    ...kaynak,
     havale_eft_indirim_orani: oran,
     havale_eft_fiyati: tl(v.fiyat * (1 - oran / 100)),
     kargo: "Ücretsiz",
@@ -600,10 +624,16 @@ async function siteUrunAra(ctx: Ctx, sorgu: string) {
   } catch {
     return { hata: "Site şu an okunamadı; fiyat söyleme, ekibe devret." };
   }
+  const prices = await sitePanelPrices(site.id).catch(() => new Map<number, PanelFiyat[]>());
   if (!rows.length) return { sonuclar: [], not: "Sitede eşleşen ürün yok. Farklı bir ifadeyle bir kez daha ara; yoksa bilgileri topla ve ekibe devret." };
   return {
-    sonuclar: rows.map((r) => ({ urun_id: r.id, ad: r.ad, [r.varyantli ? "baslangic_fiyati_kdv_dahil" : "fiyat_kdv_dahil"]: r.fiyat, link: r.link })),
-    not: "Fiyatlar KDV dahil, sitedeki güncel fiyat. Ayrıntı için site_urun_detay. Kartı olmayan üründe fiyat, özellik ve link verirsin; satışı kapatmazsın, bilgileri toplayıp ekibe devredersin. Sonuç gazebo çadırsa sitedeki hazır gazebo modellerinin fiyatını verme: gazebo_secenekleri / gazebo_fiyatla kullan.",
+    sonuclar: rows.map((r) => {
+      const p = prices.get(r.id);
+      return p?.length
+        ? { urun_id: r.id, ad: r.ad, [p.length > 1 ? "baslangic_fiyati_kdv_dahil" : "fiyat_kdv_dahil"]: Math.min(...p.map((x) => x.fiyat)), link: r.link, fiyat_kaynagi: "panel" }
+        : { urun_id: r.id, ad: r.ad, [r.varyantli ? "baslangic_fiyati_kdv_dahil" : "fiyat_kdv_dahil"]: r.fiyat, link: r.link, fiyat_kaynagi: "site" };
+    }),
+    not: `fiyat_kaynagi "site" olanlarda: ${KAYNAK_SITE_NOTU} ` + "Fiyatlar KDV dahil. Ayrıntı için site_urun_detay. Kartı olmayan üründe fiyat, özellik ve link verirsin; satışı kapatmazsın, bilgileri toplayıp ekibe devredersin. Sonuç gazebo çadırsa sitedeki hazır gazebo modellerinin fiyatını verme: gazebo_secenekleri / gazebo_fiyatla kullan.",
   };
 }
 
@@ -640,21 +670,27 @@ async function siteUrunDetay(ctx: Ctx, urunId: number) {
   try {
     const v = await wcProductInfo(site, urunId);
     if (!v.yayinda || v.fiyat === null) return { hata: "Bu ürün sitede satışta değil; fiyat söyleme, ekibe devret." };
-    const [d, varyant, panel] = await Promise.all([
+    const [d, varyant, panel, pf] = await Promise.all([
       wcProductDetail(site, urunId),
       v.varyantli ? wcVariations(site, urunId).catch(() => []) : Promise.resolve([]),
       panelInfo(site.id, urunId).catch(() => null),
+      panelPriceOf(site.id, urunId).catch(() => null),
     ]);
+    const coklu = pf ? pf.coklu : v.varyantli;
     return {
       urun_id: urunId,
       ad: v.ad,
       link: v.link,
-      ...(v.varyantli ? { baslangic_fiyati_kdv_dahil: v.fiyat } : { fiyat_kdv_dahil: v.fiyat }),
-      liste_fiyati: v.listeFiyati,
+      ...(coklu ? { baslangic_fiyati_kdv_dahil: pf?.fiyat ?? v.fiyat } : { fiyat_kdv_dahil: pf?.fiyat ?? v.fiyat }),
+      liste_fiyati: v.listeFiyati && v.listeFiyati > (pf?.fiyat ?? v.fiyat) ? v.listeFiyati : null,
+      fiyat_kaynagi: pf ? "panel" : "site",
+      ...(pf ? {} : { kaynak_notu: KAYNAK_SITE_NOTU }),
       kategoriler: d.kategoriler,
       kisa_aciklama: v.kisaAciklama || null,
       aciklama: d.aciklama || null,
-      secenekler: varyant.filter((x) => x.fiyat !== null).slice(0, 30).map((x) => ({ ad: x.ad, fiyat_kdv_dahil: x.fiyat })),
+      secenekler: pf
+        ? pf.secenekler.map((x) => ({ ad: secenekAdi(x), fiyat_kdv_dahil: x.fiyat }))
+        : varyant.filter((x) => x.fiyat !== null).slice(0, 30).map((x) => ({ ad: x.ad, fiyat_kdv_dahil: x.fiyat })),
       panel,
       gorsel_var: !!v.gorsel,
       not: "Bilgiyi kısa ve satış diliyle özetle; açıklamayı olduğu gibi yapıştırma. Kartı olmayan üründe satışı kapatmazsın: ölçü, adet, il ve ad bilgisini topla, bilgi_kaydet ve ekibe_devret. Stok durumundan bahsetme.",

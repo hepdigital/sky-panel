@@ -84,6 +84,17 @@ export async function getCosts(): Promise<Costs> {
     costs[r.kod] = r.maliyet;
     if (r.secenekAd) costs[r.kod + OPT_SUFFIX] = r.maliyet + (r.secenekMaliyet ?? 0);
   }
+  // Satış kartları (teklife ek kalem olarak eklenebilir): kartın maliyeti, yoksa bağlı teklif ürünününki
+  const pu = schema.pazaryeriUrunleri;
+  const kartlar = await db()
+    .select({ kod: pu.stokKodu, maliyet: pu.maliyet, dahil: pu.secenekDahil, yalniz: pu.yalnizSecenek, uMaliyet: urunler.maliyet, sMaliyet: urunler.secenekMaliyet })
+    .from(pu)
+    .leftJoin(urunler, eq(urunler.id, pu.urunId))
+    .catch(() => []);
+  for (const r of kartlar) {
+    const m = r.maliyet ?? (r.yalniz ? r.sMaliyet : r.uMaliyet === null ? null : r.uMaliyet + (r.dahil ? (r.sMaliyet ?? 0) : 0));
+    if (m !== null) costs[`kart:${r.kod}`] = m;
+  }
   return costs;
 }
 

@@ -84,13 +84,13 @@ export function Summary({ q, setQ, catalog, brand, cost, kargo, money, editingId
             return (
               <li key={r.key} className={cn("py-3", gz && editingId === gz.id && "rounded-xl bg-primary-soft/50 px-2")}>
                 <div className="flex gap-3">
-                  {ex ? (
+                  {ex && !ex.img ? (
                     <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground ring-1 ring-border">
                       <ReceiptText className="size-5" />
                     </span>
                   ) : (
                     <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-white ring-1 ring-border">
-                      <Image src={gz?.views?.[0] ?? rowImage(r.key)} alt="" fill sizes="44px" className="object-contain p-0.5" unoptimized />
+                      <Image src={gz?.views?.[0] ?? (ex?.img ? imgSrc(ex.img) : rowImage(r.key))} alt="" fill sizes="44px" className="object-contain p-0.5" unoptimized />
                     </span>
                   )}
                   <div className="min-w-0 flex-1">

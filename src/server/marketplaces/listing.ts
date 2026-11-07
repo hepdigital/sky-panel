@@ -67,7 +67,7 @@ export async function salesChannels() {
 }
 export type SalesChannel = Awaited<ReturnType<typeof salesChannels>>[number];
 
-async function settingsOf(siteId: number): Promise<ChannelSettings> {
+export async function settingsOf(siteId: number): Promise<ChannelSettings> {
   const [r] = await db().select({ veri: settingsT.veri }).from(settingsT).where(eq(settingsT.siteId, siteId));
   return { ...DEFAULT_SETTINGS, ...(r ? (JSON.parse(r.veri) as Partial<ChannelSettings>) : {}) };
 }

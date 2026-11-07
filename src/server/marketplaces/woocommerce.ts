@@ -224,3 +224,18 @@ export async function wcProduct(site: Site, id: number): Promise<WcDetail> {
     })),
   };
 }
+
+const LIST_FIELDS = "id,name,sku,type,status,permalink,price,regular_price,tax_status,tax_class,images";
+/** Fiyat kapsamı raporu: sitedeki tüm yayındaki ürünler (ad, KDV dahil fiyat — varyantlıda en düşük, link, görsel) */
+export async function wcPublishedProducts(site: Site) {
+  const tax = await siteTax(site);
+  const out: { id: number; ad: string; sku: string; varyantli: boolean; fiyat: number | null; link: string; gorsel: string | null }[] = [];
+  for (let page = 1; page <= 30; page++) {
+    // Yalnız gereken alanlar: tam ürün verisi 100'lük sayfada çok büyüyor (site yanıtı bozuluyor)
+    const list = (await wcRequest(site, `/products?status=publish&per_page=100&page=${page}&orderby=id&order=asc&_fields=${LIST_FIELDS}`)) as WcProduct[] | null;
+    if (!Array.isArray(list)) throw new Error("WooCommerce: ürün listesi okunamadı");
+    for (const p of list) out.push({ id: p.id, ad: decode(p.name), sku: p.sku, varyantli: p.type === "variable", fiyat: gross(tax, p.price, p), link: p.permalink, gorsel: p.images[0]?.src ?? null });
+    if (list.length < 100) break;
+  }
+  return out;
+}
